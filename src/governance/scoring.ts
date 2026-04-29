@@ -34,6 +34,7 @@ export function scoreDrift(previous: SessionGovernanceState | null | undefined, 
 
 export function healthFromScores(scores: Omit<SessionMonitors, "sessionHealth">): SessionMonitors["sessionHealth"] {
   if (scores.driftScore >= 65 || scores.continuityScore < 45) return "unstable";
-  if (scores.noveltyLoad >= 55 || scores.opennessScore < 15) return "watch";
+  if (scores.noveltyLoad >= 55) return "watch";
+  if (scores.opennessScore < 15 && scores.continuityScore < 70) return "watch";
   return "healthy";
 }

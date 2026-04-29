@@ -17,6 +17,18 @@ function splitLines(text: string): string[] {
     .filter((line) => line.length > 3);
 }
 
+function stripLabel(text: string): string {
+  return text.replace(/^\s*(objective|requirements?|output contract):\s*/i, "").trim();
+}
+
+function outputFragment(text: string): string {
+  const fragment = text
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => stripLabel(sentence))
+    .find((sentence) => OUTPUT_RE.test(sentence));
+  return fragment ?? stripLabel(text);
+}
+
 function asCandidate(
   text: string,
   kind: SessionCandidate["kind"],
@@ -28,8 +40,13 @@ function asCandidate(
 
 function objectiveFromText(text: string): string | null {
   const objectiveMatch = text.match(/(?:^|\n)\s*objective:\s*(.+)/i);
-  if (objectiveMatch?.[1]) return objectiveMatch[1].trim();
-  return firstMeaningfulLine(text, "").slice(0, 220) || null;
+  if (objectiveMatch?.[1]) return stripLabel(objectiveMatch[1]).slice(0, 220);
+  const firstLine = text
+    .split("\n")
+    .map((line) => stripLabel(line))
+    .find((line) => line.length > 3);
+  const firstSentence = firstLine?.match(/^.+?[.!?](?:\s|$)/)?.[0].trim();
+  return firstSentence?.slice(0, 220) || firstLine?.slice(0, 220) || firstMeaningfulLine(text, "").slice(0, 220) || null;
 }
 
 function candidatesFromConstraints(
@@ -38,7 +55,7 @@ function candidatesFromConstraints(
 ): SessionCandidate[] {
   return constraints.map((constraint) =>
     asCandidate(
-      constraint.text,
+      stripLabel(constraint.text),
       constraint.kind === "output_contract" || constraint.kind === "format" ? "output_contract" : "constraint",
       source,
       constraint.confidence
@@ -54,11 +71,12 @@ function candidatesFromText(text: string, source: SessionCandidate["source"]): S
   candidates.push(...candidatesFromConstraints(extractConstraints(text), source));
 
   for (const line of splitLines(text)) {
-    if (DECISION_RE.test(line)) candidates.push(asCandidate(line, "decision", source, 0.62));
-    if (OPEN_RE.test(line)) candidates.push(asCandidate(line, "open_question", source, 0.72));
-    if (UNCERTAINTY_RE.test(line)) candidates.push(asCandidate(line, "uncertainty", source, 0.66));
-    if (OPTIONAL_RE.test(line)) candidates.push(asCandidate(line, "optional_branch", source, 0.58));
-    if (OUTPUT_RE.test(line)) candidates.push(asCandidate(line, "output_contract", source, 0.6));
+    const cleanLine = stripLabel(line);
+    if (DECISION_RE.test(cleanLine)) candidates.push(asCandidate(cleanLine, "decision", source, 0.62));
+    if (OPEN_RE.test(cleanLine)) candidates.push(asCandidate(cleanLine, "open_question", source, 0.72));
+    if (UNCERTAINTY_RE.test(cleanLine)) candidates.push(asCandidate(cleanLine, "uncertainty", source, 0.66));
+    if (OPTIONAL_RE.test(cleanLine)) candidates.push(asCandidate(cleanLine, "optional_branch", source, 0.58));
+    if (OUTPUT_RE.test(cleanLine)) candidates.push(asCandidate(outputFragment(cleanLine), "output_contract", source, 0.6));
   }
 
   return candidates;

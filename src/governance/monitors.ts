@@ -20,9 +20,12 @@ export function computeSessionMonitors(input: {
   opennessLane: SessionOpennessState;
   originalLength: number;
 }): SessionMonitors {
+  const disruptiveNovelty = input.noveltyLane.filter(
+    (item) => !item.accepted && (item.kind === "new_objective" || item.kind === "changed_constraint" || item.kind === "output_shift")
+  ).length;
   const base = {
     continuityScore: scoreContinuity(input.stableCore),
-    driftScore: scoreDrift(input.previousState, input.stableCore),
+    driftScore: Math.min(100, scoreDrift(input.previousState, input.stableCore) + disruptiveNovelty * 8),
     noveltyLoad: Math.min(100, input.noveltyLane.filter((item) => !item.accepted).length * 12),
     opennessScore: scoreOpenness(input.opennessLane),
     compressionDensity: scoreCompressionDensity(input.originalLength, preservedStateLength(input.stableCore, input.opennessLane))

@@ -30,4 +30,30 @@ describe("governance session update", () => {
       true
     );
   });
+
+  it("does not keep established output format requirements in novelty", () => {
+    const firstRequest = {
+      sourceText:
+        "I need a concise research prompt for evaluating open-source browser extensions. Citations are required. Output in bullet points only.",
+      mode: "research" as const
+    };
+    const first = updateSessionGovernance({
+      transformRequest: firstRequest,
+      transformResult: transformPrompt(firstRequest)
+    });
+
+    const secondRequest = {
+      sourceText:
+        "Make it slightly more precise, but keep citations required and bullet points only.",
+      mode: "research" as const
+    };
+    const second = updateSessionGovernance({
+      previousState: first.state,
+      transformRequest: secondRequest,
+      transformResult: transformPrompt(secondRequest)
+    });
+
+    expect(second.state.stableCore.outputContract).toMatch(/bullet points only/i);
+    expect(second.state.noveltyLane.some((item) => /bullet points only/i.test(item.text))).toBe(false);
+  });
 });
