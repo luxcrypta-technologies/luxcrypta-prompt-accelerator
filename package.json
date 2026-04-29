@@ -2,6 +2,7 @@
   "name": "luxcrypta-prompt-accelerator",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "Local-first browser extension for prompt compression, review, workflow reuse, and session continuity.",
   "scripts": {
