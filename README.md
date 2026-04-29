@@ -34,3 +34,7 @@ npm run build:firefox
 ```
 
 Build output is written to `dist/chromium` and `dist/firefox`.
+
+## Launch Materials
+
+Public release notes, store copy, feature summary, privacy summary, and positioning language live in [`docs/launch-pack.md`](docs/launch-pack.md).
