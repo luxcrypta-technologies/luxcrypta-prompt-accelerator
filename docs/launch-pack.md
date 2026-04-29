@@ -38,38 +38,46 @@ Post-release stabilization already included:
 
 ### Short Description
 
-Local-first prompt compression, review, workflows, and session continuity for AI chat.
+A local-first browser extension for cleaner prompts, stronger continuity, reusable workflows, and more controllable AI chats.
 
 ### Long Description
 
-LuxCrypta Prompt Accelerator helps you prepare better prompts before sending them to AI chat tools.
+LuxCrypta Prompt Accelerator is a local-first browser extension built to make AI chats easier to drive.
 
-It runs as a local-first browser extension for ChatGPT, Claude, and Gemini. Draft a prompt, then use the extension to compress repetition, focus the request, preserve hard constraints, adapt the prompt for common work modes, and review a clear diff before applying the result back to the chat input.
+It helps reduce repetition, preserve important constraints, strengthen continuity across longer sessions, and turn repeated prompt work into reusable workflows. It also provides visible diff review before apply, so changes stay inspectable and under user control.
 
-The extension is built for people who work across longer AI sessions and want better continuity without sending their drafts to a backend service.
+This extension is designed for users who want AI chats to feel cleaner, less repetitive, and more manageable over time.
 
-Key features:
+Core capabilities:
 
-- Compress repetitive prompts while preserving hard requirements.
-- Apply practical modes such as Focus, Research, Code, Debate, Precision, Creative, Speed, and Executive Summary.
-- Review original and transformed text before applying.
-- See explanations and diffs for trust and transparency.
-- Save reusable workflows locally.
-- Generate carry-forward capsules for compact session continuity.
-- Track compact session state with stable core, new/provisional items, and open/unresolved questions.
-- Export and import local JSON bundles manually.
-- Use Chromium or Firefox builds.
+- Prompt compression
+- Mode-based prompt rewriting
+- Carry-forward session capsules
+- Reusable workflows
+- Cross-model prompt adaptation
+- Visible diff and explanation
+- Session-governance features for stronger continuity and novelty handling
+- Local-first storage with manual export/import
 
-Privacy posture:
+Privacy-first by default:
 
-- Core transformations run locally.
-- Workflows, capsules, compact session state, diagnostics, preferences, and history stay in local extension storage.
-- There is no backend service.
-- There is no telemetry or analytics.
-- There are no hidden outbound network calls from extension logic.
-- Export/import is manual and user-triggered.
+- Local-first
+- No hidden telemetry
+- No silent cloud sync
+- No backend required for core functionality
+- Manual export/import only
 
-LuxCrypta Prompt Accelerator is a public browser utility. It does not control third-party AI systems, alter model policies, or promise model-side behavior. It helps users make prompts clearer, more compact, and easier to carry forward.
+What it is:
+
+- A user-side prompt and session accelerator
+- A browser extension for AI chat workflows
+- A local-first control layer
+
+What it is not:
+
+- Not a model
+- Not hidden control over third-party AI systems
+- Not a release of LuxCrypta proprietary runtime systems
 
 ## Feature Summary
 
@@ -106,6 +114,23 @@ LuxCrypta Prompt Accelerator is a public browser utility. It does not control th
 - Chromium target uses the Chromium manifest and platform adapter.
 - Firefox target uses the Firefox manifest and review-tab fallback behavior.
 - Shared core logic remains browser-independent.
+
+## Store Page Feature Bullets
+
+- Compress prompts without dropping important requirements.
+- Rewrite prompts for Focus, Precision, Research, Code, and more.
+- Preserve continuity across longer chat sessions.
+- Save and reuse strong workflows.
+- Generate carry-forward capsules.
+- Review changes before apply.
+- Adapt prompt structure for different AI systems.
+- Keep core behavior local-first.
+
+## Store Page Privacy Blurb
+
+Privacy matters here.
+
+LuxCrypta Prompt Accelerator is designed to operate locally for its core behavior. It does not depend on hidden cloud processing, does not use hidden telemetry, and does not silently sync chat data. Export/import is manual and user-controlled.
 
 ## Privacy Summary
 
@@ -159,6 +184,20 @@ The extension reads draft text and shallow page context only for user-triggered 
 
 LuxCrypta Prompt Accelerator is a local-first browser extension that makes AI chat prompts clearer, tighter, and easier to carry across long sessions.
 
+### Positioning Options
+
+1. LuxCrypta Prompt Accelerator helps make AI chats cleaner, tighter, and easier to manage over time.
+2. A local-first prompt and session accelerator for people who want more control over AI chat workflows.
+3. Reduce repetition, preserve continuity, and keep AI chats easier to drive.
+
+### GitHub / Website Blurb
+
+LuxCrypta Prompt Accelerator is a local-first browser extension for improving AI chat workflows through prompt compression, mode-based rewriting, carry-forward continuity, reusable workflows, visible review, and stronger session-state handling over longer chat runs.
+
+### Why LuxCrypta Built This
+
+AI chats are powerful, but long-running sessions often become bloated, repetitive, and harder to steer. LuxCrypta Prompt Accelerator was built to improve that experience from the user side: cleaner prompts, better preserved constraints, stronger continuity, and less wasted effort across repeated workflows.
+
 ### Audience
 
 - Researchers who need constraints and uncertainty preserved.
@@ -178,6 +217,8 @@ The extension shows what changed, keeps data local, and does not rely on hidden 
 ### Boundaries
 
 Use plain public language. Do not claim private control over third-party AI systems, deterministic model cognition, policy enforcement inside chat products, or promised model-side performance gains.
+
+Public tone should be plain, product-grade, privacy-respecting, confident, non-mystical, and non-academic. Avoid deep internal jargon, exaggerated memory claims, hidden-control language, surveillance-sounding language, and opaque automation claims.
 
 ## Launch Checklist
 
