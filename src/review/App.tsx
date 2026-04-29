@@ -2,8 +2,10 @@ import { getPlatformAPI } from "@platform-runtime";
 import { Check, Clipboard, FilePlus2, Save } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CarryForwardCapsule } from "@/types/capsules";
+import type { SessionGovernanceState, SessionUpdateResult } from "@/types/governance";
 import type { BackgroundMessage, ContentMessage, ContentMessageResult, ReviewState } from "@/types/messages";
 import type { TransformResult } from "@/types/prompts";
+import type { UserPreferences } from "@/types/preferences";
 import type { Workflow } from "@/types/workflows";
 import { ActionBar } from "@/ui/ActionBar";
 import { Button } from "@/ui/Button";
@@ -11,6 +13,7 @@ import { CapsuleCard } from "@/ui/CapsuleCard";
 import { DiffView } from "@/ui/DiffView";
 import { ScoreBadge } from "@/ui/ScoreBadge";
 import { WorkflowCard } from "@/ui/WorkflowCard";
+import { SessionStatePanel } from "./components";
 
 const platform = getPlatformAPI();
 
@@ -24,6 +27,15 @@ export function App() {
   const [status, setStatus] = useState("Loading review...");
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
   const [capsule, setCapsule] = useState<CarryForwardCapsule | null>(null);
+  const [sessionState, setSessionState] = useState<SessionGovernanceState | null>(null);
+  const [preferences, setPreferences] = useState<UserPreferences | null>(null);
+
+  const loadSessionState = useCallback(async () => {
+    const next = await platform.messaging.sendMessage<BackgroundMessage, SessionGovernanceState | null>({
+      type: "session:get"
+    });
+    setSessionState(next);
+  }, []);
 
   useEffect(() => {
     platform.messaging
@@ -36,9 +48,14 @@ export function App() {
         setState(next);
         setEditableText(next?.result.transformedText ?? "");
         setStatus(next ? "Ready to review." : "Review expired. Run a prompt action again.");
+        void loadSessionState();
       })
       .catch((error: unknown) => setStatus(error instanceof Error ? error.message : "Unable to load review."));
-  }, []);
+    platform.messaging
+      .sendMessage<BackgroundMessage, UserPreferences>({ type: "preferences:get" })
+      .then(setPreferences)
+      .catch(() => setPreferences(null));
+  }, [loadSessionState]);
 
   const result: TransformResult | null = state?.result ?? null;
 
@@ -47,8 +64,20 @@ export function App() {
       type: "content:draft:apply",
       payload: { text: editableText, targetTabId: state?.sourceTabId }
     });
-    setStatus(response && "applied" in response && response.applied ? "Applied to draft." : "Unable to apply.");
-  }, [editableText, state?.sourceTabId]);
+    if (response && "applied" in response && response.applied && result) {
+      const updated = await platform.messaging.sendMessage<BackgroundMessage, SessionUpdateResult | null>({
+        type: "session:update",
+        payload: {
+          transformResult: { ...result, transformedText: editableText },
+          sourceSurface: result.targetModelApplied
+        }
+      });
+      setSessionState(updated?.state ?? sessionState);
+      setStatus("Applied to draft.");
+      return;
+    }
+    setStatus("Unable to apply.");
+  }, [editableText, result, sessionState, state?.sourceTabId]);
 
   const copy = useCallback(async () => {
     await navigator.clipboard.writeText(editableText);
@@ -96,6 +125,18 @@ export function App() {
     setCapsule(saved);
     setStatus("Capsule saved locally.");
   }, [editableText, result]);
+
+  const promoteNovelty = useCallback(
+    async (id: string) => {
+      const promoted = await platform.messaging.sendMessage<BackgroundMessage, SessionGovernanceState | null>({
+        type: "session:promote-novelty",
+        payload: { noveltyIds: [id] }
+      });
+      setSessionState(promoted);
+      setStatus(promoted ? "Promoted into stable core." : "No session state to update.");
+    },
+    []
+  );
 
   const explanation = useMemo(() => result?.explanation ?? [], [result]);
 
@@ -157,6 +198,12 @@ export function App() {
         <h2>Diff</h2>
         <DiffView blocks={result.diff} />
       </section>
+
+      <SessionStatePanel
+        state={sessionState}
+        showDiagnostics={Boolean(preferences?.showAdvancedDiagnostics)}
+        onPromote={promoteNovelty}
+      />
 
       <section className="review-grid">
         {workflow ? <WorkflowCard workflow={workflow} /> : null}

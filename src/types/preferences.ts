@@ -7,6 +7,11 @@ export interface UserPreferences {
   diffViewEnabled: boolean;
   contextualToolbarEnabled: boolean;
   saveHistoryEnabled: boolean;
+  sessionGovernanceEnabled: boolean;
+  showAdvancedDiagnostics: boolean;
+  preserveOpenQuestions: boolean;
+  conservativeStableCoreUpdates: boolean;
+  saveSessionStateLocally: boolean;
   localOnlyMode: true;
   supportedSurfaces: string[];
 }

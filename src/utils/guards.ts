@@ -2,6 +2,15 @@ import type { ExportBundle } from "@/types/messages";
 import { MODE_NAMES } from "@/types/modes";
 import { TARGET_MODELS } from "@/types/models";
 import type { CarryForwardCapsule } from "@/types/capsules";
+import type { DiagnosticSnapshot } from "@/types/diagnostics";
+import type {
+  SessionDiagnostics,
+  SessionGovernanceState,
+  SessionMonitors,
+  SessionNoveltyItem,
+  SessionOpennessState,
+  SessionStableCore
+} from "@/types/governance";
 import type { UserPreferences } from "@/types/preferences";
 import type { Workflow } from "@/types/workflows";
 
@@ -29,10 +38,102 @@ export function isUserPreferences(value: unknown): value is UserPreferences {
     typeof value.diffViewEnabled === "boolean" &&
     typeof value.contextualToolbarEnabled === "boolean" &&
     typeof value.saveHistoryEnabled === "boolean" &&
+    (value.sessionGovernanceEnabled === undefined || typeof value.sessionGovernanceEnabled === "boolean") &&
+    (value.showAdvancedDiagnostics === undefined || typeof value.showAdvancedDiagnostics === "boolean") &&
+    (value.preserveOpenQuestions === undefined || typeof value.preserveOpenQuestions === "boolean") &&
+    (value.conservativeStableCoreUpdates === undefined || typeof value.conservativeStableCoreUpdates === "boolean") &&
+    (value.saveSessionStateLocally === undefined || typeof value.saveSessionStateLocally === "boolean") &&
     value.localOnlyMode === true &&
     isStringArray(value.supportedSurfaces) &&
     (value.defaultMode === undefined || isModeName(value.defaultMode)) &&
     (value.defaultTargetModel === undefined || isTargetModel(value.defaultTargetModel))
+  );
+}
+
+export function isSessionStableCore(value: unknown): value is SessionStableCore {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.objective === "string" &&
+    isStringArray(value.hardConstraints) &&
+    isStringArray(value.acceptedDecisions) &&
+    (value.outputContract === undefined || typeof value.outputContract === "string") &&
+    (value.preferredMode === undefined || isModeName(value.preferredMode)) &&
+    (value.preferredTargetModel === undefined || isTargetModel(value.preferredTargetModel)) &&
+    typeof value.lastUpdatedAt === "string"
+  );
+}
+
+export function isSessionNoveltyItem(value: unknown): value is SessionNoveltyItem {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.id === "string" &&
+    typeof value.text === "string" &&
+    typeof value.kind === "string" &&
+    typeof value.confidence === "number" &&
+    typeof value.source === "string" &&
+    typeof value.createdAt === "string" &&
+    (value.accepted === undefined || typeof value.accepted === "boolean")
+  );
+}
+
+export function isSessionOpennessState(value: unknown): value is SessionOpennessState {
+  if (!isRecord(value)) return false;
+  return (
+    isStringArray(value.openQuestions) &&
+    isStringArray(value.uncertaintyNotes) &&
+    isStringArray(value.optionalBranches) &&
+    typeof value.preservedCreativeSpace === "boolean" &&
+    typeof value.lastUpdatedAt === "string"
+  );
+}
+
+export function isSessionMonitors(value: unknown): value is SessionMonitors {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.continuityScore === "number" &&
+    typeof value.driftScore === "number" &&
+    typeof value.noveltyLoad === "number" &&
+    typeof value.opennessScore === "number" &&
+    typeof value.compressionDensity === "number" &&
+    (value.sessionHealth === "healthy" || value.sessionHealth === "watch" || value.sessionHealth === "unstable")
+  );
+}
+
+export function isSessionDiagnostics(value: unknown): value is SessionDiagnostics {
+  if (!isRecord(value)) return false;
+  return (
+    isStringArray(value.stableCoreSummary) &&
+    isStringArray(value.noveltySummary) &&
+    isStringArray(value.opennessSummary) &&
+    isStringArray(value.warnings) &&
+    isStringArray(value.actionsSuggested) &&
+    typeof value.generatedAt === "string"
+  );
+}
+
+export function isSessionGovernanceState(value: unknown): value is SessionGovernanceState {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.id === "string" &&
+    (value.title === undefined || typeof value.title === "string") &&
+    isSessionStableCore(value.stableCore) &&
+    Array.isArray(value.noveltyLane) &&
+    value.noveltyLane.every(isSessionNoveltyItem) &&
+    isSessionOpennessState(value.opennessLane) &&
+    isSessionMonitors(value.monitors) &&
+    isSessionDiagnostics(value.diagnostics) &&
+    typeof value.createdAt === "string" &&
+    typeof value.updatedAt === "string"
+  );
+}
+
+export function isDiagnosticSnapshot(value: unknown): value is DiagnosticSnapshot {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.id === "string" &&
+    typeof value.sessionId === "string" &&
+    isSessionDiagnostics(value.diagnostics) &&
+    typeof value.createdAt === "string"
   );
 }
 
@@ -86,6 +187,10 @@ export function isExportBundle(value: unknown): value is ExportBundle {
     value.workflows.every(isWorkflow) &&
     Array.isArray(value.capsules) &&
     value.capsules.every(isCarryForwardCapsule) &&
-    (value.preferences === undefined || isUserPreferences(value.preferences))
+    (value.preferences === undefined || isUserPreferences(value.preferences)) &&
+    (value.sessions === undefined ||
+      (Array.isArray(value.sessions) && value.sessions.every(isSessionGovernanceState))) &&
+    (value.diagnostics === undefined ||
+      (Array.isArray(value.diagnostics) && value.diagnostics.every(isDiagnosticSnapshot)))
   );
 }

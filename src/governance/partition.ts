@@ -1,0 +1,119 @@
+import { extractConstraints } from "@/core/constraints";
+import type { SessionUpdateInput } from "@/types/governance";
+import type { ExtractedConstraint } from "@/types/prompts";
+import { firstMeaningfulLine, uniqueStrings } from "@/utils/text";
+import type { SessionCandidate, SessionPartition } from "./types";
+
+const DECISION_RE = /\b(decided|decision|we will|chosen|approved|use|keep|ship|adopt)\b/i;
+const OPEN_RE = /\?|open question|unclear|needs confirmation|still need|not sure|unknown/i;
+const UNCERTAINTY_RE = /\b(uncertain|uncertainty|unknown|assumption|risk|may|might|where relevant|if relevant)\b/i;
+const OPTIONAL_RE = /\b(optional|alternative|branch|variant|explore|creative|brainstorm|could also|consider)\b/i;
+const OUTPUT_RE = /\b(json|markdown|table|csv|yaml|bullet|format|schema|return as|output)\b/i;
+
+function splitLines(text: string): string[] {
+  return text
+    .split(/\n|(?<=[.!?])\s+/)
+    .map((line) => line.replace(/^- /, "").trim())
+    .filter((line) => line.length > 3);
+}
+
+function asCandidate(
+  text: string,
+  kind: SessionCandidate["kind"],
+  source: SessionCandidate["source"],
+  confidence = 0.72
+): SessionCandidate {
+  return { text: text.trim(), kind, source, confidence };
+}
+
+function objectiveFromText(text: string): string | null {
+  const objectiveMatch = text.match(/(?:^|\n)\s*objective:\s*(.+)/i);
+  if (objectiveMatch?.[1]) return objectiveMatch[1].trim();
+  return firstMeaningfulLine(text, "").slice(0, 220) || null;
+}
+
+function candidatesFromConstraints(
+  constraints: ExtractedConstraint[],
+  source: SessionCandidate["source"]
+): SessionCandidate[] {
+  return constraints.map((constraint) =>
+    asCandidate(
+      constraint.text,
+      constraint.kind === "output_contract" || constraint.kind === "format" ? "output_contract" : "constraint",
+      source,
+      constraint.confidence
+    )
+  );
+}
+
+function candidatesFromText(text: string, source: SessionCandidate["source"]): SessionCandidate[] {
+  const candidates: SessionCandidate[] = [];
+  const objective = objectiveFromText(text);
+  if (objective) candidates.push(asCandidate(objective, "objective", source, 0.68));
+
+  candidates.push(...candidatesFromConstraints(extractConstraints(text), source));
+
+  for (const line of splitLines(text)) {
+    if (DECISION_RE.test(line)) candidates.push(asCandidate(line, "decision", source, 0.62));
+    if (OPEN_RE.test(line)) candidates.push(asCandidate(line, "open_question", source, 0.72));
+    if (UNCERTAINTY_RE.test(line)) candidates.push(asCandidate(line, "uncertainty", source, 0.66));
+    if (OPTIONAL_RE.test(line)) candidates.push(asCandidate(line, "optional_branch", source, 0.58));
+    if (OUTPUT_RE.test(line)) candidates.push(asCandidate(line, "output_contract", source, 0.6));
+  }
+
+  return candidates;
+}
+
+function dedupeCandidates(candidates: SessionCandidate[]): SessionCandidate[] {
+  const seen = new Set<string>();
+  return candidates.filter((candidate) => {
+    const key = `${candidate.kind}:${candidate.text.toLowerCase().replace(/\s+/g, " ")}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+export function extractSessionCandidates(input: SessionUpdateInput): SessionCandidate[] {
+  const candidates: SessionCandidate[] = [];
+
+  if (input.transformRequest?.sourceText) {
+    candidates.push(...candidatesFromText(input.transformRequest.sourceText, "draft"));
+  }
+  if (input.transformResult) {
+    candidates.push(...candidatesFromConstraints(input.transformResult.extractedConstraints, "transform"));
+    candidates.push(...candidatesFromText(input.transformResult.transformedText, "transform"));
+  }
+  if (input.capsule) {
+    candidates.push(asCandidate(input.capsule.objective, "objective", "capsule", 0.78));
+    candidates.push(...input.capsule.constraints.map((item) => asCandidate(item, "constraint", "capsule", 0.78)));
+    candidates.push(...input.capsule.decisions.map((item) => asCandidate(item, "decision", "capsule", 0.72)));
+    candidates.push(...input.capsule.open_questions.map((item) => asCandidate(item, "open_question", "capsule", 0.76)));
+  }
+  if (input.conversationSnapshot?.turns.length) {
+    const userText = input.conversationSnapshot.turns
+      .filter((turn) => turn.role === "user")
+      .map((turn) => turn.text)
+      .join("\n");
+    candidates.push(...candidatesFromText(userText, "manual"));
+  }
+
+  return dedupeCandidates(candidates).slice(0, 60);
+}
+
+export function partitionSessionCandidates(candidates: SessionCandidate[]): SessionPartition {
+  const stableKinds: SessionCandidate["kind"][] = ["objective", "constraint", "decision", "output_contract"];
+  const opennessKinds: SessionCandidate["kind"][] = ["open_question", "uncertainty", "optional_branch"];
+
+  return {
+    stableCandidates: candidates.filter((candidate) => stableKinds.includes(candidate.kind)),
+    noveltyCandidates: candidates.filter(
+      (candidate) => candidate.kind === "objective" || candidate.kind === "constraint" || candidate.kind === "output_contract"
+    ),
+    opennessCandidates: candidates.filter((candidate) => opennessKinds.includes(candidate.kind))
+  };
+}
+
+export function uniqueCandidateTexts(candidates: SessionCandidate[], kind: SessionCandidate["kind"]): string[] {
+  return uniqueStrings(candidates.filter((candidate) => candidate.kind === kind).map((candidate) => candidate.text));
+}

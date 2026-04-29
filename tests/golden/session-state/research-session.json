@@ -1,0 +1,14 @@
+{
+  "title": "Research session",
+  "stableCore": {
+    "objective": "Compare implementation options.",
+    "hardConstraints": ["Citations required", "Bullet points only"],
+    "acceptedDecisions": ["Use local-only storage"],
+    "preferredMode": "research"
+  },
+  "opennessLane": {
+    "openQuestions": ["Which source is strongest?"],
+    "uncertaintyNotes": ["Evidence may change after review"],
+    "optionalBranches": ["Compare alternatives"]
+  }
+}

@@ -2,10 +2,14 @@ import { REVIEW_STATE_LIMIT } from "@/app/config";
 import { readConversationSnapshot, readCurrentDraft, applyPrompt } from "./commands";
 import { executeContinueSession } from "@/domain/actions/continue-session";
 import { executeExportBundle, executeImportBundle } from "@/domain/actions/export-bundle";
+import { executePromoteNovelty } from "@/domain/actions/promote-novelty";
+import { executeGetDiagnostics, executeReviewSessionState } from "@/domain/actions/review-session-state";
 import { executeSaveWorkflow } from "@/domain/actions/save-workflow";
 import { executeTransformPrompt } from "@/domain/actions/transform-prompt";
+import { executeUpdateSessionState } from "@/domain/actions/update-session-state";
 import { HistoryService } from "@/domain/services/history-service";
 import { PreferenceService } from "@/domain/services/preference-service";
+import { SessionGovernanceService } from "@/domain/services/session-governance-service";
 import type {
   BackgroundMessage,
   BackgroundMessageResult,
@@ -46,10 +50,30 @@ export function createMessageRouter(platform: PlatformAPI) {
 
     const backgroundMessage = message as BackgroundMessage;
     switch (backgroundMessage.type) {
-      case "prompt:transform":
-        return executeTransformPrompt(backgroundMessage.payload, { storage: platform.storage });
-      case "capsule:generate":
-        return executeContinueSession(backgroundMessage.payload, { storage: platform.storage });
+      case "prompt:transform": {
+        const result = await executeTransformPrompt(backgroundMessage.payload, { storage: platform.storage });
+        await executeUpdateSessionState(
+          {
+            transformRequest: backgroundMessage.payload,
+            transformResult: result,
+            sourceSurface: backgroundMessage.payload.sourceSurface
+          },
+          { storage: platform.storage }
+        );
+        return result;
+      }
+      case "capsule:generate": {
+        const capsule = await executeContinueSession(backgroundMessage.payload, { storage: platform.storage });
+        await executeUpdateSessionState(
+          {
+            capsule,
+            conversationSnapshot: backgroundMessage.payload.snapshot ?? null,
+            sourceSurface: backgroundMessage.payload.sourceSurface
+          },
+          { storage: platform.storage }
+        );
+        return capsule;
+      }
       case "workflow:save":
         return executeSaveWorkflow(backgroundMessage.payload, { storage: platform.storage });
       case "history:list":
@@ -62,6 +86,16 @@ export function createMessageRouter(platform: PlatformAPI) {
         return executeExportBundle({ storage: platform.storage });
       case "import:apply":
         return executeImportBundle(backgroundMessage.payload.bundle, { storage: platform.storage });
+      case "session:get":
+        return executeReviewSessionState({ storage: platform.storage });
+      case "session:update":
+        return executeUpdateSessionState(backgroundMessage.payload, { storage: platform.storage });
+      case "session:promote-novelty":
+        return executePromoteNovelty(backgroundMessage.payload, { storage: platform.storage });
+      case "session:reset":
+        return new SessionGovernanceService(platform.storage).reset();
+      case "diagnostics:get":
+        return executeGetDiagnostics({ storage: platform.storage });
       case "review:open": {
         const createdAt = nowIso();
         const surface = platform.reviewSurface.getPreferredSurface();

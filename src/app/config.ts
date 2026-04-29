@@ -7,6 +7,11 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   diffViewEnabled: true,
   contextualToolbarEnabled: true,
   saveHistoryEnabled: false,
+  sessionGovernanceEnabled: true,
+  showAdvancedDiagnostics: false,
+  preserveOpenQuestions: true,
+  conservativeStableCoreUpdates: true,
+  saveSessionStateLocally: true,
   localOnlyMode: true,
   supportedSurfaces: SUPPORTED_SURFACES.map((surface) => surface.id)
 };

@@ -66,6 +66,11 @@ function bundle(): ExportBundle {
       diffViewEnabled: false,
       contextualToolbarEnabled: true,
       saveHistoryEnabled: true,
+      sessionGovernanceEnabled: true,
+      showAdvancedDiagnostics: false,
+      preserveOpenQuestions: true,
+      conservativeStableCoreUpdates: true,
+      saveSessionStateLocally: true,
       localOnlyMode: true,
       supportedSurfaces: ["chatgpt", "claude", "gemini"]
     }
@@ -88,7 +93,9 @@ describe("export bundle actions", () => {
     expect(result).toEqual({
       workflowsImported: 1,
       capsulesImported: 1,
-      preferencesImported: true
+      preferencesImported: true,
+      sessionsImported: 0,
+      diagnosticsImported: 0
     });
   });
 

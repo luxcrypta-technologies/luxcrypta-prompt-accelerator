@@ -3,6 +3,8 @@ import type { HistoryItem } from "./actions";
 import type { ReviewSurfaceKind } from "./platform";
 import type { TransformRequest, TransformResult } from "./prompts";
 import type { ConversationSnapshot } from "./surfaces";
+import type { DiagnosticSnapshot } from "./diagnostics";
+import type { SessionDiagnostics, SessionGovernanceState, SessionUpdateInput, SessionUpdateResult } from "./governance";
 import type { UserPreferences } from "./preferences";
 import type { Workflow } from "./workflows";
 
@@ -12,12 +14,16 @@ export interface ExportBundle {
   workflows: Workflow[];
   capsules: CarryForwardCapsule[];
   preferences?: UserPreferences;
+  sessions?: SessionGovernanceState[];
+  diagnostics?: DiagnosticSnapshot[];
 }
 
 export interface ImportBundleResult {
   workflowsImported: number;
   capsulesImported: number;
   preferencesImported: boolean;
+  sessionsImported?: number;
+  diagnosticsImported?: number;
 }
 
 export type MessageResponse<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -39,6 +45,11 @@ export type BackgroundMessage =
   | { type: "preferences:update"; payload: Partial<UserPreferences> }
   | { type: "export:create" }
   | { type: "import:apply"; payload: { bundle: unknown } }
+  | { type: "session:get" }
+  | { type: "session:update"; payload: SessionUpdateInput }
+  | { type: "session:promote-novelty"; payload: { noveltyIds: string[] } }
+  | { type: "session:reset" }
+  | { type: "diagnostics:get" }
   | { type: "review:open"; payload: { result: TransformResult } }
   | { type: "review:get"; payload: { reviewId?: string } };
 
@@ -57,6 +68,9 @@ export type BackgroundMessageResult =
   | UserPreferences
   | ExportBundle
   | ImportBundleResult
+  | SessionGovernanceState
+  | SessionUpdateResult
+  | SessionDiagnostics
   | ReviewState
   | { reviewId: string; surface: ReviewSurfaceKind }
   | null;

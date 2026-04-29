@@ -5,5 +5,6 @@
 3. Validate Firefox packaging and review-tab fallback.
 4. Add manual smoke coverage for ChatGPT, Claude, and Gemini.
 5. Tighten selectors and release notes from real-page testing.
+6. Validate Phase 2 session governance with repeated transforms, novelty promotion, openness preservation, and diagnostics review.
 
-No backend, account dependency, or remote AI integration is planned for v1.
+No backend, account dependency, or remote AI integration is planned for v1 or v1.5.

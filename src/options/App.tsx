@@ -45,7 +45,11 @@ export function App() {
       link.download = `luxcrypta-prompt-accelerator-export-${bundle.exportedAt.slice(0, 10)}.json`;
       link.click();
       URL.revokeObjectURL(url);
-      setStatus(`Exported ${bundle.workflows.length} workflows and ${bundle.capsules.length} capsules.`);
+      setStatus(
+        `Exported ${bundle.workflows.length} workflows, ${bundle.capsules.length} capsules, and ${
+          bundle.sessions?.length ?? 0
+        } session states.`
+      );
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Export failed.");
     }
@@ -64,7 +68,9 @@ export function App() {
       });
       setPreferences(updatedPreferences);
       setStatus(
-        `Imported ${result.workflowsImported} workflows and ${result.capsulesImported} capsules${
+        `Imported ${result.workflowsImported} workflows, ${result.capsulesImported} capsules, and ${
+          result.sessionsImported ?? 0
+        } session states${
           result.preferencesImported ? " with preferences." : "."
         }`
       );
@@ -119,6 +125,51 @@ export function App() {
       <section className="options-section">
         <h2>Local-only behavior</h2>
         <p>Core transformations, workflows, capsules, preferences, and history stay in local extension storage.</p>
+      </section>
+
+      <section className="options-section">
+        <h2>Session governance</h2>
+        <p>Keep compact local session state for continuity, new items, and unresolved questions.</p>
+        <label>
+          <input
+            type="checkbox"
+            checked={preferences.sessionGovernanceEnabled}
+            onChange={(event) => void update({ sessionGovernanceEnabled: event.currentTarget.checked })}
+          />
+          Enable session governance
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={preferences.showAdvancedDiagnostics}
+            onChange={(event) => void update({ showAdvancedDiagnostics: event.currentTarget.checked })}
+          />
+          Show advanced diagnostics
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={preferences.preserveOpenQuestions}
+            onChange={(event) => void update({ preserveOpenQuestions: event.currentTarget.checked })}
+          />
+          Preserve open questions
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={preferences.conservativeStableCoreUpdates}
+            onChange={(event) => void update({ conservativeStableCoreUpdates: event.currentTarget.checked })}
+          />
+          Use conservative stable-core updates
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={preferences.saveSessionStateLocally}
+            onChange={(event) => void update({ saveSessionStateLocally: event.currentTarget.checked })}
+          />
+          Save session state locally
+        </label>
       </section>
 
       <section className="options-section">
