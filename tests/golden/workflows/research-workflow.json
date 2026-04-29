@@ -1,0 +1,9 @@
+{
+  "title": "Research comparison",
+  "objective": "Compare options and identify uncertainty before recommending a path.",
+  "mode": "research",
+  "constraints": ["Cite sources when relevant", "Separate evidence from assumptions"],
+  "outputPreferences": ["Key findings", "Alternatives", "Open questions"],
+  "targetModel": "generic",
+  "tags": ["research"]
+}

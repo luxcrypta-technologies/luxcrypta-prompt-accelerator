@@ -1,0 +1,4 @@
+Summarize the release readiness of this extension for a product lead.
+
+Keep under 200 words.
+Include recommendation, key risks, options, and next step.

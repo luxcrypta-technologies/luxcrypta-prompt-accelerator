@@ -1,0 +1,9 @@
+{
+  "capsule_version": 1,
+  "title": "Extension scaffold",
+  "objective": "Build a local-first browser extension scaffold.",
+  "constraints": ["No backend", "Keep browser APIs behind platform adapters"],
+  "decisions": ["Chromium ships first", "Firefox uses review tab fallback"],
+  "open_questions": ["Which license should be used before public release?"],
+  "preferred_mode": "code"
+}

@@ -1,0 +1,44 @@
+{
+  "name": "luxcrypta-prompt-accelerator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local-first browser extension for prompt compression, review, workflow reuse, and session continuity.",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build:chromium": "vite build --mode chromium && node scripts/build.chromium.mjs",
+    "build:firefox": "vite build --mode firefox && node scripts/build.firefox.mjs",
+    "package:chromium": "npm run build:chromium && node scripts/package-extension.mjs chromium",
+    "package:firefox": "npm run build:firefox && node scripts/package-extension.mjs firefox",
+    "notice": "node scripts/generate-notice.mjs",
+    "lint": "eslint . --ext .ts,.tsx"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@types/chrome": "^0.0.277",
+    "@types/firefox-webext-browser": "^120.0.4",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@typescript-eslint/eslint-plugin": "^8.18.1",
+    "@typescript-eslint/parser": "^8.18.1",
+    "@vitejs/plugin-react": "^6.0.1",
+    "esbuild": "^0.28.0",
+    "eslint": "^8.57.1",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "jsdom": "^25.0.1",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "vite": "^8.0.10",
+    "vitest": "^4.1.5"
+  }
+}

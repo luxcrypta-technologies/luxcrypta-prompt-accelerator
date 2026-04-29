@@ -1,0 +1,6 @@
+Please basically help me create a practical plan for launching this small browser extension.
+
+It must use TypeScript.
+It must avoid backend services.
+Return as bullet points only.
+Please keep the plan under 300 words.

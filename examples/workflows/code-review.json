@@ -1,0 +1,9 @@
+{
+  "title": "Code review pass",
+  "objective": "Find bugs, regressions, missing tests, and architecture leaks.",
+  "mode": "code",
+  "constraints": ["Findings first", "Use file references", "Keep fixes minimal"],
+  "outputPreferences": ["Severity order", "Open questions", "Test gaps"],
+  "targetModel": "generic",
+  "tags": ["review", "engineering"]
+}

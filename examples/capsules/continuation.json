@@ -1,0 +1,10 @@
+{
+  "capsule_version": 1,
+  "title": "Prompt accelerator build",
+  "objective": "Continue building a local-first prompt accelerator extension.",
+  "constraints": ["No hidden remote calls", "Preserve hard constraints", "Use split manifests"],
+  "decisions": ["Core transforms are deterministic", "Review state stays in background memory"],
+  "open_questions": ["Which browser should receive manual smoke testing first?"],
+  "preferred_mode": "code",
+  "notes": "Example capsule for manual import/export testing."
+}

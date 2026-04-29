@@ -1,0 +1,5 @@
+Review this React component for performance and maintainability.
+
+Must preserve the public props.
+Do not add remote services.
+Use concrete file-level recommendations.

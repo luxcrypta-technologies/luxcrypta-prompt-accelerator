@@ -1,0 +1,5 @@
+Implement a typed storage wrapper for extension local storage.
+
+Must work through a platform abstraction.
+Do not call runtime APIs from core logic.
+Include tests.

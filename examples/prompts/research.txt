@@ -1,0 +1,5 @@
+Compare three approaches for storing user-created prompt workflows locally.
+
+Must explain tradeoffs.
+Use plain language.
+Avoid recommending a backend for v1.
