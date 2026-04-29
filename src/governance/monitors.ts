@@ -13,6 +13,13 @@ function preservedStateLength(core: SessionStableCore, openness: SessionOpenness
   ].join("\n").length;
 }
 
+function noveltyAgeDays(item: SessionNoveltyItem, timestamp: string): number {
+  const start = Date.parse(item.lastSeenAt ?? item.createdAt);
+  const end = Date.parse(timestamp);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return 0;
+  return Math.max(0, Math.floor((end - start) / 86_400_000));
+}
+
 export function computeSessionMonitors(input: {
   previousState?: SessionGovernanceState | null;
   stableCore: SessionStableCore;
@@ -23,10 +30,13 @@ export function computeSessionMonitors(input: {
   const disruptiveNovelty = input.noveltyLane.filter(
     (item) => !item.accepted && (item.kind === "new_objective" || item.kind === "changed_constraint" || item.kind === "output_shift")
   ).length;
+  const unresolvedNovelty = input.noveltyLane.filter((item) => !item.accepted);
+  const repeatedNovelty = unresolvedNovelty.filter((item) => (item.seenCount ?? 1) >= 2).length;
+  const agedNovelty = unresolvedNovelty.filter((item) => noveltyAgeDays(item, input.stableCore.lastUpdatedAt) >= 7).length;
   const base = {
     continuityScore: scoreContinuity(input.stableCore),
     driftScore: Math.min(100, scoreDrift(input.previousState, input.stableCore) + disruptiveNovelty * 8),
-    noveltyLoad: Math.min(100, input.noveltyLane.filter((item) => !item.accepted).length * 12),
+    noveltyLoad: Math.min(100, unresolvedNovelty.length * 10 + repeatedNovelty * 5 + agedNovelty * 8 + disruptiveNovelty * 8),
     opennessScore: scoreOpenness(input.opennessLane),
     compressionDensity: scoreCompressionDensity(input.originalLength, preservedStateLength(input.stableCore, input.opennessLane))
   };

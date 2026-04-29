@@ -1,5 +1,5 @@
 import type { ExtractedConstraint, TransformRequest } from "@/types/prompts";
-import { toLines, uniqueStrings } from "@/utils/text";
+import { isMeaningfullyDuplicate, uniqueMeaningfulStrings } from "@/utils/text";
 
 const LOW_INFORMATION_PATTERNS = [
   /\bplease\b/gi,
@@ -24,8 +24,21 @@ function cleanLine(line: string): string {
 }
 
 function isConstraintLine(line: string, constraints: ExtractedConstraint[]): boolean {
-  const lower = line.toLowerCase();
-  return constraints.some((constraint) => lower.includes(constraint.text.toLowerCase()));
+  return constraints.some((constraint) => isMeaningfullyDuplicate(line, constraint.text, 0.68));
+}
+
+function splitPromptStatements(text: string): string[] {
+  return text
+    .replace(/\s+(requirements?|hard requirements?|output contract|context):\s*/gi, "\n$1:\n")
+    .replace(/\s+[-*•]\s+/g, "\n- ")
+    .split(/\n|(?<=[.!?])\s+/)
+    .map((line) =>
+      line
+        .replace(/^\s*[-*•]\s*/, "")
+        .replace(/^\s*(objective|requirements?|hard requirements?|output contract|context):\s*/i, "")
+        .trim()
+    )
+    .filter(Boolean);
 }
 
 export function compressPrompt(
@@ -34,8 +47,8 @@ export function compressPrompt(
   request: TransformRequest
 ): string {
   const preserveConstraints = request.preserveConstraints !== false;
-  const lines = toLines(normalized).map(cleanLine).filter(Boolean);
-  const uniqueLines = uniqueStrings(lines);
+  const lines = splitPromptStatements(normalized).map(cleanLine).filter(Boolean);
+  const uniqueLines = uniqueMeaningfulStrings(lines);
   const preservedConstraints = preserveConstraints
     ? constraints.filter((constraint) => constraint.hard).map((constraint) => constraint.text)
     : [];
@@ -49,7 +62,10 @@ export function compressPrompt(
     sections.push(`Context:\n${details.map((line) => `- ${line}`).join("\n")}`);
   }
   if (preservedConstraints.length > 0) {
-    sections.push(`Requirements:\n${uniqueStrings(preservedConstraints).map((line) => `- ${line}`).join("\n")}`);
+    const requirements = uniqueMeaningfulStrings(preservedConstraints, [objective, ...details]);
+    if (requirements.length > 0) {
+      sections.push(`Requirements:\n${requirements.map((line) => `- ${line}`).join("\n")}`);
+    }
   }
 
   return sections.join("\n\n");

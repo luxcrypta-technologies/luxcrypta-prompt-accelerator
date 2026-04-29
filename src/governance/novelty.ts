@@ -1,6 +1,6 @@
 import type { SessionGovernanceState, SessionNoveltyItem, SessionStableCore } from "@/types/governance";
 import { createDatedId } from "@/utils/ids";
-import { uniqueStrings } from "@/utils/text";
+import { uniqueMeaningfulStrings } from "@/utils/text";
 import { isMeaningfullySimilar } from "./stable-core";
 import type { SessionCandidate } from "./types";
 
@@ -8,6 +8,16 @@ function isExistingNovelty(candidate: SessionCandidate, existing: SessionNovelty
   const kind = noveltyKindForCandidate(candidate.kind);
   return existing.some(
     (item) =>
+      item.kind === kind &&
+      (item.text.toLowerCase() === candidate.text.toLowerCase() || isMeaningfullySimilar(item.text, candidate.text))
+  );
+}
+
+function matchingNoveltyIndex(candidate: SessionCandidate, existing: SessionNoveltyItem[]): number {
+  const kind = noveltyKindForCandidate(candidate.kind);
+  return existing.findIndex(
+    (item) =>
+      !item.accepted &&
       item.kind === kind &&
       (item.text.toLowerCase() === candidate.text.toLowerCase() || isMeaningfullySimilar(item.text, candidate.text))
   );
@@ -61,6 +71,34 @@ function requirementLikeObjective(text: string): SessionNoveltyItem["kind"] | nu
   return null;
 }
 
+function isConflictLike(text: string, kind: SessionNoveltyItem["kind"]): boolean {
+  return (
+    kind === "changed_constraint" ||
+    /\b(instead|replace|rather than|no longer|conflict|contradict|stop using|drop|remove)\b/i.test(text)
+  );
+}
+
+function noveltyNote(item: Pick<SessionNoveltyItem, "text" | "kind" | "confidence" | "seenCount">): string | undefined {
+  if (isConflictLike(item.text, item.kind)) return "Review manually; this may change accepted session state.";
+  if ((item.seenCount ?? 1) >= 2 && item.confidence >= 0.72) return "Recurring and likely safe to promote after review.";
+  return undefined;
+}
+
+function shouldBePromotable(item: Pick<SessionNoveltyItem, "text" | "kind" | "confidence" | "seenCount">): boolean {
+  return !isConflictLike(item.text, item.kind) && (item.seenCount ?? 1) >= 2 && item.confidence >= 0.72;
+}
+
+function ageInDays(item: SessionNoveltyItem, timestamp: string): number {
+  const lastSeen = Date.parse(item.lastSeenAt ?? item.createdAt);
+  const now = Date.parse(timestamp);
+  if (!Number.isFinite(lastSeen) || !Number.isFinite(now)) return 0;
+  return Math.max(0, Math.floor((now - lastSeen) / 86_400_000));
+}
+
+function isStale(item: SessionNoveltyItem, timestamp: string): boolean {
+  return !item.promotable && (item.seenCount ?? 1) <= 1 && ageInDays(item, timestamp) >= 30;
+}
+
 function noveltyKind(candidate: SessionCandidate, stableCore: SessionStableCore): SessionNoveltyItem["kind"] | null {
   if (isCoveredByStableCore(candidate.text, stableCore)) return null;
 
@@ -94,23 +132,49 @@ export function updateNoveltyLane(input: {
   stableCore: SessionStableCore;
   timestamp: string;
 }): SessionNoveltyItem[] {
+  const previous = input.previous.filter((item) => !item.accepted && !isStale(item, input.timestamp));
+  const merged = [...previous];
   const newItems = input.candidates
     .map((candidate): SessionNoveltyItem | null => {
       const kind = noveltyKind(candidate, input.stableCore);
-      if (!kind || isExistingNovelty(candidate, input.previous)) return null;
-      return {
+      if (!kind) return null;
+      const existingIndex = matchingNoveltyIndex(candidate, merged);
+      if (existingIndex >= 0) {
+        const existing = merged[existingIndex];
+        const seenCount = (existing.seenCount ?? 1) + 1;
+        const updated = {
+          ...existing,
+          confidence: Math.max(existing.confidence, candidate.confidence),
+          lastSeenAt: input.timestamp,
+          seenCount,
+          promotable: shouldBePromotable({ ...existing, confidence: Math.max(existing.confidence, candidate.confidence), seenCount }),
+          diagnosticNote: noveltyNote({ ...existing, confidence: Math.max(existing.confidence, candidate.confidence), seenCount })
+        };
+        merged[existingIndex] = updated;
+        return null;
+      }
+      if (isExistingNovelty(candidate, merged)) return null;
+      const item = {
         id: createDatedId("novelty", `${kind}:${candidate.text}`, input.timestamp),
         text: candidate.text,
         kind,
         confidence: candidate.confidence,
         source: candidate.source,
         createdAt: input.timestamp,
+        lastSeenAt: input.timestamp,
+        seenCount: 1,
+        promotable: false,
+        diagnosticNote: noveltyNote({ text: candidate.text, kind, confidence: candidate.confidence, seenCount: 1 }),
         accepted: false
+      };
+      return {
+        ...item,
+        promotable: shouldBePromotable(item)
       };
     })
     .filter((item): item is SessionNoveltyItem => Boolean(item));
 
-  return [...input.previous.filter((item) => !item.accepted), ...newItems].slice(-16);
+  return [...merged, ...newItems].slice(-16);
 }
 
 export function promoteNoveltyItems(
@@ -133,8 +197,8 @@ export function promoteNoveltyItems(
     stableCore: {
       ...state.stableCore,
       objective: objective ?? state.stableCore.objective,
-      hardConstraints: uniqueStrings([...state.stableCore.hardConstraints, ...constraints]).slice(0, 12),
-      acceptedDecisions: uniqueStrings([...state.stableCore.acceptedDecisions, ...decisions]).slice(0, 12),
+      hardConstraints: uniqueMeaningfulStrings([...state.stableCore.hardConstraints, ...constraints]).slice(0, 12),
+      acceptedDecisions: uniqueMeaningfulStrings([...state.stableCore.acceptedDecisions, ...decisions]).slice(0, 12),
       outputContract: outputContract ?? state.stableCore.outputContract,
       lastUpdatedAt: timestamp
     },

@@ -1,4 +1,5 @@
 import type { ChatSurfaceAdapter, ConversationSnapshot } from "./types";
+import { appendDraftText, queryFirstUsableInput, readDraftText, replaceDraftText, type DraftInputElement } from "./dom";
 
 const INPUT_SELECTORS = [
   "#prompt-textarea",
@@ -8,31 +9,8 @@ const INPUT_SELECTORS = [
   "div[contenteditable='true']"
 ];
 
-function queryInput(): HTMLElement | HTMLTextAreaElement | null {
-  for (const selector of INPUT_SELECTORS) {
-    const element = document.querySelector(selector);
-    if (element instanceof HTMLElement || element instanceof HTMLTextAreaElement) {
-      return element;
-    }
-  }
-  return null;
-}
-
-function readElementText(element: HTMLElement | HTMLTextAreaElement | null): string {
-  if (!element) return "";
-  if (element instanceof HTMLTextAreaElement) return element.value;
-  return element.textContent ?? "";
-}
-
-function writeElementText(element: HTMLElement | HTMLTextAreaElement | null, text: string): boolean {
-  if (!element) return false;
-  if (element instanceof HTMLTextAreaElement) {
-    element.value = text;
-  } else {
-    element.textContent = text;
-  }
-  element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
-  return true;
+function queryInput(): DraftInputElement | null {
+  return queryFirstUsableInput(INPUT_SELECTORS);
 }
 
 function roleFromDataset(role: string | undefined): ConversationSnapshot["turns"][number]["role"] {
@@ -53,14 +31,13 @@ export const chatgptSurface: ChatSurfaceAdapter = {
   },
   getInputElement: queryInput,
   getCurrentDraftText() {
-    return readElementText(queryInput());
+    return readDraftText(queryInput());
   },
   setCurrentDraftText(text: string) {
-    return writeElementText(queryInput(), text);
+    return replaceDraftText(queryInput(), text);
   },
   insertText(text: string) {
-    const current = this.getCurrentDraftText();
-    return this.setCurrentDraftText(current ? `${current}\n${text}` : text);
+    return appendDraftText(queryInput(), text);
   },
   getConversationSnapshot(): ConversationSnapshot | null {
     const turns = Array.from(document.querySelectorAll("[data-message-author-role]"))

@@ -1,7 +1,7 @@
 import { extractConstraints } from "@/core/constraints";
 import type { SessionUpdateInput } from "@/types/governance";
 import type { ExtractedConstraint } from "@/types/prompts";
-import { firstMeaningfulLine, uniqueStrings } from "@/utils/text";
+import { firstMeaningfulLine, isMeaningfullyDuplicate, uniqueMeaningfulStrings } from "@/utils/text";
 import type { SessionCandidate, SessionPartition } from "./types";
 
 const DECISION_RE = /\b(decided|decision|we will|chosen|approved|use|keep|ship|adopt)\b/i;
@@ -11,14 +11,17 @@ const OPTIONAL_RE = /\b(optional|alternative|branch|variant|explore|creative|bra
 const OUTPUT_RE = /\b(json|markdown|table|csv|yaml|bullet|format|schema|return as|output)\b/i;
 
 function splitLines(text: string): string[] {
-  return text
+  const structured = text
+    .replace(/\s+(requirements?|hard requirements?|output contract|context):\s*/gi, "\n$1:\n")
+    .replace(/\s+[-*•]\s+/g, "\n- ");
+  return structured
     .split(/\n|(?<=[.!?])\s+/)
     .map((line) => line.replace(/^- /, "").trim())
     .filter((line) => line.length > 3);
 }
 
 function stripLabel(text: string): string {
-  return text.replace(/^\s*(objective|requirements?|output contract):\s*/i, "").trim();
+  return text.replace(/^\s*[-*•]?\s*(objective|requirements?|hard requirements?|output contract|context):\s*/i, "").trim();
 }
 
 function outputFragment(text: string): string {
@@ -83,11 +86,23 @@ function candidatesFromText(text: string, source: SessionCandidate["source"]): S
 }
 
 function dedupeCandidates(candidates: SessionCandidate[]): SessionCandidate[] {
-  const seen = new Set<string>();
-  return candidates.filter((candidate) => {
-    const key = `${candidate.kind}:${candidate.text.toLowerCase().replace(/\s+/g, " ")}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
+  const output: SessionCandidate[] = [];
+  for (const candidate of candidates) {
+    const duplicate = output.some(
+      (existing) => existing.kind === candidate.kind && isMeaningfullyDuplicate(existing.text, candidate.text, 0.74)
+    );
+    if (duplicate) continue;
+    output.push(candidate);
+  }
+  return output.filter((candidate) => {
+    if (candidate.kind !== "objective") return true;
+    const duplicatesStableCandidate = output.some(
+      (other) =>
+        other !== candidate &&
+        (other.kind === "constraint" || other.kind === "output_contract") &&
+        isMeaningfullyDuplicate(other.text, candidate.text, 0.82)
+    );
+    if (duplicatesStableCandidate) return false;
     return true;
   });
 }
@@ -133,5 +148,5 @@ export function partitionSessionCandidates(candidates: SessionCandidate[]): Sess
 }
 
 export function uniqueCandidateTexts(candidates: SessionCandidate[], kind: SessionCandidate["kind"]): string[] {
-  return uniqueStrings(candidates.filter((candidate) => candidate.kind === kind).map((candidate) => candidate.text));
+  return uniqueMeaningfulStrings(candidates.filter((candidate) => candidate.kind === kind).map((candidate) => candidate.text));
 }

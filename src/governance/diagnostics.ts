@@ -12,7 +12,11 @@ function summarizeCore(core: SessionStableCore): string[] {
 function summarizeNovelty(novelty: SessionNoveltyItem[]): string[] {
   const active = novelty.filter((item) => !item.accepted);
   if (!active.length) return ["No unresolved new or provisional items."];
-  return active.slice(0, 6).map((item) => `${item.kind.replace(/_/g, " ")}: ${item.text}`);
+  return active.slice(0, 6).map((item) => {
+    const prefix = item.promotable ? "promotable" : item.kind.replace(/_/g, " ");
+    const suffix = item.diagnosticNote ? ` (${item.diagnosticNote})` : "";
+    return `${prefix}: ${item.text}${suffix}`;
+  });
 }
 
 function summarizeOpenness(openness: SessionOpennessState): string[] {
@@ -41,12 +45,16 @@ function suggestionsFor(monitors: SessionMonitors): string[] {
 }
 
 export function generateSessionDiagnostics(state: Omit<SessionGovernanceState, "diagnostics">, timestamp: string): SessionDiagnostics {
+  const promotableNovelty = state.noveltyLane.filter((item) => !item.accepted && item.promotable);
+  const noveltySuggestions = promotableNovelty.length
+    ? [`Consider promoting ${promotableNovelty.length} recurring new/provisional item(s).`]
+    : [];
   return {
     stableCoreSummary: summarizeCore(state.stableCore),
     noveltySummary: summarizeNovelty(state.noveltyLane),
     opennessSummary: summarizeOpenness(state.opennessLane),
     warnings: warningsFor(state.monitors),
-    actionsSuggested: suggestionsFor(state.monitors),
+    actionsSuggested: [...noveltySuggestions, ...suggestionsFor(state.monitors)],
     generatedAt: timestamp
   };
 }

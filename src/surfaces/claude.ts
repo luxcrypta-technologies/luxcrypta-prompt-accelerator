@@ -1,4 +1,5 @@
 import type { ChatSurfaceAdapter, ConversationSnapshot } from "./types";
+import { appendDraftText, queryFirstUsableInput, readDraftText, replaceDraftText, type DraftInputElement } from "./dom";
 
 const INPUT_SELECTORS = [
   "div.ProseMirror[contenteditable='true']",
@@ -7,30 +8,8 @@ const INPUT_SELECTORS = [
   "div[contenteditable='true']"
 ];
 
-function queryInput(): HTMLElement | HTMLTextAreaElement | null {
-  for (const selector of INPUT_SELECTORS) {
-    const element = document.querySelector(selector);
-    if (element instanceof HTMLElement || element instanceof HTMLTextAreaElement) {
-      return element;
-    }
-  }
-  return null;
-}
-
-function readText(element: HTMLElement | HTMLTextAreaElement | null): string {
-  if (!element) return "";
-  return element instanceof HTMLTextAreaElement ? element.value : element.textContent ?? "";
-}
-
-function writeText(element: HTMLElement | HTMLTextAreaElement | null, text: string): boolean {
-  if (!element) return false;
-  if (element instanceof HTMLTextAreaElement) {
-    element.value = text;
-  } else {
-    element.textContent = text;
-  }
-  element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
-  return true;
+function queryInput(): DraftInputElement | null {
+  return queryFirstUsableInput(INPUT_SELECTORS);
 }
 
 export const claudeSurface: ChatSurfaceAdapter = {
@@ -44,14 +23,13 @@ export const claudeSurface: ChatSurfaceAdapter = {
   },
   getInputElement: queryInput,
   getCurrentDraftText() {
-    return readText(queryInput());
+    return readDraftText(queryInput());
   },
   setCurrentDraftText(text: string) {
-    return writeText(queryInput(), text);
+    return replaceDraftText(queryInput(), text);
   },
   insertText(text: string) {
-    const current = this.getCurrentDraftText();
-    return this.setCurrentDraftText(current ? `${current}\n${text}` : text);
+    return appendDraftText(queryInput(), text);
   },
   getConversationSnapshot(): ConversationSnapshot | null {
     const candidates = Array.from(

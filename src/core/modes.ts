@@ -1,12 +1,22 @@
 import type { ModeName } from "@/types/modes";
 import type { ExtractedConstraint } from "@/types/prompts";
+import { isMeaningfullyDuplicate, uniqueMeaningfulStrings } from "@/utils/text";
 
-function requirementBlock(constraints: ExtractedConstraint[]): string {
-  const hard = constraints.filter((constraint) => constraint.hard);
+function textAlreadyCoversRequirement(text: string, requirement: string): boolean {
+  return text
+    .replace(/\s+(requirements?|hard requirements?|output contract):\s*/gi, "\n$1:\n")
+    .split(/\n|(?<=[.!?])\s+/)
+    .some((line) => isMeaningfullyDuplicate(line, requirement, 0.68));
+}
+
+function requirementBlock(constraints: ExtractedConstraint[], existingText: string): string {
+  const hard = uniqueMeaningfulStrings(
+    constraints.filter((constraint) => constraint.hard).map((constraint) => constraint.text)
+  ).filter((constraint) => !textAlreadyCoversRequirement(existingText, constraint));
   if (hard.length === 0) {
     return "";
   }
-  return `\n\nHard requirements:\n${hard.map((constraint) => `- ${constraint.text}`).join("\n")}`;
+  return `\n\nHard requirements:\n${hard.map((constraint) => `- ${constraint}`).join("\n")}`;
 }
 
 export function applyModeTemplate(
@@ -18,7 +28,7 @@ export function applyModeTemplate(
     return text;
   }
 
-  const requirements = requirementBlock(constraints);
+  const requirements = requirementBlock(constraints, text);
 
   switch (mode) {
     case "focus":

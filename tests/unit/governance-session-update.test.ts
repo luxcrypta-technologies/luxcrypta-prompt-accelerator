@@ -56,4 +56,35 @@ describe("governance session update", () => {
     expect(second.state.stableCore.outputContract).toMatch(/bullet points only/i);
     expect(second.state.noveltyLane.some((item) => /bullet points only/i.test(item.text))).toBe(false);
   });
+
+  it("flags recurring non-conflicting novelty as promotable", () => {
+    const baseRequest = {
+      sourceText: "Objective: Write a research brief. Must cite sources. Output bullet points only.",
+      mode: "research" as const
+    };
+    const base = updateSessionGovernance({
+      transformRequest: baseRequest,
+      transformResult: transformPrompt(baseRequest)
+    });
+
+    const noveltyRequest = {
+      sourceText:
+        "Objective: Write a research brief. Must cite sources. Output bullet points only. Must compare privacy implications.",
+      mode: "research" as const
+    };
+    const firstNovelty = updateSessionGovernance({
+      previousState: base.state,
+      transformRequest: noveltyRequest,
+      transformResult: transformPrompt(noveltyRequest)
+    });
+    const repeatedNovelty = updateSessionGovernance({
+      previousState: firstNovelty.state,
+      transformRequest: noveltyRequest,
+      transformResult: transformPrompt(noveltyRequest)
+    });
+
+    const privacyItem = repeatedNovelty.state.noveltyLane.find((item) => /privacy implications/i.test(item.text));
+    expect(privacyItem?.promotable).toBe(true);
+    expect(repeatedNovelty.state.diagnostics.actionsSuggested.join(" ")).toMatch(/promoting/i);
+  });
 });

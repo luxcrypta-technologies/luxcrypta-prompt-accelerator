@@ -1,20 +1,12 @@
 import type { ModeName } from "@/types/modes";
 import type { TargetModel } from "@/types/models";
 import type { SessionStableCore } from "@/types/governance";
-import { firstMeaningfulLine, uniqueStrings } from "@/utils/text";
+import { firstMeaningfulLine, meaningSimilarity, uniqueMeaningfulStrings } from "@/utils/text";
 import type { SessionCandidate } from "./types";
 import { uniqueCandidateTexts } from "./partition";
 
-function normalize(text: string): string {
-  return text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
-
 export function isMeaningfullySimilar(left: string, right: string): boolean {
-  const leftWords = new Set(normalize(left).split(" ").filter(Boolean));
-  const rightWords = new Set(normalize(right).split(" ").filter(Boolean));
-  if (!leftWords.size || !rightWords.size) return false;
-  const overlap = [...leftWords].filter((word) => rightWords.has(word)).length;
-  return overlap / Math.max(leftWords.size, rightWords.size) >= 0.56;
+  return meaningSimilarity(left, right) >= 0.56;
 }
 
 function selectObjective(previous: SessionStableCore | undefined, objectives: string[]): string {
@@ -27,6 +19,20 @@ function selectObjective(previous: SessionStableCore | undefined, objectives: st
 
 function selectOutputContract(previous: SessionStableCore | undefined, candidates: string[]): string | undefined {
   return previous?.outputContract ?? candidates.find((candidate) => candidate.length <= 220);
+}
+
+function selectStableList(
+  previousValues: string[] | undefined,
+  candidates: string[],
+  conservativeUpdates: boolean | undefined
+): string[] {
+  if (!previousValues?.length || conservativeUpdates === false) {
+    return uniqueMeaningfulStrings([...(previousValues ?? []), ...candidates]).slice(0, 12);
+  }
+  const alreadyAccepted = candidates.filter((candidate) =>
+    previousValues.some((previous) => isMeaningfullySimilar(previous, candidate))
+  );
+  return uniqueMeaningfulStrings([...previousValues, ...alreadyAccepted]).slice(0, 12);
 }
 
 export function updateStableCore(input: {
@@ -50,8 +56,8 @@ export function updateStableCore(input: {
 
   return {
     objective,
-    hardConstraints: uniqueStrings([...(input.previous?.hardConstraints ?? []), ...constraints]).slice(0, 12),
-    acceptedDecisions: uniqueStrings([...(input.previous?.acceptedDecisions ?? []), ...decisions]).slice(0, 12),
+    hardConstraints: selectStableList(input.previous?.hardConstraints, constraints, input.conservativeUpdates),
+    acceptedDecisions: selectStableList(input.previous?.acceptedDecisions, decisions, input.conservativeUpdates),
     outputContract: selectOutputContract(input.previous, outputContracts),
     preferredMode: input.preferredMode ?? input.previous?.preferredMode,
     preferredTargetModel: input.preferredTargetModel ?? input.previous?.preferredTargetModel,

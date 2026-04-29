@@ -29,6 +29,10 @@ export interface SessionNoveltyItem {
   source: "draft" | "transform" | "capsule" | "manual";
   createdAt: string;
   accepted?: boolean;
+  lastSeenAt?: string;
+  seenCount?: number;
+  promotable?: boolean;
+  diagnosticNote?: string;
 }
 
 export interface SessionOpennessState {

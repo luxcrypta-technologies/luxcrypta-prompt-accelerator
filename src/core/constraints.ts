@@ -1,6 +1,6 @@
 import type { ExtractedConstraint } from "@/types/prompts";
 import { createStableId } from "@/utils/ids";
-import { uniqueStrings } from "@/utils/text";
+import { uniqueMeaningfulStrings } from "@/utils/text";
 
 const HARD_CUES = [
   "must",
@@ -20,9 +20,19 @@ const HARD_CUES = [
 ];
 
 function splitCandidates(text: string): string[] {
-  return text
+  const structured = text
+    .replace(/\s+(requirements?|hard requirements?|output contract|context):\s*/gi, "\n$1:\n")
+    .replace(/\s+[-*•]\s+/g, "\n- ");
+
+  if (!text) return [];
+  return structured
     .split(/\n|(?<=[.!?])\s+/)
-    .map((candidate) => candidate.replace(/^- /, "").trim())
+    .map((candidate) =>
+      candidate
+        .replace(/^\s*[-*•]\s*/, "")
+        .replace(/^\s*(requirements?|hard requirements?|output contract|context):\s*/i, "")
+        .trim()
+    )
     .filter((candidate) => candidate.length > 3);
 }
 
@@ -49,7 +59,7 @@ function confidenceFor(text: string, hard: boolean): number {
 
 export function extractConstraints(text: string): ExtractedConstraint[] {
   const candidates = splitCandidates(text);
-  const constraintTexts = uniqueStrings(
+  const constraintTexts = uniqueMeaningfulStrings(
     candidates.filter((candidate) => {
       const lower = candidate.toLowerCase();
       return HARD_CUES.some((cue) => lower.includes(cue));
