@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -13,6 +13,7 @@ const packageDir = resolve(root, "packages");
 const zipPath = resolve(packageDir, `luxcrypta-prompt-accelerator-${target}.zip`);
 
 await mkdir(packageDir, { recursive: true });
+await rm(zipPath, { force: true });
 
 const result = spawnSync("zip", ["-qr", zipPath, "."], {
   cwd: outDir,

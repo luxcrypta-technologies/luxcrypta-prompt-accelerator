@@ -1,6 +1,6 @@
 {
   "name": "luxcrypta-prompt-accelerator",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "license": "MIT",
   "type": "module",
@@ -14,6 +14,7 @@
     "build:firefox": "vite build --mode firefox && node scripts/build.firefox.mjs",
     "package:chromium": "npm run build:chromium && node scripts/package-extension.mjs chromium",
     "package:firefox": "npm run build:firefox && node scripts/package-extension.mjs firefox",
+    "package:source": "node scripts/package-source.mjs",
     "notice": "node scripts/generate-notice.mjs",
     "lint": "eslint . --ext .ts,.tsx"
   },

@@ -163,6 +163,7 @@ npm run build:chromium
 npm run build:firefox
 npm run package:chromium
 npm run package:firefox
+npm run package:source
 ```
 
 Build output is written to `dist/chromium` and `dist/firefox`.
@@ -193,6 +194,10 @@ It combines prompt compression, session continuity, reusable workflows, visible 
 ## Launch Materials
 
 Public release notes, store copy, feature summary, privacy summary, and positioning language live in [`docs/launch-pack.md`](docs/launch-pack.md).
+
+Store upload fields, permission justifications, privacy disclosure text, reviewer instructions, and package checklist live in [`docs/store-submission.md`](docs/store-submission.md).
+
+Public website copy for the extension homepage, privacy policy, and support page lives in [`docs/store-web-pages.md`](docs/store-web-pages.md). Candidate store screenshots and promotional images live in [`store-assets/`](store-assets/).
 
 ## License
 
