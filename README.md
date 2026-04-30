@@ -4,6 +4,22 @@ LuxCrypta Prompt Accelerator is a local-first browser extension that makes AI ch
 
 It helps reduce repetition, preserve important constraints, strengthen continuity across longer sessions, and turn repeated chat work into reusable workflows. It also gives users a clear review layer before changes are applied, so prompt improvements stay visible and inspectable.
 
+<p align="center">
+  <img src="store-assets/chrome/marquee-1400x560.png" alt="LuxCrypta Prompt Accelerator promotional marquee" width="900">
+</p>
+
+## Preview
+
+<p align="center">
+  <img src="store-assets/chrome/small-promo-440x280.png" alt="Prompt Accelerator promotional tile" width="320">
+  <img src="store-assets/screenshots/popup-1280x800.png" alt="Prompt Accelerator popup interface" width="320">
+</p>
+
+<p align="center">
+  <img src="store-assets/screenshots/review-1280x800.png" alt="Prompt Accelerator review and diff flow" width="320">
+  <img src="store-assets/screenshots/session-governance-1280x800.png" alt="Prompt Accelerator session governance view" width="320">
+</p>
+
 ## What It Does
 
 - Compresses prompts without dropping important requirements.
