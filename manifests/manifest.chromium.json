@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "LuxCrypta Prompt Accelerator",
   "short_name": "Prompt Accelerator",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Local prompt compression, review, workflows, and carry-forward capsules for AI chat.",
   "homepage_url": "https://luxcrypta.com/prompt-accelerator",
   "icons": {
@@ -27,13 +27,7 @@
     "default_path": "review.html"
   },
   "options_page": "options.html",
-  "permissions": ["storage", "activeTab", "scripting", "sidePanel"],
-  "host_permissions": [
-    "https://chat.openai.com/*",
-    "https://chatgpt.com/*",
-    "https://claude.ai/*",
-    "https://gemini.google.com/*"
-  ],
+  "permissions": ["storage", "sidePanel"],
   "content_scripts": [
     {
       "matches": [

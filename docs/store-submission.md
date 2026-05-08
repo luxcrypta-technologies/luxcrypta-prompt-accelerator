@@ -1,6 +1,6 @@
 # Store Submission
 
-This document is the upload handoff for LuxCrypta Prompt Accelerator `1.0.0`.
+This document is the upload handoff for LuxCrypta Prompt Accelerator `1.0.1`.
 
 ## Public Links
 
@@ -113,25 +113,19 @@ The use of information received from Google APIs will adhere to the Chrome Web S
 
 ## Permission Justifications
 
+Audit result: the extension does not request `scripting`, `activeTab`, `tabs`, or `host_permissions`.
+
 ### `storage`
 
 Stores local preferences, saved workflows, saved capsules, compact session state, diagnostics, and optional local action history.
-
-### `activeTab`
-
-Allows user-triggered popup actions to read and update the current supported chat draft.
-
-### `scripting`
-
-Supports content-script interaction with supported chat pages for user-triggered draft read/write and toolbar behavior.
 
 ### `sidePanel` Chromium Only
 
 Opens the Chromium review surface when supported. Firefox uses the browser-aware fallback flow.
 
-### Host Permissions
+### Content Script Matches
 
-Host permissions are limited to supported AI chat surfaces where the extension provides visible, user-triggered prompt acceleration:
+Static content script matches are limited to supported AI chat surfaces where the extension provides visible, user-triggered prompt acceleration:
 
 - `https://chat.openai.com/*`
 - `https://chatgpt.com/*`
@@ -189,4 +183,4 @@ Recommended screenshots:
 5. Use deferred/manual Chrome publishing if available so both stores can be coordinated.
 6. Track review status and patch only store-reported blockers.
 7. After approval, install from live store listings and run production smoke.
-8. Tag the approved release as `v1.0.0`.
+8. Tag the approved release as `v1.0.1`.

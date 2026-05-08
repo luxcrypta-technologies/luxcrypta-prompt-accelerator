@@ -8,6 +8,6 @@
 6. Validate Phase 2 session governance with repeated transforms, novelty promotion, openness preservation, and diagnostics review.
 7. Prepare public store submission package for Chrome Web Store and Firefox AMO.
 8. Publish LuxCrypta homepage, privacy, and support URLs before store upload.
-9. Submit `1.0.0` as public/listed on both stores under LUXCRYPTA Technologies LLC publisher accounts.
+9. Submit `1.0.1` as public/listed on both stores under LUXCRYPTA Technologies LLC publisher accounts.
 
 No backend, account dependency, or remote AI integration is planned for v1 or v1.5.
