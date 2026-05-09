@@ -1,6 +1,6 @@
 # Store Submission
 
-This document is the upload handoff for LuxCrypta Prompt Accelerator `1.0.1`.
+This document is the upload handoff for LuxCrypta Prompt Accelerator `2.1.1`.
 
 ## Public Links
 
@@ -153,6 +153,7 @@ No test credentials are provided. Reviewers can use their own supported chat acc
 Expected behavior:
 - Actions are user-triggered.
 - Prompt/session processing is local-first.
+- ChatGPT response streaming is left untouched.
 - No telemetry, analytics, backend dependency, hidden cloud sync, or hidden prompt exfiltration is used.
 ```
 
@@ -183,4 +184,4 @@ Recommended screenshots:
 5. Use deferred/manual Chrome publishing if available so both stores can be coordinated.
 6. Track review status and patch only store-reported blockers.
 7. After approval, install from live store listings and run production smoke.
-8. Tag the approved release as `v1.0.1`.
+8. Tag the approved release as `v2.1.1`.
