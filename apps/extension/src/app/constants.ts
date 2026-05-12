@@ -28,5 +28,6 @@ export const SECONDARY_ACTIONS: Array<{
   { id: "code", label: "Code", mode: "code" },
   { id: "adapt_claude", label: "Adapt for Claude", targetModel: "claude" },
   { id: "adapt_chatgpt", label: "Adapt for ChatGPT", targetModel: "chatgpt" },
-  { id: "adapt_gemini", label: "Adapt for Gemini", targetModel: "gemini" }
+  { id: "adapt_gemini", label: "Adapt for Gemini", targetModel: "gemini" },
+  { id: "adapt_grok", label: "Adapt for Grok", targetModel: "grok" }
 ];

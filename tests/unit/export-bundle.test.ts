@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { executeExportBundle, executeImportBundle, validateImportBundle } from "@/domain/actions/export-bundle";
-import { CapsuleStore } from "@/storage/capsule-store";
-import { PreferenceStore } from "@/storage/preference-store";
-import { WorkflowStore } from "@/storage/workflow-store";
-import type { CarryForwardCapsule } from "@/types/capsules";
-import type { ExportBundle } from "@/types/messages";
-import type { PlatformStorage } from "@/types/platform";
-import type { Workflow } from "@/types/workflows";
+import { executeExportBundle, executeImportBundle, validateImportBundle } from "@luxcrypta/continuity-domain/actions/export-bundle";
+import { CapsuleStore } from "@luxcrypta/continuity-storage/capsule-store";
+import { PreferenceStore } from "@luxcrypta/continuity-storage/preference-store";
+import { WorkflowStore } from "@luxcrypta/continuity-storage/workflow-store";
+import type { CarryForwardCapsule } from "@luxcrypta/continuity-types/capsules";
+import type { ExportBundle } from "@luxcrypta/continuity-types/bundles";
+import type { ContinuityStorage } from "@luxcrypta/continuity-types/storage";
+import type { Workflow } from "@luxcrypta/continuity-types/workflows";
 
-class MemoryStorage implements PlatformStorage {
+class MemoryStorage implements ContinuityStorage {
   private readonly values = new Map<string, unknown>();
 
   async get<T>(key: string): Promise<T | null> {

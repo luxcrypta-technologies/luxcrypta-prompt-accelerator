@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyModeTemplate } from "@/core/modes";
+import { applyModeTemplate } from "@luxcrypta/continuity-core/modes";
 
 describe("applyModeTemplate", () => {
   it("adds useful structure for code mode", () => {

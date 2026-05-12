@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractSessionCandidates, partitionSessionCandidates } from "@/governance/partition";
+import { extractSessionCandidates, partitionSessionCandidates } from "@luxcrypta/continuity-governance/partition";
 
 describe("governance partition", () => {
   it("separates stable and open candidates", () => {

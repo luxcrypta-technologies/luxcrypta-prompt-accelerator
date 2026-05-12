@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractConstraints } from "@/core/constraints";
+import { extractConstraints } from "@luxcrypta/continuity-core/constraints";
 
 describe("extractConstraints", () => {
   it("detects hard requirements and output contracts", () => {

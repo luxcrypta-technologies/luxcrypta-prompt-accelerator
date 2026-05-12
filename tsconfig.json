@@ -18,10 +18,22 @@
     "types": ["vitest/globals", "chrome", "firefox-webext-browser"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@platform-runtime": ["src/platform/chromium/api.ts"]
+      "@/*": ["apps/extension/src/*"],
+      "@luxcrypta/continuity-types": ["packages/continuity-types/src/index.ts"],
+      "@luxcrypta/continuity-types/*": ["packages/continuity-types/src/*"],
+      "@luxcrypta/continuity-core": ["packages/continuity-core/src/index.ts"],
+      "@luxcrypta/continuity-core/*": ["packages/continuity-core/src/*"],
+      "@luxcrypta/continuity-governance": ["packages/continuity-governance/src/index.ts"],
+      "@luxcrypta/continuity-governance/*": ["packages/continuity-governance/src/*"],
+      "@luxcrypta/continuity-storage": ["packages/continuity-storage/src/index.ts"],
+      "@luxcrypta/continuity-storage/*": ["packages/continuity-storage/src/*"],
+      "@luxcrypta/continuity-domain": ["packages/continuity-domain/src/index.ts"],
+      "@luxcrypta/continuity-domain/*": ["packages/continuity-domain/src/*"],
+      "@luxcrypta/continuity-routing": ["packages/continuity-routing/src/index.ts"],
+      "@luxcrypta/continuity-routing/*": ["packages/continuity-routing/src/*"],
+      "@platform-runtime": ["apps/extension/src/platform/chromium/api.ts"]
     }
   },
-  "include": ["src", "tests", "vite.config.ts", "scripts"],
+  "include": ["apps/extension/src", "packages", "apps/desktop", "tests", "apps/extension/vite.config.ts", "apps/extension/scripts"],
   "references": []
 }

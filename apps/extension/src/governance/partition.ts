@@ -47,7 +47,7 @@ function objectiveFromText(text: string): string | null {
   const firstLine = text
     .split("\n")
     .map((line) => stripLabel(line))
-    .find((line) => line.length > 3);
+    .find((line) => line.length > 3 && !/^(mode|task):\s*/i.test(line));
   const firstSentence = firstLine?.match(/^.+?[.!?](?:\s|$)/)?.[0].trim();
   return firstSentence?.slice(0, 220) || firstLine?.slice(0, 220) || firstMeaningfulLine(text, "").slice(0, 220) || null;
 }

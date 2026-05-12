@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { WorkflowStore } from "@/storage/workflow-store";
-import type { PlatformStorage } from "@/types/platform";
-import type { Workflow } from "@/types/workflows";
+import { WorkflowStore } from "@luxcrypta/continuity-storage/workflow-store";
+import type { ContinuityStorage } from "@luxcrypta/continuity-types/storage";
+import type { Workflow } from "@luxcrypta/continuity-types/workflows";
 
-class MemoryStorage implements PlatformStorage {
+class MemoryStorage implements ContinuityStorage {
   private readonly values = new Map<string, unknown>();
   async get<T>(key: string): Promise<T | null> {
     return (this.values.get(key) as T | undefined) ?? null;

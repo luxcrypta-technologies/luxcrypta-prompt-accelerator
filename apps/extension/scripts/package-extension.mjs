@@ -7,9 +7,10 @@ if (target !== "chromium" && target !== "firefox") {
   throw new Error("Usage: node scripts/package-extension.mjs <chromium|firefox>");
 }
 
-const root = resolve(import.meta.dirname, "..");
-const outDir = resolve(root, "dist", target);
-const packageDir = resolve(root, "packages");
+const appRoot = resolve(import.meta.dirname, "..");
+const repoRoot = resolve(appRoot, "../..");
+const outDir = resolve(repoRoot, "dist", target);
+const packageDir = resolve(repoRoot, "packages");
 const zipPath = resolve(packageDir, `luxcrypta-prompt-accelerator-${target}.zip`);
 
 await mkdir(packageDir, { recursive: true });

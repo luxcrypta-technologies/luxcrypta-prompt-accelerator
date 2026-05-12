@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { scoreCompressionDensity, scoreContinuity, scoreDrift, scoreOpenness } from "@/governance/scoring";
-import type { SessionGovernanceState, SessionOpennessState, SessionStableCore } from "@/types/governance";
+import { scoreCompressionDensity, scoreContinuity, scoreDrift, scoreOpenness } from "@luxcrypta/continuity-governance/scoring";
+import type { SessionGovernanceState, SessionOpennessState, SessionStableCore } from "@luxcrypta/continuity-types/governance";
 
 describe("governance scoring", () => {
   it("scores continuity, openness, and density within bounds", () => {

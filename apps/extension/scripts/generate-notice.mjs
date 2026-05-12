@@ -1,7 +1,8 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-const root = resolve(import.meta.dirname, "..");
+const appRoot = resolve(import.meta.dirname, "..");
+const root = resolve(appRoot, "../..");
 const pkg = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
 const dependencies = Object.keys(pkg.dependencies ?? {}).sort();
 

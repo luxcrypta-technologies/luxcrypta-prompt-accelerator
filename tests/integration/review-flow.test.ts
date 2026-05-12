@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { transformPrompt } from "@/core/pipeline";
+import { transformPrompt } from "@luxcrypta/continuity-core/pipeline";
 
 describe("review flow data", () => {
   it("always provides transformed text, explanation, diff, and scores", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createCapsuleFromSnapshot } from "@/core/capsules";
+import { createCapsuleFromSnapshot } from "@luxcrypta/continuity-core/capsules";
 
 describe("createCapsuleFromSnapshot", () => {
   it("creates compact carry-forward capsules from shallow snapshots", () => {

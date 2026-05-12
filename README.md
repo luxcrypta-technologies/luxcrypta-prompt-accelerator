@@ -1,6 +1,6 @@
 # LuxCrypta Prompt Accelerator
 
-LuxCrypta Prompt Accelerator is a local-first browser extension that makes AI chats easier to drive.
+LuxCrypta Prompt Accelerator is a local-first continuity runtime for AI workflows. The browser extension remains supported, and the repo now also includes a desktop MVP for persistent workspace, capsule, workflow, and provider handoff management.
 
 It helps reduce repetition, preserve important constraints, strengthen continuity across longer sessions, and turn repeated chat work into reusable workflows. It also gives users a clear review layer before changes are applied, so prompt improvements stay visible and inspectable.
 
@@ -45,7 +45,7 @@ LuxCrypta Prompt Accelerator exists to make those chats cleaner, tighter, and ea
 
 ## What This Is
 
-LuxCrypta Prompt Accelerator is a user-side prompt and session accelerator for AI chat.
+LuxCrypta Prompt Accelerator is a user-side prompt, session, and workflow continuity layer for AI chat.
 
 It improves the input and continuity layer around chat workflows by helping users:
 
@@ -54,6 +54,8 @@ It improves the input and continuity layer around chat workflows by helping user
 - Carry useful session state forward.
 - Reuse proven workflows.
 - Review changes before sending.
+- Preserve local workspaces across sessions.
+- Package continuity for ChatGPT, Claude, Gemini, and Grok.
 
 ## What This Is Not
 
@@ -156,6 +158,7 @@ Current build targets:
 
 - Chromium-based browsers
 - Firefox
+- Electron desktop MVP
 
 Load the packaged build or unpacked extension according to your browser's extension workflow.
 
@@ -175,6 +178,8 @@ Supported chat surfaces:
 npm install
 npm run typecheck
 npm test
+npm run build:desktop
+npm run desktop:dev
 npm run build:chromium
 npm run build:firefox
 npm run package:chromium
@@ -182,8 +187,13 @@ npm run package:firefox
 npm run package:source
 ```
 
-Build output is written to `dist/chromium` and `dist/firefox`.
-Package output is written to `packages/`.
+Extension build output is written to `dist/chromium` and `dist/firefox`.
+Desktop build output is written to `dist/desktop`.
+Extension package zips are written to `packages/`.
+
+## Repo Layout
+
+Shared continuity logic now lives in workspace packages under `packages/`. The browser extension shell lives in `apps/extension`, and the desktop MVP lives in `apps/desktop`.
 
 ## FAQ
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeTransformationScores } from "@/core/scoring";
+import { computeTransformationScores } from "@luxcrypta/continuity-core/scoring";
 
 describe("computeTransformationScores", () => {
   it("scores preserved hard constraints", () => {

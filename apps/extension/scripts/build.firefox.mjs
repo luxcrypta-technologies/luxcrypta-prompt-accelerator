@@ -3,12 +3,13 @@ import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { build } from "esbuild";
 
-const root = resolve(import.meta.dirname, "..");
-const outDir = resolve(root, "dist/firefox");
+const appRoot = resolve(import.meta.dirname, "..");
+const repoRoot = resolve(appRoot, "../..");
+const outDir = resolve(repoRoot, "dist/firefox");
 
 function aliasPlugin(target) {
   function resolveSourcePath(path) {
-    const base = resolve(root, "src", path);
+    const base = resolve(appRoot, "src", path);
     for (const candidate of [base, `${base}.ts`, `${base}.tsx`, `${base}.js`, `${base}/index.ts`, `${base}/index.tsx`]) {
       if (existsSync(candidate) && statSync(candidate).isFile()) {
         return candidate;
@@ -21,7 +22,7 @@ function aliasPlugin(target) {
     name: "local-alias",
     setup(buildContext) {
       buildContext.onResolve({ filter: /^@platform-runtime$/ }, () => ({
-        path: resolve(root, `src/platform/${target}/api.ts`)
+        path: resolve(appRoot, `src/platform/${target}/api.ts`)
       }));
       buildContext.onResolve({ filter: /^@\// }, (args) => ({
         path: resolveSourcePath(args.path.slice(2))
@@ -31,13 +32,13 @@ function aliasPlugin(target) {
 }
 
 async function copyManifest() {
-  const manifest = await readFile(resolve(root, "manifests/manifest.firefox.json"), "utf8");
+  const manifest = await readFile(resolve(appRoot, "manifests/manifest.firefox.json"), "utf8");
   await writeFile(resolve(outDir, "manifest.json"), manifest);
 }
 
 async function copyContentCss() {
   await mkdir(resolve(outDir, "assets"), { recursive: true });
-  await cp(resolve(root, "src/content/content.css"), resolve(outDir, "assets/content.css"));
+  await cp(resolve(appRoot, "src/content/content.css"), resolve(outDir, "assets/content.css"));
 }
 
 async function removeReactDomInnerHtmlFallback() {
@@ -74,7 +75,7 @@ await copyManifest();
 await copyContentCss();
 
 await build({
-  entryPoints: [resolve(root, "src/background/service-worker.ts")],
+  entryPoints: [resolve(appRoot, "src/background/service-worker.ts")],
   bundle: true,
   outfile: resolve(outDir, "assets/service-worker.js"),
   format: "iife",
@@ -86,7 +87,7 @@ await build({
 await removeReactDomInnerHtmlFallback();
 
 await build({
-  entryPoints: [resolve(root, "src/content/content-script.ts")],
+  entryPoints: [resolve(appRoot, "src/content/content-script.ts")],
   bundle: true,
   outfile: resolve(outDir, "assets/content-script.js"),
   format: "iife",

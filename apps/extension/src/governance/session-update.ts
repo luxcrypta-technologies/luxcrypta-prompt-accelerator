@@ -21,8 +21,8 @@ function originalLength(input: SessionUpdateInput): number {
 
 function fallbackText(input: SessionUpdateInput): string {
   return (
-    input.transformResult?.transformedText ??
     input.transformRequest?.sourceText ??
+    input.transformResult?.transformedText ??
     input.capsule?.objective ??
     input.conversationSnapshot?.turns.map((turn) => turn.text).join("\n") ??
     ""

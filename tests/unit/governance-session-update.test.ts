@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { transformPrompt } from "@/core/pipeline";
-import { updateSessionGovernance } from "@/governance/session-update";
+import { transformPrompt } from "@luxcrypta/continuity-core/pipeline";
+import { updateSessionGovernance } from "@luxcrypta/continuity-governance/session-update";
 
 describe("governance session update", () => {
   it("preserves stable core and isolates changed instructions as novelty", () => {

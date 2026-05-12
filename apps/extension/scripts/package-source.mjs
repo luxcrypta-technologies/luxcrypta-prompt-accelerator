@@ -2,7 +2,8 @@ import { mkdir, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
-const root = resolve(import.meta.dirname, "..");
+const appRoot = resolve(import.meta.dirname, "..");
+const root = resolve(appRoot, "../..");
 const packageDir = resolve(root, "packages");
 const zipPath = resolve(packageDir, "luxcrypta-prompt-accelerator-source.zip");
 
@@ -16,7 +17,7 @@ const excludePatterns = [
   ".env.*",
   "node_modules/*",
   "dist/*",
-  "packages/*",
+  "packages/*.zip",
   "coverage/*",
   ".cache/*",
   ".vite/*"

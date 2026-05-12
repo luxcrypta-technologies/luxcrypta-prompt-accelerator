@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adaptForModel } from "@/core/model-adapters";
+import { adaptForModel } from "@luxcrypta/continuity-core/model-adapters";
 
 describe("adaptForModel", () => {
   it("shapes Claude prompts without changing the task", () => {

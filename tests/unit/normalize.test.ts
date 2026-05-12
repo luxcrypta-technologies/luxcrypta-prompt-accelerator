@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizePrompt } from "@/core/normalize";
+import { normalizePrompt } from "@luxcrypta/continuity-core/normalize";
 
 describe("normalizePrompt", () => {
   it("normalizes whitespace, bullets, and blank lines conservatively", () => {

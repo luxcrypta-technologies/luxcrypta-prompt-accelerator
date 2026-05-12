@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { compressPrompt } from "@/core/compress";
-import { extractConstraints } from "@/core/constraints";
-import { normalizePrompt } from "@/core/normalize";
+import { compressPrompt } from "@luxcrypta/continuity-core/compress";
+import { extractConstraints } from "@luxcrypta/continuity-core/constraints";
+import { normalizePrompt } from "@luxcrypta/continuity-core/normalize";
 
 describe("compressPrompt", () => {
   it("keeps hard constraints while removing filler", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDiff } from "@/core/diff";
+import { buildDiff } from "@luxcrypta/continuity-core/diff";
 
 describe("buildDiff", () => {
   it("returns inspectable replace blocks", () => {
