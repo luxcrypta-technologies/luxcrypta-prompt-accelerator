@@ -1,28 +1,29 @@
 # Launch Pack
 
-This pack contains public-facing launch material for LuxCrypta Prompt Accelerator `1.0.1`.
+This pack contains public-facing launch material for LuxCrypta Prompt Accelerator `2.2.1`.
 
 Launch baseline:
 
-- Core code baseline: `1.0.1` store submission preparation
+- Core code baseline: `2.2.1` always-on continuity runtime store submission preparation
 - Targets: Chromium and Firefox
 - Package outputs: `packages/luxcrypta-prompt-accelerator-chromium.zip` and `packages/luxcrypta-prompt-accelerator-firefox.zip`
 
 ## Release Notes
 
-### LuxCrypta Prompt Accelerator 1.0.1
+### LuxCrypta Prompt Accelerator 2.2.1
 
-LuxCrypta Prompt Accelerator is a local-first browser extension for improving AI chat prompts before they are sent. It helps compress repetitive drafts, preserve hard requirements, review changes with a diff, save reusable workflows, and create compact carry-forward capsules for longer sessions.
+LuxCrypta Prompt Accelerator is a local-first browser extension for improving AI chat workflows before they are sent. It helps reduce repetition, preserve hard requirements, review continuity-shaped drafts, save reusable workflows, and create compact carry-forward capsules for longer sessions.
 
 This release includes:
 
-- Prompt transforms for compression, focus, research, creative work, debate, code tasks, speed, precision, and executive summaries.
+- Always-on continuity shaping with redundancy reduction and objective prioritization.
+- Human-readable Advanced review with diagnostics kept secondary.
 - Review-before-apply workflow with original text, transformed text, explanation, and diff.
 - Local workflows for reusable prompt patterns.
 - Carry-forward capsules for compact session continuity.
 - Session governance with stable core, new/provisional items, open/unresolved items, health scoring, and optional diagnostics.
 - Manual JSON export/import for workflows, capsules, preferences, compact session state, and diagnostics.
-- Supported chat surfaces: ChatGPT, Claude, and Gemini.
+- Supported chat surfaces: ChatGPT, Claude, Gemini, and Grok.
 - Chromium and Firefox packaging.
 - Local-only operation with no backend, telemetry, analytics, or hidden network path.
 
@@ -50,8 +51,9 @@ This extension is designed for users who want AI chats to feel cleaner, less rep
 
 Core capabilities:
 
-- Prompt compression
-- Mode-based prompt rewriting
+- Always-on continuity shaping
+- Human-readable Advanced review
+- Redundancy reduction and objective prioritization
 - Carry-forward session capsules
 - Reusable workflows
 - Cross-model prompt adaptation
@@ -83,9 +85,9 @@ What it is not:
 
 ### Prompt Improvement
 
-- Compression removes low-information repetition.
+- Continuity shaping removes low-information repetition.
 - Constraint preservation keeps hard requirements visible.
-- Mode templates help shape prompts for specific work patterns.
+- Objective prioritization keeps the handoff anchored to the main active goal.
 - Model formatting profiles keep output practical for common chat surfaces.
 
 ### Review And Trust
@@ -117,8 +119,8 @@ What it is not:
 
 ## Store Page Feature Bullets
 
-- Compress prompts without dropping important requirements.
-- Rewrite prompts for Focus, Precision, Research, Code, and more.
+- Reduce repetition without dropping important requirements.
+- Keep prompts anchored to the active objective.
 - Preserve continuity across longer chat sessions.
 - Save and reuse strong workflows.
 - Generate carry-forward capsules.
@@ -192,7 +194,7 @@ LuxCrypta Prompt Accelerator is a local-first browser extension that makes AI ch
 
 ### GitHub / Website Blurb
 
-LuxCrypta Prompt Accelerator is a local-first browser extension for improving AI chat workflows through prompt compression, mode-based rewriting, carry-forward continuity, reusable workflows, visible review, and stronger session-state handling over longer chat runs.
+LuxCrypta Prompt Accelerator is a local-first browser extension for improving AI chat workflows through always-on continuity shaping, carry-forward continuity, reusable workflows, visible review, and stronger session-state handling over longer chat runs.
 
 ### Why LuxCrypta Built This
 

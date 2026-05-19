@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, ipcMain } from "electron";
+import { app, BrowserWindow, clipboard, dialog, ipcMain } from "electron";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DesktopWorkspaceRepository } from "./workspace-store";
@@ -33,6 +33,7 @@ function createWindow(): void {
 function registerIpc(): void {
   ipcMain.handle("desktop:get-state", () => repository.getState());
   ipcMain.handle("desktop:create-workspace", (_event, title: string) => repository.createWorkspace(title));
+  ipcMain.handle("desktop:rename-workspace", (_event, title: string) => repository.renameActiveWorkspace(title));
   ipcMain.handle("desktop:switch-workspace", (_event, id: string) => repository.switchWorkspace(id));
   ipcMain.handle("desktop:update-session", (_event, input) => repository.updateSession(input));
   ipcMain.handle("desktop:promote-novelty", (_event, ids: string[]) => repository.promoteNovelty(ids));
@@ -41,6 +42,26 @@ function registerIpc(): void {
   ipcMain.handle("desktop:save-workflow", (_event, input) => repository.saveWorkflow(input));
   ipcMain.handle("desktop:apply-workflow", (_event, id: string) => repository.applyWorkflow(id));
   ipcMain.handle("desktop:generate-handoff", (_event, input) => repository.generateHandoff(input));
+  ipcMain.handle("desktop:export-workspace", async () => {
+    const state = await repository.getState();
+    const result = await dialog.showSaveDialog({
+      title: "Export LuxCrypta workspace",
+      defaultPath: `${state.activeWorkspace.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-workspace.json`,
+      filters: [{ name: "JSON", extensions: ["json"] }]
+    });
+    if (result.canceled || !result.filePath) return { path: null, state };
+    return repository.exportActiveWorkspace(result.filePath);
+  });
+  ipcMain.handle("desktop:import-workspace", async () => {
+    const state = await repository.getState();
+    const result = await dialog.showOpenDialog({
+      title: "Import LuxCrypta workspace bundle",
+      properties: ["openFile"],
+      filters: [{ name: "JSON", extensions: ["json"] }]
+    });
+    if (result.canceled || !result.filePaths[0]) return { path: null, state };
+    return repository.importIntoActiveWorkspace(result.filePaths[0]);
+  });
   ipcMain.handle("desktop:copy-text", (_event, text: string) => {
     clipboard.writeText(text);
   });

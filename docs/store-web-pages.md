@@ -11,12 +11,13 @@ URL: `https://luxcrypta.com/prompt-accelerator`
 
 LuxCrypta Prompt Accelerator is a local-first browser extension that makes AI chats easier to drive.
 
-It helps reduce repetition, preserve important constraints, strengthen continuity across longer sessions, and turn repeated prompt work into reusable workflows. It also gives users a clear review layer before changes are applied, so prompt improvements stay visible and inspectable.
+It helps reduce repetition, preserve important constraints, strengthen continuity across longer sessions, and turn repeated prompt work into reusable workflows. The default chat-page experience stays quiet, with Advanced available when users want a clear review layer before changes are applied.
 
 ## Core Capabilities
 
-- Prompt compression
-- Mode-based prompt rewriting
+- Always-on continuity shaping
+- Human-readable Advanced review
+- Redundancy reduction and objective prioritization
 - Carry-forward session capsules
 - Reusable workflows
 - Cross-model prompt adaptation
@@ -33,6 +34,7 @@ Supported chat surfaces:
 - ChatGPT
 - Claude
 - Gemini
+- Grok
 
 ## What It Is
 
@@ -106,7 +108,7 @@ Use this page for support with LuxCrypta Prompt Accelerator.
 ## Basic Troubleshooting
 
 1. Confirm the browser extension is enabled.
-2. Confirm you are on a supported chat surface: ChatGPT, Claude, or Gemini.
+2. Confirm you are on a supported chat surface: ChatGPT, Claude, Gemini, or Grok.
 3. Reload the chat page after installing or updating the extension.
 4. Open the extension popup and confirm the page is detected.
 5. Check Options if toolbar or session governance features are disabled.

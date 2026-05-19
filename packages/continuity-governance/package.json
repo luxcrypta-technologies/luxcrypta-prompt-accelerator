@@ -1,0 +1,16 @@
+{
+  "name": "@luxcrypta/continuity-governance",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@luxcrypta/continuity-core": "0.1.0",
+    "@luxcrypta/continuity-types": "0.1.0"
+  }
+}

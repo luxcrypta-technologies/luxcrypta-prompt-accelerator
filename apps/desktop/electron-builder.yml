@@ -1,0 +1,62 @@
+appId: com.luxcrypta.promptaccelerator.desktop
+productName: LuxCrypta Prompt Accelerator
+copyright: Copyright © 2026 LuxCrypta
+asar: true
+npmRebuild: false
+buildDependenciesFromSource: false
+publish: null
+
+directories:
+  buildResources: apps/desktop/build
+  output: release/desktop
+
+files:
+  - from: dist/desktop
+    to: dist/desktop
+    filter:
+      - "**/*"
+  - package.json
+
+extraMetadata:
+  name: luxcrypta-prompt-accelerator-desktop
+  version: 2.1.2
+  main: dist/desktop/electron/main.js
+  description: Local-first desktop continuity console for AI workflows.
+
+mac:
+  category: public.app-category.productivity
+  icon: apps/desktop/build/icon.icns
+  target:
+    - dmg
+  hardenedRuntime: true
+
+dmg:
+  artifactName: LuxCrypta-Prompt-Accelerator-${version}-${arch}.${ext}
+
+win:
+  icon: apps/desktop/build/icon.png
+  target:
+    - nsis
+    - portable
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  artifactName: LuxCrypta-Prompt-Accelerator-Setup-${version}-${arch}.${ext}
+
+portable:
+  artifactName: LuxCrypta-Prompt-Accelerator-Portable-${version}-${arch}.${ext}
+
+linux:
+  icon: apps/desktop/build/icon.png
+  category: Utility
+  maintainer: LuxCrypta <support@luxcrypta.com>
+  target:
+    - AppImage
+    - deb
+
+appImage:
+  artifactName: LuxCrypta-Prompt-Accelerator-${version}-${arch}.${ext}
+
+deb:
+  artifactName: LuxCrypta-Prompt-Accelerator-${version}-${arch}.${ext}

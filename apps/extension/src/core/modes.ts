@@ -32,7 +32,7 @@ export function applyModeTemplate(
 
   switch (mode) {
     case "focus":
-      return `Focus the response on the main objective.\n\n${text}${requirements}`;
+      return `Prioritize the main objective.\n\n${text}${requirements}`;
     case "speed":
       return `Answer quickly with only the useful essentials.\n\n${text}${requirements}`;
     case "precision":

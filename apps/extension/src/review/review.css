@@ -42,6 +42,7 @@ body {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  align-items: stretch;
   margin-top: 14px;
 }
 
@@ -52,6 +53,12 @@ body {
   border-radius: 8px;
   background: #ffffff;
   padding: 12px;
+}
+
+.review-pane {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
 }
 
 .review-pane h2,
@@ -79,12 +86,97 @@ body {
   resize: vertical;
 }
 
+.toolbar-feedback {
+  display: grid;
+  gap: 3px;
+  margin-top: 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.toolbar-feedback strong {
+  color: #111827;
+  font-size: 13px;
+}
+
+.toolbar-feedback span {
+  color: #475569;
+}
+
+.toolbar-feedback--loading {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.toolbar-feedback--success {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.toolbar-feedback--success strong {
+  color: #166534;
+}
+
+.toolbar-feedback--error {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.toolbar-feedback--error strong {
+  color: #991b1b;
+}
+
+.review-comparison {
+  grid-auto-rows: 1fr;
+}
+
+.review-comparison .review-pane {
+  height: clamp(380px, 58vh, 620px);
+  margin-top: 0;
+}
+
+.review-comparison .review-pane__content {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  overflow: auto;
+}
+
+.review-comparison textarea.review-pane__content {
+  resize: none;
+}
+
 .review-section ul {
   margin: 0;
   padding-left: 18px;
   color: #334155;
   font-size: 13px;
   line-height: 1.55;
+}
+
+.review-section p {
+  margin: 0;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.clean-summary p,
+.active-objective p {
+  max-width: 760px;
+}
+
+.continuity-grid .review-section {
+  margin-top: 0;
+}
+
+.continuity-section {
+  min-height: 112px;
 }
 
 .diff-view {
@@ -256,8 +348,24 @@ body {
   font-size: 13px;
 }
 
+.diagnostics-json {
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  background: #f8fafc;
+  padding: 10px;
+  color: #334155;
+  white-space: pre-wrap;
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
 @media (max-width: 760px) {
   .review-grid {
     grid-template-columns: 1fr;
+  }
+
+  .review-comparison .review-pane {
+    height: clamp(320px, 52vh, 520px);
   }
 }

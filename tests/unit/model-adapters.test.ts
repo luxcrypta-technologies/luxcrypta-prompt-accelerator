@@ -7,4 +7,10 @@ describe("adaptForModel", () => {
     expect(result).toContain("Please handle this carefully");
     expect(result).toContain("Objective: write a summary");
   });
+
+  it("shapes Grok prompts without changing the task", () => {
+    const result = adaptForModel("Objective: preserve continuity", "grok", "focus");
+    expect(result).toContain("Keep the tone concise");
+    expect(result).toContain("Objective: preserve continuity");
+  });
 });

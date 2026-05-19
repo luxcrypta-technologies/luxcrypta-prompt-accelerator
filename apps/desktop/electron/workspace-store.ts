@@ -2,17 +2,16 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { executePromoteNovelty } from "@luxcrypta/continuity-domain/actions/promote-novelty";
+import { executeExportBundle, executeImportBundle } from "@luxcrypta/continuity-domain/actions/export-bundle";
 import { executeTransformPrompt } from "@luxcrypta/continuity-domain/actions/transform-prompt";
 import { executeUpdateSessionState } from "@luxcrypta/continuity-domain/actions/update-session-state";
 import { WorkflowService } from "@luxcrypta/continuity-domain/services/workflow-service";
 import { createCarryForwardFromGovernance } from "@luxcrypta/continuity-governance/carry-forward";
 import { CapsuleStore } from "@luxcrypta/continuity-storage/capsule-store";
-import { DiagnosticsStore } from "@luxcrypta/continuity-storage/diagnostics-store";
 import { SessionStore } from "@luxcrypta/continuity-storage/session-store";
 import { WorkflowStore } from "@luxcrypta/continuity-storage/workflow-store";
 import { CURRENT_SESSION_KEY, STORAGE_PREFIXES } from "@luxcrypta/continuity-storage/keys";
 import type { CarryForwardCapsule } from "@luxcrypta/continuity-types/capsules";
-import type { SessionGovernanceState } from "@luxcrypta/continuity-types/governance";
 import type { ContinuityStorage } from "@luxcrypta/continuity-types/storage";
 import { createDatedId } from "@luxcrypta/continuity-types/utils/ids";
 import { nowIso } from "@luxcrypta/continuity-types/utils/time";
@@ -50,6 +49,9 @@ function wrap<T>(data: T): VersionedRecord<T> {
 
 function unwrap<T>(value: unknown): T {
   if (value && typeof value === "object" && "schemaVersion" in value && "data" in value) {
+    if ((value as VersionedRecord<T>).schemaVersion !== 1) {
+      throw new Error("Unsupported desktop data schema version.");
+    }
     return (value as VersionedRecord<T>).data;
   }
   return value as T;
@@ -61,8 +63,12 @@ function safeFileName(value: string): string {
 
 async function readJson<T>(path: string): Promise<T | null> {
   if (!existsSync(path)) return null;
-  const raw = await readFile(path, "utf8");
-  return unwrap<T>(JSON.parse(raw));
+  try {
+    const raw = await readFile(path, "utf8");
+    return unwrap<T>(JSON.parse(raw));
+  } catch {
+    return null;
+  }
 }
 
 async function writeJson<T>(path: string, value: T): Promise<void> {
@@ -157,6 +163,18 @@ export class DesktopWorkspaceRepository {
     return this.loadState(workspace.id);
   }
 
+  async renameActiveWorkspace(title: string): Promise<DesktopState> {
+    const state = await this.getState();
+    const trimmed = title.trim();
+    if (!trimmed) return state;
+    await this.saveWorkspace({
+      ...state.activeWorkspace,
+      title: trimmed,
+      updatedAt: nowIso()
+    });
+    return this.loadState(state.activeWorkspace.id);
+  }
+
   async switchWorkspace(id: string): Promise<DesktopState> {
     const workspaces = await this.listWorkspaces();
     if (!workspaces.some((workspace) => workspace.id === id)) {
@@ -247,6 +265,31 @@ export class DesktopWorkspaceRepository {
     });
     await this.saveExport(state.activeWorkspace.id, handoff);
     return handoff;
+  }
+
+  async exportActiveWorkspace(filePath: string): Promise<{ path: string | null; state: DesktopState }> {
+    const state = await this.getState();
+    const bundle = await executeExportBundle({ storage: this.storageFor(state.activeWorkspace.id) });
+    await writeJson(filePath, {
+      kind: "luxcrypta-desktop-workspace-export",
+      workspace: state.activeWorkspace,
+      bundle
+    });
+    return { path: filePath, state: await this.loadState(state.activeWorkspace.id) };
+  }
+
+  async importIntoActiveWorkspace(filePath: string): Promise<{ path: string | null; state: DesktopState }> {
+    const state = await this.getState();
+    const payload = await readJson<{
+      kind?: string;
+      bundle?: unknown;
+    }>(filePath);
+    if (!payload) {
+      throw new Error("Import file is not valid JSON or uses an unsupported schema version.");
+    }
+    const bundle = payload && typeof payload === "object" && "bundle" in payload ? payload.bundle : payload;
+    await executeImportBundle(bundle, { storage: this.storageFor(state.activeWorkspace.id) });
+    return { path: filePath, state: await this.loadState(state.activeWorkspace.id) };
   }
 
   private async loadState(workspaceId: string): Promise<DesktopState> {

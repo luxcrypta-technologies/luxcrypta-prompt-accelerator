@@ -182,6 +182,11 @@ select {
   gap: 10px;
 }
 
+.inline-actions {
+  display: flex;
+  gap: 6px;
+}
+
 .button {
   min-height: 34px;
   justify-content: center;

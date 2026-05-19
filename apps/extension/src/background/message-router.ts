@@ -7,6 +7,7 @@ import { executeGetDiagnostics, executeReviewSessionState } from "@/domain/actio
 import { executeSaveWorkflow } from "@/domain/actions/save-workflow";
 import { executeTransformPrompt } from "@/domain/actions/transform-prompt";
 import { executeUpdateSessionState } from "@/domain/actions/update-session-state";
+import { CapsuleService } from "@/domain/services/capsule-service";
 import { HistoryService } from "@/domain/services/history-service";
 import { PreferenceService } from "@/domain/services/preference-service";
 import { SessionGovernanceService } from "@/domain/services/session-governance-service";
@@ -74,6 +75,8 @@ export function createMessageRouter(platform: PlatformAPI) {
         );
         return capsule;
       }
+      case "capsule:save":
+        return new CapsuleService(platform.storage).createFromReview(backgroundMessage.payload.capsule);
       case "workflow:save":
         return executeSaveWorkflow(backgroundMessage.payload, { storage: platform.storage });
       case "history:list":

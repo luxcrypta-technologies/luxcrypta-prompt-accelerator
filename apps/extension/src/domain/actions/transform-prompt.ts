@@ -6,13 +6,8 @@ import type { PlatformStorage } from "@/types/platform";
 import type { TransformRequest, TransformResult } from "@/types/prompts";
 
 function actionFromRequest(request: TransformRequest): HistoryAction {
-  if (request.mode === "focus") return "focus";
-  if (request.mode === "creative") return "creative";
-  if (request.mode === "precision") return "precision";
-  if (request.mode === "research") return "research";
-  if (request.mode === "code") return "code";
   if (request.targetModel) return "adapt_model";
-  return "compress";
+  return "continuity_runtime";
 }
 
 export async function executeTransformPrompt(

@@ -3,6 +3,7 @@ import {
   Check,
   ChevronRight,
   Clipboard,
+  Download,
   FilePlus2,
   FolderPlus,
   GitBranch,
@@ -12,7 +13,8 @@ import {
   Route,
   Save,
   ShieldCheck,
-  Sparkles
+  Sparkles,
+  Upload
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
@@ -66,6 +68,7 @@ function WorkspaceRail(props: {
   workspaceTitle: string;
   setWorkspaceTitle: (value: string) => void;
   createWorkspace: () => void;
+  renameWorkspace: () => void;
   switchWorkspace: (id: string) => void;
   selectedWorkflowId?: string;
   setSelectedWorkflowId: (id: string | undefined) => void;
@@ -85,7 +88,10 @@ function WorkspaceRail(props: {
       <section className="rail-section">
         <div className="rail-heading">
           <span>Workspaces</span>
-          <Button icon={<FolderPlus size={15} />} onClick={props.createWorkspace} title="Create workspace" />
+          <div className="inline-actions">
+            <Button icon={<Save size={15} />} onClick={props.renameWorkspace} title="Rename active workspace" />
+            <Button icon={<FolderPlus size={15} />} onClick={props.createWorkspace} title="Create workspace" />
+          </div>
         </div>
         <input className="compact-input" value={props.workspaceTitle} onChange={(event) => props.setWorkspaceTitle(event.target.value)} />
         <div className="rail-list">
@@ -221,6 +227,8 @@ function HandoffPanel(props: {
   saveCapsule: () => void;
   saveWorkflow: () => void;
   applyWorkflow: () => void;
+  exportWorkspace: () => void;
+  importWorkspace: () => void;
 }) {
   return (
     <aside className="handoff-panel">
@@ -270,6 +278,12 @@ function HandoffPanel(props: {
         <Button icon={<Play size={15} />} onClick={props.applyWorkflow} disabled={!props.selectedWorkflow}>
           Apply
         </Button>
+        <Button icon={<Download size={15} />} onClick={props.exportWorkspace}>
+          Export
+        </Button>
+        <Button icon={<Upload size={15} />} onClick={props.importWorkspace}>
+          Import
+        </Button>
       </div>
     </aside>
   );
@@ -289,6 +303,7 @@ export function App() {
   const loadState = useCallback(async () => {
     const next = await window.luxcryptaDesktop.getState();
     setState(next);
+    setWorkspaceTitle(next.activeWorkspace.title);
     setTarget((next.currentSession?.stableCore.preferredTargetModel as ProviderTarget | undefined) ?? "chatgpt");
     setStatus("Ready");
   }, []);
@@ -320,12 +335,21 @@ export function App() {
   const createWorkspace = useCallback(async () => {
     const next = await window.luxcryptaDesktop.createWorkspace(workspaceTitle);
     setState(next);
+    setWorkspaceTitle(next.activeWorkspace.title);
     setStatus("Workspace created");
+  }, [workspaceTitle]);
+
+  const renameWorkspace = useCallback(async () => {
+    const next = await window.luxcryptaDesktop.renameWorkspace(workspaceTitle);
+    setState(next);
+    setWorkspaceTitle(next.activeWorkspace.title);
+    setStatus("Workspace renamed");
   }, [workspaceTitle]);
 
   const switchWorkspace = useCallback(async (id: string) => {
     const next = await window.luxcryptaDesktop.switchWorkspace(id);
     setState(next);
+    setWorkspaceTitle(next.activeWorkspace.title);
     setSelectedCapsuleId(undefined);
     setSelectedWorkflowId(undefined);
     setStatus("Workspace loaded");
@@ -384,6 +408,26 @@ export function App() {
     setStatus("Copied");
   }, [state?.handoff?.text]);
 
+  const exportWorkspace = useCallback(async () => {
+    try {
+      const result = await window.luxcryptaDesktop.exportWorkspace();
+      setState(result.state);
+      setStatus(result.path ? "Workspace exported" : "Export canceled");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Unable to export workspace.");
+    }
+  }, []);
+
+  const importWorkspace = useCallback(async () => {
+    try {
+      const result = await window.luxcryptaDesktop.importWorkspace();
+      setState(result.state);
+      setStatus(result.path ? "Workspace imported" : "Import canceled");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Unable to import workspace.");
+    }
+  }, []);
+
   if (!state) {
     return (
       <main className="loading-shell">
@@ -400,6 +444,7 @@ export function App() {
         workspaceTitle={workspaceTitle}
         setWorkspaceTitle={setWorkspaceTitle}
         createWorkspace={createWorkspace}
+        renameWorkspace={renameWorkspace}
         switchWorkspace={switchWorkspace}
         selectedWorkflowId={selectedWorkflowId}
         setSelectedWorkflowId={setSelectedWorkflowId}
@@ -448,6 +493,8 @@ export function App() {
         saveCapsule={saveCapsule}
         saveWorkflow={saveWorkflow}
         applyWorkflow={applyWorkflow}
+        exportWorkspace={exportWorkspace}
+        importWorkspace={importWorkspace}
       />
     </main>
   );

@@ -1,0 +1,13 @@
+{
+  "name": "@luxcrypta/continuity-types",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts",
+    "./utils/*": "./src/utils/*.ts"
+  },
+  "types": "./src/index.ts"
+}

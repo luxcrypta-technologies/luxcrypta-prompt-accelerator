@@ -49,6 +49,7 @@ export interface DesktopWorkflowInput {
 export interface DesktopApi {
   getState(): Promise<DesktopState>;
   createWorkspace(title: string): Promise<DesktopState>;
+  renameWorkspace(title: string): Promise<DesktopState>;
   switchWorkspace(id: string): Promise<DesktopState>;
   updateSession(input: DesktopSessionUpdateInput): Promise<DesktopSessionUpdateResult>;
   promoteNovelty(ids: string[]): Promise<DesktopState>;
@@ -57,5 +58,7 @@ export interface DesktopApi {
   saveWorkflow(input: DesktopWorkflowInput): Promise<DesktopState>;
   applyWorkflow(id: string): Promise<DesktopSessionUpdateResult>;
   generateHandoff(input: { target: ProviderTarget; capsuleId?: string; workflowId?: string; notes?: string }): Promise<ContinuityHandoff>;
+  exportWorkspace(): Promise<{ path: string | null; state: DesktopState }>;
+  importWorkspace(): Promise<{ path: string | null; state: DesktopState }>;
   copyText(text: string): Promise<void>;
 }

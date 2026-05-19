@@ -11,13 +11,14 @@ export function buildExplanation(input: {
   targetModel?: TargetModel;
 }): string[] {
   const explanation = [
+    "Ran the always-on continuity pipeline.",
     input.normalized.length < input.original.length
-      ? "Shortened whitespace, repeated phrasing, or low-information setup."
-      : "Kept the original wording mostly intact where compression was not clearly safe.",
+      ? "Reduced whitespace, repeated phrasing, and low-information setup."
+      : "Kept wording intact where further reduction was not clearly safe.",
     input.constraints.length > 0
       ? `Preserved ${input.constraints.filter((constraint) => constraint.hard).length} likely hard requirement(s).`
       : "No explicit hard requirements were detected.",
-    input.mode ? `Applied ${input.mode.replace("_", " ")} mode.` : "No mode template was applied.",
+    "Prioritized the active objective without exposing a user-selected mode.",
     input.targetModel
       ? `Applied ${input.targetModel} formatting preferences.`
       : "No target model formatting profile was applied.",

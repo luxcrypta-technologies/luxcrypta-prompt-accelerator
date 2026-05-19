@@ -13,7 +13,7 @@ function inferMode(text: string): ModeName | undefined {
   if (/\b(summary|executive|recommendation)\b/.test(lower)) return "executive_summary";
   if (/\b(argue|debate|tradeoff|counterargument)\b/.test(lower)) return "debate";
   if (/\b(creative|ideas|brainstorm)\b/.test(lower)) return "creative";
-  return "focus";
+  return undefined;
 }
 
 function extractDecisions(text: string): string[] {

@@ -3,7 +3,7 @@
 1. Land the zero-state scaffold with cross-browser boundaries.
 2. Ship a Chromium development build first.
 3. Validate Firefox packaging and review-tab fallback.
-4. Add manual smoke coverage for ChatGPT, Claude, and Gemini.
+4. Add manual smoke coverage for ChatGPT, Claude, Gemini, and Grok.
 5. Tighten selectors and release notes from real-page testing.
 6. Validate Phase 2 session governance with repeated transforms, novelty promotion, openness preservation, and diagnostics review.
 7. Prepare public store submission package for Chrome Web Store and Firefox AMO.

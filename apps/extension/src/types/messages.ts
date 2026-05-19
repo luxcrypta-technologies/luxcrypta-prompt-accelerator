@@ -8,6 +8,8 @@ import type { SessionDiagnostics, SessionGovernanceState, SessionUpdateInput, Se
 import type { UserPreferences } from "./preferences";
 import type { Workflow } from "./workflows";
 
+export type CapsuleSaveInput = Omit<CarryForwardCapsule, "capsule_version" | "id" | "created_at" | "updated_at">;
+
 export interface ExportBundle {
   version: 1;
   exportedAt: string;
@@ -39,6 +41,7 @@ export interface ReviewState {
 export type BackgroundMessage =
   | { type: "prompt:transform"; payload: TransformRequest }
   | { type: "capsule:generate"; payload: { snapshot?: ConversationSnapshot; sourceSurface?: string } }
+  | { type: "capsule:save"; payload: { capsule: CapsuleSaveInput } }
   | { type: "workflow:save"; payload: { workflow: Omit<Workflow, "id" | "createdAt" | "updatedAt"> } }
   | { type: "history:list"; payload?: { limit?: number } }
   | { type: "preferences:get" }
@@ -77,6 +80,6 @@ export type BackgroundMessageResult =
 
 export type ContentMessageResult =
   | { text: string; surfaceId?: string }
-  | { applied: boolean }
+  | { applied: boolean; text?: string; surfaceId?: string }
   | ConversationSnapshot
   | null;

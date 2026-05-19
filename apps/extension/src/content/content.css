@@ -1,6 +1,6 @@
 .lcpa-toolbar {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
   margin: 6px 0;
   padding: 6px;
@@ -11,6 +11,13 @@
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   z-index: 2147483640;
+}
+
+.lcpa-toolbar__label {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
 }
 
 .lcpa-toolbar__button {

@@ -1,0 +1,20 @@
+{
+  "name": "@luxcrypta/continuity-domain",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./actions/*": "./src/actions/*.ts",
+    "./services/*": "./src/services/*.ts",
+    "./mappers/*": "./src/mappers/*.ts"
+  },
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@luxcrypta/continuity-core": "0.1.0",
+    "@luxcrypta/continuity-governance": "0.1.0",
+    "@luxcrypta/continuity-storage": "0.1.0",
+    "@luxcrypta/continuity-types": "0.1.0"
+  }
+}

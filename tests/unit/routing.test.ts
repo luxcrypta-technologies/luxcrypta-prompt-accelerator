@@ -21,4 +21,22 @@ describe("continuity routing", () => {
       expect(handoff.text).toContain("Open State");
     }
   });
+
+  it("builds a Grok-specific continuity handoff profile", () => {
+    const session = updateSessionGovernance({
+      transformRequest: {
+        sourceText: "Objective: add Grok support. Must target grok.com first. Open question: live smoke timing?",
+        mode: "focus",
+        targetModel: "grok"
+      }
+    }).state;
+
+    const handoff = buildContinuityHandoff({ target: "grok", session, notes: "Keep provider internals out of scope." });
+
+    expect(PROVIDER_TARGETS).toContain("grok");
+    expect(handoff.label).toBe("Grok");
+    expect(handoff.text).toContain("Grok Continuity Handoff");
+    expect(handoff.text).toContain("grok.com first");
+    expect(handoff.text).toContain("Keep provider internals out of scope.");
+  });
 });

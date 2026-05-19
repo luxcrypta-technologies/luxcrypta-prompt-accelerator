@@ -1,6 +1,6 @@
 # Store Submission
 
-This document is the upload handoff for LuxCrypta Prompt Accelerator `2.1.1`.
+This document is the upload handoff for LuxCrypta Prompt Accelerator `2.2.1`.
 
 ## Public Links
 
@@ -53,15 +53,16 @@ A local-first browser extension for cleaner prompts, stronger continuity, reusab
 ```text
 LuxCrypta Prompt Accelerator is a local-first browser extension built to make AI chats easier to drive.
 
-It helps reduce repetition, preserve important constraints, strengthen continuity across longer sessions, and turn repeated prompt work into reusable workflows. It also provides visible diff review before apply, so changes stay inspectable and under user control.
+It provides an always-on continuity runtime that helps reduce repetition, preserve important constraints, strengthen continuity across longer sessions, and turn repeated prompt work into reusable workflows. The default chat-page experience stays quiet, with an Advanced review surface available when users want to inspect or apply the continuity-shaped draft.
 
 Core capabilities:
-- prompt compression
-- mode-based prompt rewriting
+- always-on continuity shaping
+- human-readable Advanced review
+- redundancy reduction and objective prioritization
 - carry-forward session capsules
 - reusable workflows
 - cross-model prompt adaptation
-- visible diff and explanation
+- visible review, diff, and explanation
 - session-governance features for stronger continuity and novelty handling
 - local-first storage with manual export/import
 
@@ -90,13 +91,13 @@ What it is not:
 Single purpose:
 
 ```text
-LuxCrypta Prompt Accelerator improves user-triggered AI chat drafts by compressing prompts, preserving constraints, reviewing changes, saving local workflows, and generating compact carry-forward session state.
+LuxCrypta Prompt Accelerator improves supported AI chat workflows by preserving constraints, reducing repetition, shaping continuity, reviewing changes, saving local workflows, and generating compact carry-forward session state.
 ```
 
 Data handling:
 
 ```text
-The extension reads draft prompt text and shallow page context only when the user triggers an action such as transform, review, apply, workflow save, capsule generation, or export/import. Core processing is local-first. Workflows, capsules, preferences, compact session state, diagnostics, and optional history are stored in local extension storage. The extension does not use telemetry, analytics, hidden cloud sync, a backend service, or hidden prompt exfiltration.
+The extension reads draft prompt text and shallow page context only when the user uses an extension action such as opening Advanced review, applying reviewed text, saving a workflow, generating a capsule, or exporting/importing local data. Core processing is local-first. Workflows, capsules, preferences, compact session state, diagnostics, and optional history are stored in local extension storage. The extension does not use telemetry, analytics, hidden cloud sync, a backend service, or hidden prompt exfiltration.
 ```
 
 User data sharing:
@@ -131,6 +132,7 @@ Static content script matches are limited to supported AI chat surfaces where th
 - `https://chatgpt.com/*`
 - `https://claude.ai/*`
 - `https://gemini.google.com/*`
+- `https://grok.com/*`
 
 ## Reviewer Test Instructions
 
@@ -140,18 +142,19 @@ LuxCrypta Prompt Accelerator is a local-first prompt/session utility for support
 Suggested test flow:
 1. Install the extension.
 2. Open the popup and confirm it renders.
-3. Open a supported chat page such as ChatGPT, Claude, or Gemini.
+3. Open a supported chat page such as ChatGPT, Claude, Gemini, or Grok.
 4. Type a draft prompt in the chat input.
-5. Use Compress or Focus from the popup or toolbar.
-6. Confirm the review surface opens with original text, transformed text, explanation, and diff.
-7. Apply or copy the transformed prompt.
-8. Open Options and verify local preferences.
-9. Save a workflow or capsule, then export/import the local JSON bundle.
+5. Confirm the chat toolbar shows Powered by LuxCrypta and Advanced, without Compress or Focus controls.
+6. Click Advanced.
+7. Confirm the review surface opens with a human-readable continuity review, original text, transformed text, explanation, and diff.
+8. Apply or copy the transformed prompt.
+9. Open Options and verify local preferences.
+10. Save a workflow or capsule from the review surface, then export/import the local JSON bundle.
 
 No test credentials are provided. Reviewers can use their own supported chat account where login is required by the third-party site.
 
 Expected behavior:
-- Actions are user-triggered.
+- Review, apply, save, and export/import actions are user-triggered.
 - Prompt/session processing is local-first.
 - ChatGPT response streaming is left untouched.
 - No telemetry, analytics, backend dependency, hidden cloud sync, or hidden prompt exfiltration is used.
@@ -184,4 +187,4 @@ Recommended screenshots:
 5. Use deferred/manual Chrome publishing if available so both stores can be coordinated.
 6. Track review status and patch only store-reported blockers.
 7. After approval, install from live store listings and run production smoke.
-8. Tag the approved release as `v2.1.1`.
+8. Tag the approved release as `v2.2.1`.

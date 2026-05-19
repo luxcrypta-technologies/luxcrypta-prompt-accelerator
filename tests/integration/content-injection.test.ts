@@ -2,15 +2,16 @@ import { describe, expect, it, vi } from "vitest";
 import { createToolbarElement } from "@/content/toolbar-entry";
 
 describe("content toolbar", () => {
-  it("wires primary actions", () => {
-    const onCompress = vi.fn();
+  it("exposes only the always-on runtime label and Advanced action", () => {
+    const onAdvanced = vi.fn();
     const toolbar = createToolbarElement({
-      onCompress,
-      onFocus: vi.fn(),
-      onContinue: vi.fn(),
-      onSaveWorkflow: vi.fn()
+      onAdvanced
     });
     toolbar.querySelector("button")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(onCompress).toHaveBeenCalledOnce();
+    expect(onAdvanced).toHaveBeenCalledOnce();
+    expect(toolbar.textContent).toContain("Powered by LuxCrypta");
+    expect(toolbar.textContent).toContain("Advanced");
+    expect(toolbar.textContent).not.toContain("Compress");
+    expect(toolbar.textContent).not.toContain("Focus");
   });
 });

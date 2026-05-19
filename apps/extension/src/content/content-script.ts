@@ -3,7 +3,6 @@ import { createToolbarElement } from "./toolbar-entry";
 import { observeDom } from "./dom-observer";
 import { getCurrentSurface } from "./surface-registry";
 import type { BackgroundMessage, ContentMessage } from "@/types/messages";
-import type { CarryForwardCapsule } from "@/types/capsules";
 import type { UserPreferences } from "@/types/preferences";
 import type { TransformResult } from "@/types/prompts";
 import type { ChatSurfaceAdapter } from "@/types/surfaces";
@@ -11,55 +10,32 @@ import type { ChatSurfaceAdapter } from "@/types/surfaces";
 const TOOLBAR_ID = "lcpa-toolbar-root";
 const platform = getPlatformAPI();
 
-function capsuleToPrompt(capsule: unknown): string {
-  return `Carry-forward capsule:\n${JSON.stringify(capsule, null, 2)}`;
+function snapshotToContinuityText(surface: ChatSurfaceAdapter): string {
+  const snapshot = surface.getConversationSnapshot?.();
+  if (!snapshot?.turns.length) return "";
+  return [
+    snapshot.title ? `Objective: ${snapshot.title}` : "",
+    ...snapshot.turns.map((turn) => `${turn.role}: ${turn.text}`)
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
-async function transformDraft(surface: ChatSurfaceAdapter, mode?: "focus"): Promise<void> {
-  const sourceText = surface.getCurrentDraftText();
+async function openAdvancedReview(surface: ChatSurfaceAdapter): Promise<void> {
+  const sourceText = surface.getCurrentDraftText().trim() || snapshotToContinuityText(surface);
   if (!sourceText.trim()) {
     return;
   }
   const result = await platform.messaging.sendMessage<BackgroundMessage, TransformResult>(
     {
       type: "prompt:transform",
-      payload: { sourceText, mode, preserveConstraints: true, sourceSurface: surface.id }
+      payload: { sourceText, preserveConstraints: true, sourceSurface: surface.id }
     }
   );
   await platform.messaging.sendMessage<BackgroundMessage, { reviewId: string }>({
     type: "review:open",
     payload: { result }
   });
-}
-
-async function continueSession(surface: ChatSurfaceAdapter): Promise<void> {
-  const snapshot = surface.getConversationSnapshot?.() ?? null;
-  const capsule = await platform.messaging.sendMessage<BackgroundMessage, CarryForwardCapsule>(
-    { type: "capsule:generate", payload: { snapshot: snapshot ?? undefined, sourceSurface: surface.id } }
-  );
-  surface.insertText(capsuleToPrompt(capsule));
-}
-
-async function saveWorkflow(surface: ChatSurfaceAdapter): Promise<void> {
-  const sourceText = surface.getCurrentDraftText();
-  if (!sourceText.trim()) {
-    return;
-  }
-  await platform.messaging.sendMessage<BackgroundMessage, unknown>(
-    {
-      type: "workflow:save",
-      payload: {
-        workflow: {
-          title: sourceText.split("\n")[0].slice(0, 60) || "Saved workflow",
-          objective: sourceText,
-          mode: "focus",
-          constraints: [],
-          outputPreferences: [],
-          targetModel: "generic"
-        }
-      }
-    }
-  );
 }
 
 function injectToolbar(): void {
@@ -73,10 +49,7 @@ function injectToolbar(): void {
     return;
   }
   const toolbar = createToolbarElement({
-    onCompress: () => void transformDraft(surface),
-    onFocus: () => void transformDraft(surface, "focus"),
-    onContinue: () => void continueSession(surface),
-    onSaveWorkflow: () => void saveWorkflow(surface)
+    onAdvanced: () => void openAdvancedReview(surface)
   });
   toolbar.id = TOOLBAR_ID;
   parent.insertBefore(toolbar, input);
@@ -102,7 +75,8 @@ platform.messaging.onMessage((message: unknown) => {
     return { text: surface.getCurrentDraftText(), surfaceId: surface.id };
   }
   if (typedMessage.type === "content:draft:apply") {
-    return { applied: surface.setCurrentDraftText(typedMessage.payload.text) };
+    const applied = surface.setCurrentDraftText(typedMessage.payload.text);
+    return { applied, text: surface.getCurrentDraftText(), surfaceId: surface.id };
   }
   if (typedMessage.type === "content:snapshot:get") {
     return surface.getConversationSnapshot?.() ?? null;

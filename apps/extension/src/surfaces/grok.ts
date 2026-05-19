@@ -1,0 +1,88 @@
+import type { ChatSurfaceAdapter, ConversationSnapshot } from "./types";
+import { appendDraftText, queryFirstUsableInput, readDraftText, replaceDraftText, type DraftInputElement } from "./dom";
+
+const INPUT_SELECTORS = [
+  "div.ProseMirror[contenteditable='true']",
+  "[contenteditable='true'][aria-label*='Grok' i]",
+  "[contenteditable='true'][aria-label*='Ask' i]",
+  "[contenteditable='true'][data-placeholder*='Ask' i]",
+  "[contenteditable='true'][role='textbox']",
+  "textarea[aria-label*='Grok' i]",
+  "textarea[placeholder*='Grok' i]",
+  "textarea[placeholder*='Ask' i]",
+  "textarea",
+  "div[contenteditable='true']"
+];
+
+const SNAPSHOT_SELECTORS = [
+  "[data-message-author-role]",
+  "[data-testid*='conversation' i]",
+  "[data-testid*='message' i]",
+  "article"
+];
+
+function queryInput(): DraftInputElement | null {
+  return queryFirstUsableInput(INPUT_SELECTORS);
+}
+
+function compactText(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function roleFromElement(element: HTMLElement, index: number): ConversationSnapshot["turns"][number]["role"] {
+  const marker = [
+    element.dataset.messageAuthorRole,
+    element.dataset.testid,
+    element.getAttribute("aria-label"),
+    element.className
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (marker.includes("user") || marker.includes("human")) return "user";
+  if (marker.includes("assistant") || marker.includes("grok") || marker.includes("response")) return "assistant";
+  return index % 2 === 0 ? "user" : "assistant";
+}
+
+export const grokSurface: ChatSurfaceAdapter = {
+  id: "grok",
+  label: "Grok",
+  matches(url: string) {
+    return /^https:\/\/grok\.com\//.test(url);
+  },
+  isReady() {
+    return queryInput() !== null;
+  },
+  getInputElement: queryInput,
+  getCurrentDraftText() {
+    return readDraftText(queryInput());
+  },
+  setCurrentDraftText(text: string) {
+    return replaceDraftText(queryInput(), text);
+  },
+  insertText(text: string) {
+    return appendDraftText(queryInput(), text);
+  },
+  getConversationSnapshot(): ConversationSnapshot | null {
+    const input = queryInput();
+    const seen = new Set<string>();
+    const turns = Array.from(document.querySelectorAll(SNAPSHOT_SELECTORS.join(",")))
+      .slice(-16)
+      .map((node, index) => {
+        const element = node as HTMLElement;
+        if (input && element.contains(input)) return null;
+        const text = compactText(element.textContent ?? "").slice(0, 2000);
+        if (!text || seen.has(text)) return null;
+        seen.add(text);
+        return {
+          role: roleFromElement(element, index),
+          text
+        };
+      })
+      .filter((turn): turn is ConversationSnapshot["turns"][number] => Boolean(turn))
+      .slice(-8);
+
+    return turns.length ? { title: document.title.replace("Grok", "").trim(), turns } : null;
+  }
+};
