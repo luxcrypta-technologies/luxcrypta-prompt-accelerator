@@ -1,13 +1,12 @@
 import { getPlatformAPI } from "@platform-runtime";
-import { createToolbarElement } from "./toolbar-entry";
 import { observeDom } from "./dom-observer";
+import { createToolbarMountController } from "./toolbar-mount";
 import { getCurrentSurface } from "./surface-registry";
 import type { BackgroundMessage, ContentMessage } from "@/types/messages";
 import type { UserPreferences } from "@/types/preferences";
 import type { TransformResult } from "@/types/prompts";
 import type { ChatSurfaceAdapter } from "@/types/surfaces";
 
-const TOOLBAR_ID = "lcpa-toolbar-root";
 const platform = getPlatformAPI();
 
 function snapshotToContinuityText(surface: ChatSurfaceAdapter): string {
@@ -38,30 +37,21 @@ async function openAdvancedReview(surface: ChatSurfaceAdapter): Promise<void> {
   });
 }
 
-function injectToolbar(): void {
-  const surface = getCurrentSurface();
-  if (!surface?.isReady() || document.getElementById(TOOLBAR_ID)) {
-    return;
-  }
-  const input = surface.getInputElement();
-  const parent = input?.parentElement;
-  if (!input || !parent) {
-    return;
-  }
-  const toolbar = createToolbarElement({
-    onAdvanced: () => void openAdvancedReview(surface)
-  });
-  toolbar.id = TOOLBAR_ID;
-  parent.insertBefore(toolbar, input);
-}
+const toolbarMount = createToolbarMountController({
+  getSurface: getCurrentSurface,
+  onAdvanced: (surface) => void openAdvancedReview(surface),
+  observeDom
+});
 
 async function bootstrap(): Promise<void> {
   const preferences = await platform.messaging
     .sendMessage<BackgroundMessage, UserPreferences>({ type: "preferences:get" })
     .catch(() => ({ contextualToolbarEnabled: true }));
   if (preferences.contextualToolbarEnabled !== false) {
-    injectToolbar();
-    observeDom(injectToolbar);
+    toolbarMount.ensureToolbarMounted();
+    toolbarMount.observeRootContainerReplacement();
+    toolbarMount.observeChatGPTNavigationChanges();
+    toolbarMount.startToolbarHealthMonitor();
   }
 }
 

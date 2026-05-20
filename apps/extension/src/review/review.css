@@ -219,6 +219,26 @@ body {
   font-size: 12px;
 }
 
+.saved-artifact {
+  display: grid;
+  gap: 8px;
+}
+
+.saved-artifact .ui-card {
+  min-height: 0;
+}
+
+.saved-artifact__actions,
+.diagnostics-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.diagnostics-actions {
+  margin: 10px 0 12px;
+}
+
 .status-line {
   color: #475569;
   font-size: 12px;

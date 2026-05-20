@@ -17,19 +17,35 @@ export class WorkflowService {
 
   async save(input: Omit<Workflow, "id" | "createdAt" | "updatedAt">): Promise<Workflow> {
     const timestamp = nowIso();
+    const id = createDatedId("workflow", `${input.title}:${input.objective}`, timestamp);
     const workflow: Workflow = {
+      version: 1,
       ...input,
-      id: createDatedId("workflow", `${input.title}:${input.objective}`, timestamp),
+      id,
+      workflow_id: id,
       createdAt: timestamp,
       updatedAt: timestamp
     };
     await this.store.save(workflow);
-    return workflow;
+    const persisted = await this.store.get(workflow.id);
+    if (!persisted) {
+      throw new Error("Workflow storage write could not be verified.");
+    }
+    return persisted;
   }
 
   async upsert(workflow: Workflow): Promise<Workflow> {
-    const updated = { ...workflow, updatedAt: nowIso() };
+    const updated = {
+      ...workflow,
+      version: workflow.version ?? 1,
+      workflow_id: workflow.workflow_id ?? workflow.id,
+      updatedAt: nowIso()
+    } satisfies Workflow;
     await this.store.save(updated);
-    return updated;
+    const persisted = await this.store.get(updated.id);
+    if (!persisted) {
+      throw new Error("Workflow storage write could not be verified.");
+    }
+    return persisted;
   }
 }

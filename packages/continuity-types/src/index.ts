@@ -5,6 +5,7 @@ export * from "./diff";
 export * from "./governance";
 export * from "./modes";
 export * from "./models";
+export * from "./operational-cognition";
 export * from "./preferences";
 export * from "./prompts";
 export * from "./storage";

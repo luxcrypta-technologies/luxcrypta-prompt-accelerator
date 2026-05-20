@@ -118,6 +118,9 @@ describe("review window toolbar actions", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Save Workflow" }));
     await waitFor(() => expect(screen.getAllByText(/Workflow saved:/).length).toBeGreaterThan(0));
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining("\"workflow_id\""));
+    });
     expect(platformMock.sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "workflow:save",
@@ -131,6 +134,9 @@ describe("review window toolbar actions", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Save Capsule" }));
     await waitFor(() => expect(screen.getAllByText(/Capsule saved:/).length).toBeGreaterThan(0));
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining("\"capsule_id\""));
+    });
     expect(platformMock.sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "capsule:save",
@@ -141,5 +147,21 @@ describe("review window toolbar actions", () => {
         })
       })
     );
+  });
+
+  it("copies raw diagnostic data from Advanced Diagnostics", async () => {
+    const result = reviewResult();
+    mockReviewMessages(result);
+    render(React.createElement(App));
+
+    fireEvent.click(await screen.findByText("Advanced Diagnostics"));
+    fireEvent.click(screen.getByRole("button", { name: "Copy Raw Diagnostic Data" }));
+
+    await waitFor(() => expect(screen.getAllByText("Raw diagnostic data copied").length).toBeGreaterThan(0));
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+        expect.stringContaining("# LuxCrypta Diagnostic State")
+      );
+    });
   });
 });
