@@ -78,6 +78,7 @@ interface AdmittedContinuityState {
   continuityAnchors: string[];
   provisionalState: string[];
   workflowEvolution: string[];
+  recommendedNextActions: string[];
   carryForwardContext: string;
   capsuleText: string;
   diagnostics: {
@@ -197,13 +198,16 @@ function splitCandidateFragments(value: string | undefined): string[] {
 
 function isUiArtifact(text: string): boolean {
   const lower = text.toLowerCase();
-  const compact = lower.replace(/\s+/g, "");
+  const compact = lower.replace(/[^a-z0-9]+/g, "");
   return (
     /^(showmore|showless|showmoreshowless)$/.test(compact) ||
-    /^(apply|copy|save|cancel|close|review|workflow|capsule|downloadjson|saveworkflow|savecapsule|copycapsule|copyrawdiagnosticdata)$/.test(
+    /^(apply|copy|save|cancel|close|review|workflow|capsule|downloadjson|saveworkflow|savecapsule|copycapsule|copyrawdiagnosticdata|exportdiagnosticstate)$/.test(
       compact
     ) ||
-    /^(copying|copied|saving workflow|saving capsule|workflow saved|capsule saved|download started)$/.test(lower)
+    /^(activeobjective|stablecore|newprovisional|openunresolved|recommendednextactions|transformedcontinuitydraft|cleansummary|advanceddiagnostics|rawcapsulediagnosticdata|poweredbyluxcrypta|readytoreview)$/.test(
+      compact
+    ) ||
+    /^(copying|copied|saving workflow|saving capsule|workflow saved|capsule saved|download started|ready to review)\.?$/.test(lower)
   );
 }
 
@@ -217,6 +221,10 @@ function isConversationDebris(text: string): boolean {
     /^hold on\b/.test(lower) ||
     /^this is what i see when i click\b/.test(lower) ||
     /^analy[sz]e everything[.! ]*$/.test(lower) ||
+    /^please analy[sz]e everything[.! ]*$/.test(lower) ||
+    /^(here are|these are|i uploaded|i'?m attaching|attached|uploading)\b.*\b(images?|screenshots?|files?)\b/.test(lower) ||
+    /^(below is|here is)\b.*\b(copy[-\s]?paste|patch directive|directive|task block|prompt block|instructions?)\b/.test(lower) ||
+    /^razak[,]?$/.test(lower) ||
     /^if you want\b/.test(lower) ||
     /^next i can produce\b/.test(lower)
   );
@@ -679,6 +687,12 @@ function buildAdmittedState(result: TransformResult, transformedText: string): A
     context,
     8
   );
+  const recommendedNextActions = admitCandidates(
+    candidatesFrom(review.recommendedNextActions, "continuity_review.recommended_next_actions"),
+    "workflow_evolution",
+    context,
+    4
+  );
   const carryForwardContext = portableContinuityText({
     activeObjective,
     stableConstraints,
@@ -697,7 +711,7 @@ function buildAdmittedState(result: TransformResult, transformedText: string): A
     ...compactTextSection("Open / Unresolved", unresolvedIssues),
     ...compactTextSection("Rejected Directions", rejectedDirections, 2),
     ...compactTextSection("Continuity Anchors", continuityAnchors, 2),
-    ...compactTextSection("Recommended Next Actions", admitCandidates(candidatesFrom(review.recommendedNextActions, "continuity_review.recommended_next_actions"), "workflow_evolution", context, 2))
+    ...compactTextSection("Recommended Next Actions", recommendedNextActions, 2)
   ]
     .filter(Boolean)
     .join("\n");
@@ -715,6 +729,7 @@ function buildAdmittedState(result: TransformResult, transformedText: string): A
     continuityAnchors,
     provisionalState,
     workflowEvolution,
+    recommendedNextActions,
     carryForwardContext,
     capsuleText,
     diagnostics: {
@@ -741,6 +756,34 @@ function compactGovernanceSummary(sessionState: SessionGovernanceState | null): 
     monitors: sessionState.monitors,
     diagnostics: sessionState.diagnostics
   };
+}
+
+function cleanContinuityReview(
+  review: TransformResult["continuityReview"],
+  admitted: AdmittedContinuityState
+): Record<string, unknown> {
+  return {
+    clean_summary: review.cleanSummary,
+    active_objective: admitted.activeObjective,
+    stable_core: admitted.stableConstraints,
+    accepted_decisions: admitted.acceptedDecisions,
+    provisional_state: admitted.provisionalState,
+    open_unresolved: admitted.unresolvedIssues,
+    what_changed: admitted.workflowEvolution,
+    recommended_next_actions: admitted.recommendedNextActions
+  };
+}
+
+function cleanContinuityStateHistory(admitted: AdmittedContinuityState): Record<string, unknown>[] {
+  return [
+    {
+      source: "continuity_review",
+      active_objective: admitted.activeObjective,
+      stable_core_count: admitted.stableConstraints.length,
+      unresolved_count: admitted.unresolvedIssues.length,
+      admission_warnings: admitted.diagnostics.warnings
+    }
+  ];
 }
 
 function scoreSummary(result: TransformResult): Record<string, number | undefined> {
@@ -782,7 +825,6 @@ function sourcePlatform(result: TransformResult): string {
 }
 
 export function formatContinuityExport(result: TransformResult, transformedText: string): string {
-  const review = result.continuityReview;
   const admitted = buildAdmittedState(result, transformedText);
   const sections = [
     ["Continuity Review"],
@@ -794,7 +836,7 @@ export function formatContinuityExport(result: TransformResult, transformedText:
     ),
     bulletSection("New / Provisional", admitted.provisionalState, "No new provisional changes detected."),
     bulletSection("Open / Unresolved", admitted.unresolvedIssues),
-    bulletSection("Recommended Next Actions", review.recommendedNextActions),
+    bulletSection("Recommended Next Actions", admitted.recommendedNextActions),
     transformedText.trim() ? ["Transformed Continuity Draft", transformedText.trim()] : []
   ];
 
@@ -826,25 +868,8 @@ export function buildWorkflowDraft(result: TransformResult, transformedText: str
     accepted_decisions: acceptedDecisions,
     unresolved_issues: openIssues,
     provisional_state: admitted.provisionalState,
-    continuity_review: {
-      clean_summary: review.cleanSummary,
-      active_objective: admitted.activeObjective,
-      stable_core: stableConstraints,
-      accepted_decisions: acceptedDecisions,
-      provisional_state: admitted.provisionalState,
-      open_unresolved: openIssues,
-      what_changed: admitted.workflowEvolution,
-      recommended_next_actions: review.recommendedNextActions
-    },
-    continuity_state_history: [
-      {
-        source: "continuity_review",
-        active_objective: admitted.activeObjective,
-        stable_core_count: stableConstraints.length,
-        unresolved_count: openIssues.length,
-        admission_warnings: admitted.diagnostics.warnings
-      }
-    ],
+    continuity_review: cleanContinuityReview(review, admitted),
+    continuity_state_history: cleanContinuityStateHistory(admitted),
     workflow_evolution: admitted.workflowEvolution.map((change) => ({ change })),
     diagnostic_data: {
       ...diagnosticMetadata(result, transformedText),
@@ -872,7 +897,7 @@ export function buildWorkflowDraft(result: TransformResult, transformedText: str
     outputPreferences: uniqueNonEmpty([
       ...result.explanation,
       ...acceptedDecisions.map((decision) => `Accepted decision: ${decision}`),
-      ...review.recommendedNextActions.map((action) => `Next action: ${action}`)
+      ...admitted.recommendedNextActions.map((action) => `Next action: ${action}`)
     ]).slice(0, 16),
     carryForwardContext: admitted.carryForwardContext,
     targetModel: result.targetModelApplied,
@@ -908,7 +933,7 @@ export function buildCapsuleDraft(result: TransformResult, transformedText: stri
     rejected_directions: admitted.rejectedDirections,
     continuity_anchors: admitted.continuityAnchors,
     reconstruction_instructions:
-      "Use active_objective, stable_constraints, accepted_decisions, unresolved_issues, and continuity_anchors to reconstruct the working context before continuing.",
+      "Use active_objective, stable_constraints, accepted_decisions, unresolved_issues, rejected_directions, and continuity_anchors to reconstruct the working context before continuing.",
     model_transfer_notes: {
       target_model: result.targetModelApplied,
       preferred_mode: result.modeApplied ?? parsed?.preferred_mode,
@@ -947,15 +972,15 @@ export function buildPortableCapsuleArtifact(
     rejected_directions: admitted.rejectedDirections,
     continuity_anchors: admitted.continuityAnchors,
     reconstruction_instructions:
-      capsule.reconstruction_instructions ??
-      "Reconstruct the active objective, stable constraints, accepted decisions, unresolved issues, and continuity anchors before continuing the workflow.",
-    model_transfer_notes: capsule.model_transfer_notes ?? {
+      "Reconstruct the active objective, stable constraints, accepted decisions, unresolved issues, rejected directions, and continuity anchors before continuing the workflow.",
+    model_transfer_notes: {
+      ...(capsule.model_transfer_notes ?? {}),
       source_platform: sourcePlatform(context.result),
       target_model: context.result.targetModelApplied,
-      preferred_mode: capsule.preferred_mode
+      preferred_mode: capsule.preferred_mode ?? context.result.modeApplied
     },
     diagnostic_metadata: {
-      ...(capsule.diagnostic_metadata ?? diagnosticMetadata(context.result, context.transformedText, context.extensionVersion)),
+      ...diagnosticMetadata(context.result, context.transformedText, context.extensionVersion),
       admission_filter: portableAdmissionSummary(admitted.diagnostics)
     },
     capsule_text: admitted.capsuleText
@@ -977,16 +1002,11 @@ export function buildPortableWorkflowArtifact(workflow: Workflow, context: Revie
     accepted_decisions: admitted.acceptedDecisions,
     unresolved_issues: admitted.unresolvedIssues,
     provisional_state: admitted.provisionalState,
-    continuity_review: workflow.continuity_review ?? {
-      active_objective: admitted.activeObjective,
-      stable_core: admitted.stableConstraints,
-      accepted_decisions: admitted.acceptedDecisions,
-      open_unresolved: admitted.unresolvedIssues
-    },
-    continuity_state_history: workflow.continuity_state_history ?? [],
-    workflow_evolution: workflow.workflow_evolution ?? admitted.workflowEvolution.map((change) => ({ change })),
+    continuity_review: cleanContinuityReview(context.result.continuityReview, admitted),
+    continuity_state_history: cleanContinuityStateHistory(admitted),
+    workflow_evolution: admitted.workflowEvolution.map((change) => ({ change })),
     diagnostic_data: {
-      ...(workflow.diagnostic_data ?? diagnosticMetadata(context.result, context.transformedText, context.extensionVersion)),
+      ...diagnosticMetadata(context.result, context.transformedText, context.extensionVersion),
       admission_filter: portableAdmissionSummary(admitted.diagnostics)
     },
     risk_scores: workflow.risk_scores ?? { risk_score: context.result.scores.riskScore },

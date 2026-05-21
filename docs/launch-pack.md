@@ -1,16 +1,16 @@
 # Launch Pack
 
-This pack contains public-facing launch material for LuxCrypta Prompt Accelerator `2.2.1`.
+This pack contains public-facing launch material for LuxCrypta Prompt Accelerator `2.2.2`.
 
 Launch baseline:
 
-- Core code baseline: `2.2.1` always-on continuity runtime store submission preparation
+- Core code baseline: `2.2.2` always-on continuity runtime store submission preparation
 - Targets: Chromium and Firefox
 - Package outputs: `packages/luxcrypta-prompt-accelerator-chromium.zip` and `packages/luxcrypta-prompt-accelerator-firefox.zip`
 
 ## Release Notes
 
-### LuxCrypta Prompt Accelerator 2.2.1
+### LuxCrypta Prompt Accelerator 2.2.2
 
 LuxCrypta Prompt Accelerator is a local-first browser extension for improving AI chat workflows before they are sent. It helps reduce repetition, preserve hard requirements, review continuity-shaped drafts, save reusable workflows, and create compact carry-forward capsules for longer sessions.
 

@@ -114,7 +114,7 @@ Also make Copy export clean and human-readable.`
     expect(portableCapsule).toMatchObject({
       capsule_id: "capsule_test",
       version: 1,
-      reconstruction_instructions: expect.stringContaining("reconstruct")
+      reconstruction_instructions: expect.stringMatching(/reconstruct/i)
     });
     expect(diagnostic).toMatchObject({
       version: 1,
@@ -134,7 +134,11 @@ Okay, I'm uploading the images.
 Just stand by.
 This is what I see when I click the SAVE button.
 Show moreShow less
+Show more / Show less
+Raw Capsule / Diagnostic Data
 Analyze everything.
+
+Absolutely. Below is a copy-paste patch directive for Razak.
 
 The next engineering objective is: evaluate Prompt Accelerator continuity behavior and refine save/export functionality.
 
@@ -193,5 +197,58 @@ Below is a giant copied block that should not survive literally: do not copy thi
     expect(portableCapsule).not.toHaveProperty("original_storage_record");
     expect(diagnostic.raw_capsule).toMatchObject({ id: "capsule_noisy" });
     expect((diagnostic.warnings as string[]).join(" ")).toMatch(/debris|objective normalized|compactness/i);
+  });
+
+  it("rebuilds portable workflow fields instead of rehydrating contaminated saved state", () => {
+    const noisy = transformPrompt({
+      sourceText: `Hybrid Workspace
+
+The next engineering objective is: evaluate Prompt Accelerator continuity behavior and refine save/export functionality.
+
+Hard requirements:
+- Must maintain workflow continuity across sessions.
+- Preserve rejected directions explicitly.
+- Avoid flattening governance state.
+
+Rejected directions:
+- Do not reduce the product to prompt optimization only.
+- Do not expose raw JSON as the default review surface.`
+    });
+    const workflow = {
+      ...buildWorkflowDraft(noisy, noisy.transformedText),
+      id: "workflow_contaminated",
+      workflow_id: "workflow_contaminated",
+      createdAt: "2026-05-20T00:00:00.000Z",
+      updatedAt: "2026-05-20T00:00:00.000Z",
+      continuity_review: {
+        active_objective: "Hybrid Workspace",
+        stable_core: ["Okay, I'm uploading the images.", "Show more / Show less"],
+        recommended_next_actions: ["Use the Product Hunt screenshot instructions and SAVE button labels."]
+      },
+      continuity_state_history: [{ note: "Raw Capsule / Diagnostic Data Show moreShow less" }],
+      workflow_evolution: [{ change: "Below is a giant copied block with screenshot setup and upload chatter." }],
+      diagnostic_data: { raw_note: "This is what I see when I click the SAVE button." },
+      carryForwardContext:
+        "Raw review dump: Okay, I'm uploading the images. Show more / Show less. Product Hunt screenshot instructions. ".repeat(12)
+    };
+    const context = {
+      result: noisy,
+      transformedText: noisy.transformedText,
+      sessionState: null,
+      extensionVersion: "2.2.1",
+      currentUrl: "chrome-extension://review.html",
+      workflow
+    };
+
+    const portableWorkflow = buildPortableWorkflowArtifact(workflow, context);
+    const portableJson = JSON.stringify(portableWorkflow);
+
+    expect(portableWorkflow.active_objective).toContain("Prompt Accelerator continuity behavior");
+    expect(portableWorkflow.continuity_review).toMatchObject({
+      active_objective: expect.stringContaining("Prompt Accelerator continuity behavior"),
+      stable_core: expect.arrayContaining([expect.stringContaining("workflow continuity")])
+    });
+    expect(portableJson).not.toMatch(/uploading|Show more|SAVE button|Product Hunt screenshot|giant copied block|Raw Capsule/i);
+    expect(String(portableWorkflow.carry_forward_context).length).toBeLessThan(workflow.carryForwardContext.length);
   });
 });
