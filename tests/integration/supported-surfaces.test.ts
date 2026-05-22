@@ -40,41 +40,85 @@ describe("supported surfaces", () => {
           <div class="ProseMirror" contenteditable="true" aria-label="Ask Grok">draft one</div>
         </main>
       `
+    },
+    {
+      label: "DeepSeek",
+      url: "https://chat.deepseek.com/a/chat/s/1",
+      html: `
+        <main>
+          <textarea aria-label="Message DeepSeek">draft one</textarea>
+        </main>
+      `
+    },
+    {
+      label: "Perplexity",
+      url: "https://www.perplexity.ai/search/example",
+      html: `
+        <main>
+          <textarea aria-label="Ask anything">draft one</textarea>
+        </main>
+      `
     }
   ];
 
   it("matches v1 chat hosts", () => {
     expect(CHAT_SURFACES.some((surface) => surface.matches("https://chatgpt.com/c/1"))).toBe(true);
     expect(CHAT_SURFACES.some((surface) => surface.matches("https://claude.ai/chat/1"))).toBe(true);
-    expect(CHAT_SURFACES.some((surface) => surface.matches("https://gemini.google.com/app"))).toBe(true);
+    expect(CHAT_SURFACES.some((surface) => surface.matches("https://gemini.google.com/app"))).toBe(
+      true
+    );
     expect(CHAT_SURFACES.some((surface) => surface.matches("https://grok.com/chat/1"))).toBe(true);
+    expect(
+      CHAT_SURFACES.some((surface) => surface.matches("https://chat.deepseek.com/a/chat/s/1"))
+    ).toBe(true);
+    expect(CHAT_SURFACES.some((surface) => surface.matches("https://www.deepseek.com/chat"))).toBe(
+      true
+    );
+    expect(CHAT_SURFACES.some((surface) => surface.matches("https://deepseek.com/chat"))).toBe(
+      true
+    );
+    expect(
+      CHAT_SURFACES.some((surface) => surface.matches("https://perplexity.ai/search/example"))
+    ).toBe(true);
+    expect(CHAT_SURFACES.some((surface) => surface.matches("https://www.perplexity.ai/"))).toBe(
+      true
+    );
+    expect(CHAT_SURFACES.some((surface) => surface.matches("https://platform.deepseek.com/"))).toBe(
+      false
+    );
     expect(CHAT_SURFACES.some((surface) => surface.matches("https://example.com"))).toBe(false);
   });
 
-  it.each(providerFixtures)("$label replaces drafts without duplicate insertion", ({ url, html }) => {
-    document.body.innerHTML = html;
-    const surface = CHAT_SURFACES.find((candidate) => candidate.matches(url));
+  it.each(providerFixtures)(
+    "$label replaces drafts without duplicate insertion",
+    ({ url, html }) => {
+      document.body.innerHTML = html;
+      const surface = CHAT_SURFACES.find((candidate) => candidate.matches(url));
 
-    expect(surface?.isReady()).toBe(true);
-    expect(surface?.getCurrentDraftText()).toBe("draft one");
-    expect(surface?.setCurrentDraftText("replacement one")).toBe(true);
-    expect(surface?.getCurrentDraftText()).toBe("replacement one");
-    expect(surface?.setCurrentDraftText("replacement two")).toBe(true);
-    expect(surface?.getCurrentDraftText()).toBe("replacement two");
-    expect(surface?.getCurrentDraftText()).not.toContain("replacement one");
-  });
+      expect(surface?.isReady()).toBe(true);
+      expect(surface?.getCurrentDraftText()).toBe("draft one");
+      expect(surface?.setCurrentDraftText("replacement one")).toBe(true);
+      expect(surface?.getCurrentDraftText()).toBe("replacement one");
+      expect(surface?.setCurrentDraftText("replacement two")).toBe(true);
+      expect(surface?.getCurrentDraftText()).toBe("replacement two");
+      expect(surface?.getCurrentDraftText()).not.toContain("replacement one");
+    }
+  );
 
-  it.each(providerFixtures)("$label emits input and change events after writeback", ({ url, html }) => {
-    document.body.innerHTML = html;
-    const surface = CHAT_SURFACES.find((candidate) => candidate.matches(url));
-    const input = surface?.getInputElement();
-    const events: string[] = [];
-    input?.addEventListener("input", () => events.push("input"));
-    input?.addEventListener("change", () => events.push("change"));
+  it.each(providerFixtures)(
+    "$label emits input and change events after writeback",
+    ({ url, html }) => {
+      document.body.innerHTML = html;
+      const surface = CHAT_SURFACES.find((candidate) => candidate.matches(url));
+      const input = surface?.getInputElement();
+      const events: string[] = [];
+      input?.addEventListener("input", () => events.push("input"));
+      input?.addEventListener("change", () => events.push("change"));
 
-    expect(surface?.setCurrentDraftText("event replacement")).toBe(true);
-    expect(events).toEqual(["input", "change"]);
-  });
+      expect(surface?.setCurrentDraftText("event replacement")).toBe(true);
+      expect(events).toEqual(["input", "change"]);
+    }
+  );
 
   it("falls back to visible contenteditable inputs and replaces drafts", () => {
     document.body.innerHTML = `
@@ -146,6 +190,61 @@ describe("supported surfaces", () => {
     const snapshot = surface?.getConversationSnapshot?.();
 
     expect(snapshot?.turns).toHaveLength(2);
-    expect(snapshot?.turns.map((turn) => turn.text).join(" ")).not.toContain("draft should stay out");
+    expect(snapshot?.turns.map((turn) => turn.text).join(" ")).not.toContain(
+      "draft should stay out"
+    );
+  });
+
+  it("exposes DeepSeek structured reasoning provider profile", () => {
+    const surface = CHAT_SURFACES.find((candidate) => candidate.id === "deepseek");
+
+    expect(surface?.getProviderProfile?.().continuity_style).toBe("structured_reasoning");
+    expect(surface?.getProviderProfile?.().risk_profile).toContain("over_compression");
+  });
+
+  it("keeps Perplexity retrieved source context provisional in snapshots", () => {
+    document.title = "Research - Perplexity";
+    document.body.innerHTML = `
+      <main>
+        <article data-testid="query">Objective: preserve Stable State while researching.</article>
+        <article data-testid="answer">Stable State remains the governing frame.</article>
+        <section data-testid="source-card">External source says a partial answer may conflict.</section>
+        <form>
+          <textarea aria-label="Ask anything">draft should stay out</textarea>
+        </form>
+      </main>
+    `;
+    const surface = CHAT_SURFACES.find((candidate) =>
+      candidate.matches("https://perplexity.ai/search/example")
+    );
+    const snapshot = surface?.getConversationSnapshot?.();
+
+    expect(surface?.getProviderProfile?.().retrieved_content_default_state).toBe(
+      "provisional_or_quarantine"
+    );
+    expect(snapshot?.turns.map((turn) => turn.text).join(" ")).toContain(
+      "Retrieved evidence (provisional)"
+    );
+    expect(snapshot?.turns.map((turn) => turn.text).join(" ")).not.toContain(
+      "draft should stay out"
+    );
+  });
+
+  it("targets the visible Perplexity composer instead of mirrored decoy inputs", () => {
+    document.body.innerHTML = `
+      <main>
+        <textarea class="hidden mirrored decoy" aria-label="Ask anything">decoy draft</textarea>
+        <form data-testid="composer">
+          <textarea aria-label="Ask Perplexity">real draft</textarea>
+        </form>
+      </main>
+    `;
+    const surface = CHAT_SURFACES.find((candidate) =>
+      candidate.matches("https://www.perplexity.ai/search/example")
+    );
+
+    expect(surface?.getCurrentDraftText()).toBe("real draft");
+    expect(surface?.setCurrentDraftText("verified writeback")).toBe(true);
+    expect(surface?.getCurrentDraftText()).toBe("verified writeback");
   });
 });

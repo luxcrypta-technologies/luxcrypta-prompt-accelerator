@@ -7,7 +7,7 @@ LuxCrypta Prompt Accelerator separates continuity logic from runtime shells.
 - `packages/continuity-governance`: stable core, novelty, openness, monitors, diagnostics, promotion, and carry-forward logic.
 - `packages/continuity-storage`: storage repositories over the generic continuity storage contract.
 - `packages/continuity-domain`: reusable actions and services.
-- `packages/continuity-routing`: provider handoff profiles for ChatGPT, Claude, Gemini, and Grok.
+- `packages/continuity-routing`: provider handoff profiles for ChatGPT, Claude, Gemini, Grok, DeepSeek, and Perplexity.
 - `apps/extension`: manifests, content scripts, DOM adapters, browser platform adapters, and extension UI.
 - `apps/desktop`: Electron shell, local workspace persistence, preload IPC, and React continuity console.
 

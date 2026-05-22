@@ -1,11 +1,11 @@
 import { getPlatformAPI } from "@platform-runtime";
 import { observeDom } from "./dom-observer";
-import { createToolbarMountController } from "./toolbar-mount";
+import { createToolbarMountController, TOOLBAR_ID } from "./toolbar-mount";
 import { getCurrentSurface } from "./surface-registry";
 import type { BackgroundMessage, ContentMessage } from "@/types/messages";
 import type { UserPreferences } from "@/types/preferences";
 import type { TransformResult } from "@/types/prompts";
-import type { ChatSurfaceAdapter } from "@/types/surfaces";
+import type { ChatSurfaceAdapter, ProviderHealth } from "@/types/surfaces";
 
 const platform = getPlatformAPI();
 
@@ -20,21 +20,126 @@ function snapshotToContinuityText(surface: ChatSurfaceAdapter): string {
     .join("\n");
 }
 
-async function openAdvancedReview(surface: ChatSurfaceAdapter): Promise<void> {
+function providerHealth(
+  surface: ChatSurfaceAdapter,
+  writebackSuccess = false,
+  writebackAttempted = false,
+  reviewOpen?: {
+    attempted?: boolean;
+    status?: ProviderHealth["review_open_status"];
+    error?: string;
+    events?: string[];
+  }
+): ProviderHealth {
+  const runtime_errors: string[] = [];
+  let inputDetected = false;
+  let draftReadSuccess = false;
+
+  try {
+    inputDetected = surface.getInputElement() !== null;
+  } catch (error) {
+    runtime_errors.push(error instanceof Error ? error.message : "Input detection failed.");
+  }
+
+  try {
+    surface.getCurrentDraftText();
+    draftReadSuccess = true;
+  } catch (error) {
+    runtime_errors.push(error instanceof Error ? error.message : "Draft read failed.");
+  }
+
+  return {
+    provider: surface.id,
+    surface_detected: true,
+    input_detected: inputDetected,
+    toolbar_mounted: Boolean(document.getElementById(TOOLBAR_ID)),
+    draft_read_success: draftReadSuccess,
+    writeback_attempted: writebackAttempted,
+    writeback_status: writebackAttempted
+      ? writebackSuccess
+        ? "success"
+        : "failed"
+      : "not_attempted",
+    writeback_success: writebackSuccess,
+    review_open_attempted: reviewOpen?.attempted,
+    review_open_status: reviewOpen?.status,
+    review_open_error: reviewOpen?.error,
+    review_open_events: reviewOpen?.events,
+    dom_mount_status: document.getElementById("lcpa-toolbar-root")?.dataset
+      .mountStatus as ProviderHealth["dom_mount_status"],
+    duplicate_guard_active: document.querySelectorAll(`#${TOOLBAR_ID}`).length <= 1,
+    runtime_errors
+  };
+}
+
+function advancedEvent(
+  surface: ChatSurfaceAdapter,
+  event: string,
+  detail?: Record<string, unknown>
+): void {
+  const payload = {
+    event,
+    provider: surface.id,
+    toolbarMounted: Boolean(document.getElementById(TOOLBAR_ID)),
+    mountStatus: document.getElementById("lcpa-toolbar-root")?.dataset.mountStatus,
+    ...detail
+  };
+  window.dispatchEvent(new CustomEvent("luxcrypta:advanced-review", { detail: payload }));
+  console.info("LuxCrypta Prompt Review telemetry", payload);
+}
+
+async function openAdvancedReviewOnce(surface: ChatSurfaceAdapter, retry = false): Promise<void> {
+  const events = [retry ? "fallback_retry" : "advanced_click"];
+  advancedEvent(surface, retry ? "fallback_retry" : "advanced_click");
   const sourceText = surface.getCurrentDraftText().trim() || snapshotToContinuityText(surface);
   if (!sourceText.trim()) {
-    return;
+    advancedEvent(surface, "review_open_timeout", { reason: "empty_source" });
+    throw new Error("No draft body was available for Prompt Review.");
   }
-  const result = await platform.messaging.sendMessage<BackgroundMessage, TransformResult>(
-    {
-      type: "prompt:transform",
-      payload: { sourceText, preserveConstraints: true, sourceSurface: surface.id }
+  const result = await platform.messaging.sendMessage<BackgroundMessage, TransformResult>({
+    type: "prompt:transform",
+    payload: {
+      sourceText,
+      preserveConstraints: true,
+      sourceSurface: surface.id,
+      providerProfile: surface.getProviderProfile?.(),
+      providerHealth: providerHealth(surface, false, false, {
+        attempted: true,
+        status: "pending",
+        events
+      })
     }
-  );
-  await platform.messaging.sendMessage<BackgroundMessage, { reviewId: string }>({
+  });
+  const response = await platform.messaging.sendMessage<BackgroundMessage, { reviewId: string }>({
     type: "review:open",
     payload: { result }
   });
+  if (!response?.reviewId) {
+    advancedEvent(surface, "review_open_timeout", { reason: "missing_review_id" });
+    throw new Error("Prompt Review did not return a review id.");
+  }
+  advancedEvent(surface, retry ? "fallback_retry_success" : "review_open_success", {
+    reviewId: response.reviewId
+  });
+}
+
+async function openAdvancedReview(surface: ChatSurfaceAdapter): Promise<void> {
+  try {
+    await openAdvancedReviewOnce(surface);
+  } catch (firstError) {
+    advancedEvent(surface, "review_open_timeout", {
+      error: firstError instanceof Error ? firstError.message : String(firstError)
+    });
+    await new Promise((resolve) => window.setTimeout(resolve, 250));
+    try {
+      await openAdvancedReviewOnce(surface, true);
+    } catch (secondError) {
+      advancedEvent(surface, "review_open_failed", {
+        error: secondError instanceof Error ? secondError.message : String(secondError)
+      });
+      throw secondError;
+    }
+  }
 }
 
 const toolbarMount = createToolbarMountController({
@@ -62,11 +167,22 @@ platform.messaging.onMessage((message: unknown) => {
     return null;
   }
   if (typedMessage.type === "content:draft:get") {
-    return { text: surface.getCurrentDraftText(), surfaceId: surface.id };
+    return {
+      text: surface.getCurrentDraftText(),
+      surfaceId: surface.id,
+      providerProfile: surface.getProviderProfile?.(),
+      providerHealth: providerHealth(surface)
+    };
   }
   if (typedMessage.type === "content:draft:apply") {
     const applied = surface.setCurrentDraftText(typedMessage.payload.text);
-    return { applied, text: surface.getCurrentDraftText(), surfaceId: surface.id };
+    return {
+      applied,
+      text: surface.getCurrentDraftText(),
+      surfaceId: surface.id,
+      providerProfile: surface.getProviderProfile?.(),
+      providerHealth: providerHealth(surface, applied, true)
+    };
   }
   if (typedMessage.type === "content:snapshot:get") {
     return surface.getConversationSnapshot?.() ?? null;

@@ -35,6 +35,8 @@ Supported chat surfaces:
 - Claude
 - Gemini
 - Grok
+- DeepSeek
+- Perplexity
 
 ## What It Is
 
@@ -108,7 +110,7 @@ Use this page for support with LuxCrypta Prompt Accelerator.
 ## Basic Troubleshooting
 
 1. Confirm the browser extension is enabled.
-2. Confirm you are on a supported chat surface: ChatGPT, Claude, Gemini, or Grok.
+2. Confirm you are on a supported chat surface: ChatGPT, Claude, Gemini, Grok, DeepSeek, or Perplexity.
 3. Reload the chat page after installing or updating the extension.
 4. Open the extension popup and confirm the page is detected.
 5. Check Options if toolbar or session governance features are disabled.

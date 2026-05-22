@@ -13,4 +13,12 @@ describe("adaptForModel", () => {
     expect(result).toContain("Keep the tone concise");
     expect(result).toContain("Objective: preserve continuity");
   });
+
+  it("shapes DeepSeek and Perplexity prompts around their continuity risks", () => {
+    const deepseek = adaptForModel("Objective: preserve unresolved state", "deepseek", "focus");
+    const perplexity = adaptForModel("Objective: preserve stable state", "perplexity", "research");
+
+    expect(deepseek).toContain("preserve unresolved tensions");
+    expect(perplexity).toContain("retrieved or cited material as Provisional or Quarantine");
+  });
 });

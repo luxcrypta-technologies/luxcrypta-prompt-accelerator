@@ -3,7 +3,10 @@ import { readConversationSnapshot, readCurrentDraft, applyPrompt } from "./comma
 import { executeContinueSession } from "@/domain/actions/continue-session";
 import { executeExportBundle, executeImportBundle } from "@/domain/actions/export-bundle";
 import { executePromoteNovelty } from "@/domain/actions/promote-novelty";
-import { executeGetDiagnostics, executeReviewSessionState } from "@/domain/actions/review-session-state";
+import {
+  executeGetDiagnostics,
+  executeReviewSessionState
+} from "@/domain/actions/review-session-state";
 import { executeSaveWorkflow } from "@/domain/actions/save-workflow";
 import { executeTransformPrompt } from "@/domain/actions/transform-prompt";
 import { executeUpdateSessionState } from "@/domain/actions/update-session-state";
@@ -34,7 +37,11 @@ function rememberReviewState(state: ReviewState): void {
 }
 
 function latestReviewState(): ReviewState | null {
-  return Array.from(reviewStates.values()).sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ?? null;
+  return (
+    Array.from(reviewStates.values()).sort((left, right) =>
+      right.createdAt.localeCompare(left.createdAt)
+    )[0] ?? null
+  );
 }
 
 function isContentMessage(message: ExtensionMessage): message is ContentMessage {
@@ -42,17 +49,22 @@ function isContentMessage(message: ExtensionMessage): message is ContentMessage 
 }
 
 export function createMessageRouter(platform: PlatformAPI) {
-  return async function routeMessage(message: ExtensionMessage): Promise<BackgroundMessageResult | unknown> {
+  return async function routeMessage(
+    message: ExtensionMessage
+  ): Promise<BackgroundMessageResult | unknown> {
     if (isContentMessage(message)) {
       if (message.type === "content:draft:get") return readCurrentDraft(platform);
-      if (message.type === "content:draft:apply") return applyPrompt(platform, message.payload.text, message.payload.targetTabId);
+      if (message.type === "content:draft:apply")
+        return applyPrompt(platform, message.payload.text, message.payload.targetTabId);
       if (message.type === "content:snapshot:get") return readConversationSnapshot(platform);
     }
 
     const backgroundMessage = message as BackgroundMessage;
     switch (backgroundMessage.type) {
       case "prompt:transform": {
-        const result = await executeTransformPrompt(backgroundMessage.payload, { storage: platform.storage });
+        const result = await executeTransformPrompt(backgroundMessage.payload, {
+          storage: platform.storage
+        });
         await executeUpdateSessionState(
           {
             transformRequest: backgroundMessage.payload,
@@ -64,7 +76,9 @@ export function createMessageRouter(platform: PlatformAPI) {
         return result;
       }
       case "capsule:generate": {
-        const capsule = await executeContinueSession(backgroundMessage.payload, { storage: platform.storage });
+        const capsule = await executeContinueSession(backgroundMessage.payload, {
+          storage: platform.storage
+        });
         await executeUpdateSessionState(
           {
             capsule,
@@ -76,7 +90,9 @@ export function createMessageRouter(platform: PlatformAPI) {
         return capsule;
       }
       case "capsule:save":
-        return new CapsuleService(platform.storage).createFromReview(backgroundMessage.payload.capsule);
+        return new CapsuleService(platform.storage).createFromReview(
+          backgroundMessage.payload.capsule
+        );
       case "workflow:save":
         return executeSaveWorkflow(backgroundMessage.payload, { storage: platform.storage });
       case "history:list":
@@ -103,20 +119,36 @@ export function createMessageRouter(platform: PlatformAPI) {
         const createdAt = nowIso();
         const surface = platform.reviewSurface.getPreferredSurface();
         const sourceTabId = await platform.tabs.getActiveTabId();
+        const result = backgroundMessage.payload.result;
+        if (result.continuityReview.diagnostics.providerHealth) {
+          result.continuityReview.diagnostics.providerHealth.review_open_attempted = true;
+          result.continuityReview.diagnostics.providerHealth.review_open_status = "pending";
+          result.continuityReview.diagnostics.providerHealth.review_open_events = [
+            ...(result.continuityReview.diagnostics.providerHealth.review_open_events ?? []),
+            "review_open_requested"
+          ];
+        }
         const state: ReviewState = {
-          id: createDatedId("review", backgroundMessage.payload.result.transformedText, createdAt),
-          result: backgroundMessage.payload.result,
+          id: createDatedId("review", result.transformedText, createdAt),
+          result,
           surface,
           createdAt,
           sourceTabId: sourceTabId ?? undefined
         };
         rememberReviewState(state);
         await platform.reviewSurface.openReviewSurface(state.id);
+        if (state.result.continuityReview.diagnostics.providerHealth) {
+          state.result.continuityReview.diagnostics.providerHealth.review_open_status = "success";
+          state.result.continuityReview.diagnostics.providerHealth.review_open_events = [
+            ...(state.result.continuityReview.diagnostics.providerHealth.review_open_events ?? []),
+            "review_open_success"
+          ];
+        }
         return { reviewId: state.id, surface };
       }
       case "review:get":
         return backgroundMessage.payload.reviewId
-          ? reviewStates.get(backgroundMessage.payload.reviewId) ?? null
+          ? (reviewStates.get(backgroundMessage.payload.reviewId) ?? null)
           : latestReviewState();
       default:
         throw new Error("Unsupported message route.");

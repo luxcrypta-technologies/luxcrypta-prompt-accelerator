@@ -16,7 +16,8 @@ export type SessionCandidateKind =
   | "open_question"
   | "uncertainty"
   | "optional_branch"
-  | "output_contract";
+  | "output_contract"
+  | "task_local_instruction";
 
 export interface SessionCandidate {
   text: string;

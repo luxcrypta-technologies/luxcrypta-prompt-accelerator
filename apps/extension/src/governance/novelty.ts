@@ -1,4 +1,8 @@
-import type { SessionGovernanceState, SessionNoveltyItem, SessionStableCore } from "@/types/governance";
+import type {
+  SessionGovernanceState,
+  SessionNoveltyItem,
+  SessionStableCore
+} from "@/types/governance";
 import { createDatedId } from "@/utils/ids";
 import { uniqueMeaningfulStrings } from "@/utils/text";
 import { isMeaningfullySimilar } from "./stable-core";
@@ -9,7 +13,8 @@ function isExistingNovelty(candidate: SessionCandidate, existing: SessionNovelty
   return existing.some(
     (item) =>
       item.kind === kind &&
-      (item.text.toLowerCase() === candidate.text.toLowerCase() || isMeaningfullySimilar(item.text, candidate.text))
+      (item.text.toLowerCase() === candidate.text.toLowerCase() ||
+        isMeaningfullySimilar(item.text, candidate.text))
   );
 }
 
@@ -19,15 +24,19 @@ function matchingNoveltyIndex(candidate: SessionCandidate, existing: SessionNove
     (item) =>
       !item.accepted &&
       item.kind === kind &&
-      (item.text.toLowerCase() === candidate.text.toLowerCase() || isMeaningfullySimilar(item.text, candidate.text))
+      (item.text.toLowerCase() === candidate.text.toLowerCase() ||
+        isMeaningfullySimilar(item.text, candidate.text))
   );
 }
 
-function noveltyKindForCandidate(candidateKind: SessionCandidate["kind"]): SessionNoveltyItem["kind"] | null {
+function noveltyKindForCandidate(
+  candidateKind: SessionCandidate["kind"]
+): SessionNoveltyItem["kind"] | null {
   if (candidateKind === "objective") return "new_objective";
   if (candidateKind === "constraint") return "new_constraint";
   if (candidateKind === "decision") return "new_decision";
   if (candidateKind === "output_contract") return "output_shift";
+  if (candidateKind === "task_local_instruction") return "output_shift";
   return null;
 }
 
@@ -58,11 +67,15 @@ function isCoveredByStableCore(text: string, stableCore: SessionStableCore): boo
   const stable = stableClaims(stableCore);
   if (!claims.length || !stable.length) return false;
 
-  return claims.every((claim) => stable.some((stableClaim) => isMeaningfullySimilar(claim, stableClaim)));
+  return claims.every((claim) =>
+    stable.some((stableClaim) => isMeaningfullySimilar(claim, stableClaim))
+  );
 }
 
 function requirementLikeObjective(text: string): SessionNoveltyItem["kind"] | null {
-  if (/\b(executive summary|summary at the top|output|format|table|json|yaml|markdown)\b/i.test(text)) {
+  if (
+    /\b(executive summary|summary at the top|output|format|table|json|yaml|markdown)\b/i.test(text)
+  ) {
     return "output_shift";
   }
   if (/\b(also include|include|add|compare|cover|address)\b/i.test(text)) {
@@ -74,18 +87,28 @@ function requirementLikeObjective(text: string): SessionNoveltyItem["kind"] | nu
 function isConflictLike(text: string, kind: SessionNoveltyItem["kind"]): boolean {
   return (
     kind === "changed_constraint" ||
-    /\b(instead|replace|rather than|no longer|conflict|contradict|stop using|drop|remove)\b/i.test(text)
+    /\b(instead|replace|rather than|no longer|conflict|contradict|stop using|drop|remove)\b/i.test(
+      text
+    )
   );
 }
 
-function noveltyNote(item: Pick<SessionNoveltyItem, "text" | "kind" | "confidence" | "seenCount">): string | undefined {
-  if (isConflictLike(item.text, item.kind)) return "Review manually; this may change accepted session state.";
-  if ((item.seenCount ?? 1) >= 2 && item.confidence >= 0.72) return "Recurring and likely safe to promote after review.";
+function noveltyNote(
+  item: Pick<SessionNoveltyItem, "text" | "kind" | "confidence" | "seenCount">
+): string | undefined {
+  if (isConflictLike(item.text, item.kind))
+    return "Review manually; this may change accepted session state.";
+  if ((item.seenCount ?? 1) >= 2 && item.confidence >= 0.72)
+    return "Recurring and likely safe to promote after review.";
   return undefined;
 }
 
-function shouldBePromotable(item: Pick<SessionNoveltyItem, "text" | "kind" | "confidence" | "seenCount">): boolean {
-  return !isConflictLike(item.text, item.kind) && (item.seenCount ?? 1) >= 2 && item.confidence >= 0.72;
+function shouldBePromotable(
+  item: Pick<SessionNoveltyItem, "text" | "kind" | "confidence" | "seenCount">
+): boolean {
+  return (
+    !isConflictLike(item.text, item.kind) && (item.seenCount ?? 1) >= 2 && item.confidence >= 0.72
+  );
 }
 
 function ageInDays(item: SessionNoveltyItem, timestamp: string): number {
@@ -99,7 +122,10 @@ function isStale(item: SessionNoveltyItem, timestamp: string): boolean {
   return !item.promotable && (item.seenCount ?? 1) <= 1 && ageInDays(item, timestamp) >= 30;
 }
 
-function noveltyKind(candidate: SessionCandidate, stableCore: SessionStableCore): SessionNoveltyItem["kind"] | null {
+function noveltyKind(
+  candidate: SessionCandidate,
+  stableCore: SessionStableCore
+): SessionNoveltyItem["kind"] | null {
   if (isCoveredByStableCore(candidate.text, stableCore)) return null;
 
   if (candidate.kind === "objective") {
@@ -109,19 +135,35 @@ function noveltyKind(candidate: SessionCandidate, stableCore: SessionStableCore)
     return isMeaningfullySimilar(candidate.text, stableCore.objective) ? null : "new_objective";
   }
   if (candidate.kind === "constraint") {
-    const existing = stableCore.hardConstraints.some((constraint) => isMeaningfullySimilar(constraint, candidate.text));
+    const existing = stableCore.hardConstraints.some((constraint) =>
+      isMeaningfullySimilar(constraint, candidate.text)
+    );
     if (existing) return null;
-    if (/\b(instead|replace|rather than|no longer|change|stop using)\b/i.test(candidate.text)) return "changed_constraint";
+    if (/\b(instead|replace|rather than|no longer|change|stop using)\b/i.test(candidate.text))
+      return "changed_constraint";
     return "new_constraint";
   }
   if (candidate.kind === "decision") {
-    const existing = stableCore.acceptedDecisions.some((decision) => isMeaningfullySimilar(decision, candidate.text));
+    const existing = stableCore.acceptedDecisions.some((decision) =>
+      isMeaningfullySimilar(decision, candidate.text)
+    );
     return existing ? null : "new_decision";
   }
   if (candidate.kind === "output_contract") {
     if (candidate.source === "transform") return null;
     if (isRefinementInstruction(candidate.text)) return null;
-    return stableCore.outputContract && isMeaningfullySimilar(stableCore.outputContract, candidate.text) ? null : "output_shift";
+    return stableCore.outputContract &&
+      isMeaningfullySimilar(stableCore.outputContract, candidate.text)
+      ? null
+      : "output_shift";
+  }
+  if (candidate.kind === "task_local_instruction") {
+    if (candidate.source === "transform") return null;
+    if (isRefinementInstruction(candidate.text)) return null;
+    return stableCore.outputContract &&
+      isMeaningfullySimilar(stableCore.outputContract, candidate.text)
+      ? null
+      : "output_shift";
   }
   return null;
 }
@@ -132,7 +174,9 @@ export function updateNoveltyLane(input: {
   stableCore: SessionStableCore;
   timestamp: string;
 }): SessionNoveltyItem[] {
-  const previous = input.previous.filter((item) => !item.accepted && !isStale(item, input.timestamp));
+  const previous = input.previous.filter(
+    (item) => !item.accepted && !isStale(item, input.timestamp)
+  );
   const merged = [...previous];
   const newItems = input.candidates
     .map((candidate): SessionNoveltyItem | null => {
@@ -147,8 +191,16 @@ export function updateNoveltyLane(input: {
           confidence: Math.max(existing.confidence, candidate.confidence),
           lastSeenAt: input.timestamp,
           seenCount,
-          promotable: shouldBePromotable({ ...existing, confidence: Math.max(existing.confidence, candidate.confidence), seenCount }),
-          diagnosticNote: noveltyNote({ ...existing, confidence: Math.max(existing.confidence, candidate.confidence), seenCount })
+          promotable: shouldBePromotable({
+            ...existing,
+            confidence: Math.max(existing.confidence, candidate.confidence),
+            seenCount
+          }),
+          diagnosticNote: noveltyNote({
+            ...existing,
+            confidence: Math.max(existing.confidence, candidate.confidence),
+            seenCount
+          })
         };
         merged[existingIndex] = updated;
         return null;
@@ -164,7 +216,12 @@ export function updateNoveltyLane(input: {
         lastSeenAt: input.timestamp,
         seenCount: 1,
         promotable: false,
-        diagnosticNote: noveltyNote({ text: candidate.text, kind, confidence: candidate.confidence, seenCount: 1 }),
+        diagnosticNote: noveltyNote({
+          text: candidate.text,
+          kind,
+          confidence: candidate.confidence,
+          seenCount: 1
+        }),
         accepted: false
       };
       return {
@@ -188,8 +245,12 @@ export function promoteNoveltyItems(
   const constraints = promoted
     .filter((item) => item.kind === "new_constraint" || item.kind === "changed_constraint")
     .map((item) => item.text);
-  const decisions = promoted.filter((item) => item.kind === "new_decision").map((item) => item.text);
-  const objective = promoted.find((item) => item.kind === "new_objective" || item.kind === "framing_shift")?.text;
+  const decisions = promoted
+    .filter((item) => item.kind === "new_decision")
+    .map((item) => item.text);
+  const objective = promoted.find(
+    (item) => item.kind === "new_objective" || item.kind === "framing_shift"
+  )?.text;
   const outputContract = promoted.find((item) => item.kind === "output_shift")?.text;
 
   return {
@@ -197,8 +258,14 @@ export function promoteNoveltyItems(
     stableCore: {
       ...state.stableCore,
       objective: objective ?? state.stableCore.objective,
-      hardConstraints: uniqueMeaningfulStrings([...state.stableCore.hardConstraints, ...constraints]).slice(0, 12),
-      acceptedDecisions: uniqueMeaningfulStrings([...state.stableCore.acceptedDecisions, ...decisions]).slice(0, 12),
+      hardConstraints: uniqueMeaningfulStrings([
+        ...state.stableCore.hardConstraints,
+        ...constraints
+      ]).slice(0, 12),
+      acceptedDecisions: uniqueMeaningfulStrings([
+        ...state.stableCore.acceptedDecisions,
+        ...decisions
+      ]).slice(0, 12),
       outputContract: outputContract ?? state.stableCore.outputContract,
       lastUpdatedAt: timestamp
     },

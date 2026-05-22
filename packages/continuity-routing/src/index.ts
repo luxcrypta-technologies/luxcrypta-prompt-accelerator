@@ -3,7 +3,10 @@ import type { SessionGovernanceState } from "@luxcrypta/continuity-types/governa
 import type { TargetModel } from "@luxcrypta/continuity-types/models";
 import type { Workflow } from "@luxcrypta/continuity-types/workflows";
 
-export type ProviderTarget = Extract<TargetModel, "chatgpt" | "claude" | "gemini" | "grok">;
+export type ProviderTarget = Extract<
+  TargetModel,
+  "chatgpt" | "claude" | "gemini" | "grok" | "deepseek" | "perplexity"
+>;
 
 export interface ProviderProfile {
   id: ProviderTarget;
@@ -11,6 +14,11 @@ export interface ProviderProfile {
   handoffHeading: string;
   instruction: string;
   outputFrame: string;
+  continuityStyle: string;
+  preferredHandoff: string;
+  capsuleBias: string;
+  riskProfile: string[];
+  runtimeEmphasis: string[];
 }
 
 export interface ContinuityHandoffInput {
@@ -33,32 +41,110 @@ export const PROVIDER_PROFILES: Record<ProviderTarget, ProviderProfile> = {
     label: "ChatGPT",
     handoffHeading: "ChatGPT Continuity Handoff",
     instruction: "Use the continuity state below as the working frame for the next response.",
-    outputFrame: "Respond with clear sections, preserve constraints, and call out assumptions."
+    outputFrame: "Respond with clear sections, preserve constraints, and call out assumptions.",
+    continuityStyle: "general_continuity",
+    preferredHandoff: "structured_markdown",
+    capsuleBias: "balanced",
+    riskProfile: ["implicit_state_drift", "assumption_blending"],
+    runtimeEmphasis: ["preserve accepted decisions", "keep open questions visible"]
   },
   claude: {
     id: "claude",
     label: "Claude",
     handoffHeading: "Claude Continuity Handoff",
-    instruction: "Please preserve the stable context, treat provisional items as review candidates, and keep uncertainty visible.",
-    outputFrame: "Use concise sections, note assumptions, and do not overwrite accepted decisions without saying so."
+    instruction:
+      "Please preserve the stable context, treat provisional items as review candidates, and keep uncertainty visible.",
+    outputFrame:
+      "Use concise sections, note assumptions, and do not overwrite accepted decisions without saying so.",
+    continuityStyle: "deliberative_continuity",
+    preferredHandoff: "human_readable_sections",
+    capsuleBias: "uncertainty_preserving",
+    riskProfile: ["over_helpful_reframing", "assumption_absorption"],
+    runtimeEmphasis: ["preserve uncertainty", "distinguish provisional items from stable state"]
   },
   gemini: {
     id: "gemini",
     label: "Gemini",
     handoffHeading: "Gemini Continuity Handoff",
-    instruction: "Continue from this structured state and keep the response direct and easy to scan.",
-    outputFrame: "Use headings and bullets where useful, preserve constraints, and separate next actions from open questions."
+    instruction:
+      "Continue from this structured state and keep the response direct and easy to scan.",
+    outputFrame:
+      "Use headings and bullets where useful, preserve constraints, and separate next actions from open questions.",
+    continuityStyle: "direct_structured_continuity",
+    preferredHandoff: "scannable_markdown",
+    capsuleBias: "objective_first",
+    riskProfile: ["context_flattening", "open_item_loss"],
+    runtimeEmphasis: [
+      "prioritize objective",
+      "keep next actions separate from unresolved questions"
+    ]
   },
   grok: {
     id: "grok",
     label: "Grok",
     handoffHeading: "Grok Continuity Handoff",
     instruction: "Carry forward this workflow state without turning it into a generic chat prompt.",
-    outputFrame: "Keep the tone concise, preserve intent, and flag any conflict before changing stable state."
+    outputFrame:
+      "Keep the tone concise, preserve intent, and flag any conflict before changing stable state.",
+    continuityStyle: "concise_intent_continuity",
+    preferredHandoff: "compact_markdown",
+    capsuleBias: "intent_preserving",
+    riskProfile: ["tone_drift", "stable_state_overwrite"],
+    runtimeEmphasis: ["preserve intent", "flag conflicts before changing stable state"]
+  },
+  deepseek: {
+    id: "deepseek",
+    label: "DeepSeek",
+    handoffHeading: "DeepSeek Continuity Handoff",
+    instruction:
+      "Use this compact continuity topology as the reconstruction frame before reasoning forward.",
+    outputFrame:
+      "Use compact Markdown or JSON-friendly sections, preserve unresolved tensions explicitly, and keep rejected directions visible.",
+    continuityStyle: "structured_reasoning",
+    preferredHandoff: "compact_markdown_or_json",
+    capsuleBias: "schema_strict",
+    riskProfile: ["over_compression", "loss_of_open_state", "rigid_reconstruction"],
+    runtimeEmphasis: [
+      "preserve unresolved tensions explicitly",
+      "do not over-collapse ambiguity",
+      "keep rejected directions visible",
+      "validate reconstruction fidelity"
+    ]
+  },
+  perplexity: {
+    id: "perplexity",
+    label: "Perplexity",
+    handoffHeading: "Perplexity Continuity Handoff",
+    instruction:
+      "Use Stable State as the governing workflow frame. Treat retrieved or cited material as provisional evidence unless explicitly promoted.",
+    outputFrame:
+      "Put Stable State first, separate retrieved evidence from workflow state, and surface conflicts before revising accepted decisions.",
+    continuityStyle: "retrieval_governed",
+    preferredHandoff: "human_readable_with_stable_state_first",
+    capsuleBias: "source_contamination_resistant",
+    riskProfile: [
+      "retrieval_contamination",
+      "citation_confidence_bias",
+      "external_context_overriding_stable_state",
+      "unresolved_state_collapse"
+    ],
+    runtimeEmphasis: [
+      "separate retrieved information from stable workflow state",
+      "treat external sources as provisional or quarantine unless explicitly promoted",
+      "preserve unresolved questions even when search provides partial answers",
+      "detect conflict between retrieved content and Stable State"
+    ]
   }
 };
 
-export const PROVIDER_TARGETS: ProviderTarget[] = ["chatgpt", "claude", "gemini", "grok"];
+export const PROVIDER_TARGETS: ProviderTarget[] = [
+  "chatgpt",
+  "claude",
+  "gemini",
+  "grok",
+  "deepseek",
+  "perplexity"
+];
 
 function section(title: string, lines: string[]): string {
   const content = lines.map((line) => line.trim()).filter(Boolean);
@@ -101,7 +187,9 @@ function sessionSections(session: SessionGovernanceState | null | undefined): st
       `Objective: ${session.stableCore.objective}`,
       ...session.stableCore.hardConstraints.map((item) => `Hard constraint: ${item}`),
       ...session.stableCore.acceptedDecisions.map((item) => `Accepted decision: ${item}`),
-      session.stableCore.outputContract ? `Output contract: ${session.stableCore.outputContract}` : ""
+      session.stableCore.outputContract
+        ? `Output contract: ${session.stableCore.outputContract}`
+        : ""
     ]),
     section(
       "Provisional State",
@@ -140,6 +228,13 @@ export function buildContinuityHandoff(input: ContinuityHandoffInput): Continuit
     ...sessionSections(input.session),
     section("Capsule", capsuleLines(input.capsule)),
     section("Workflow", workflowLines(input.workflow)),
+    section("Provider Notes", [
+      `Continuity style: ${profile.continuityStyle}`,
+      `Preferred handoff: ${profile.preferredHandoff}`,
+      `Capsule bias: ${profile.capsuleBias}`,
+      ...profile.riskProfile.map((item) => `Risk: ${item}`),
+      ...profile.runtimeEmphasis.map((item) => `Runtime emphasis: ${item}`)
+    ]),
     section("Additional Notes", input.notes ? [input.notes] : []),
     section("Response Contract", [profile.outputFrame])
   ].filter(Boolean);

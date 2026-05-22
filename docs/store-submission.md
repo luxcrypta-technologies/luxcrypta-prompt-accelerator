@@ -1,6 +1,6 @@
 # Store Submission
 
-This document is the upload handoff for LuxCrypta Prompt Accelerator `2.2.2`.
+This document is the upload handoff for LuxCrypta Prompt Accelerator `2.3.0`.
 
 ## Public Links
 
@@ -133,6 +133,11 @@ Static content script matches are limited to supported AI chat surfaces where th
 - `https://claude.ai/*`
 - `https://gemini.google.com/*`
 - `https://grok.com/*`
+- `https://chat.deepseek.com/*`
+- `https://deepseek.com/chat*`
+- `https://www.deepseek.com/chat*`
+- `https://perplexity.ai/*`
+- `https://www.perplexity.ai/*`
 
 ## Reviewer Test Instructions
 
@@ -142,7 +147,7 @@ LuxCrypta Prompt Accelerator is a local-first prompt/session utility for support
 Suggested test flow:
 1. Install the extension.
 2. Open the popup and confirm it renders.
-3. Open a supported chat page such as ChatGPT, Claude, Gemini, or Grok.
+3. Open a supported chat page such as ChatGPT, Claude, Gemini, Grok, DeepSeek, or Perplexity.
 4. Type a draft prompt in the chat input.
 5. Confirm the chat toolbar shows Powered by LuxCrypta and Advanced, without Compress or Focus controls.
 6. Click Advanced.
@@ -187,4 +192,4 @@ Recommended screenshots:
 5. Use deferred/manual Chrome publishing if available so both stores can be coordinated.
 6. Track review status and patch only store-reported blockers.
 7. After approval, install from live store listings and run production smoke.
-8. Tag the approved release as `v2.2.2`.
+8. Tag the approved release as `v2.3.0`.

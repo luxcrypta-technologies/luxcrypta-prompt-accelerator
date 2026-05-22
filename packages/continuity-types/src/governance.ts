@@ -1,7 +1,7 @@
 import type { CarryForwardCapsule } from "./capsules";
 import type { ModeName } from "./modes";
 import type { TargetModel } from "./models";
-import type { TransformRequest, TransformResult } from "./prompts";
+import type { AdversarialGovernanceState, MutationTarget, TransformRequest, TransformResult } from "./prompts";
 import type { ConversationSnapshot } from "./surfaces";
 
 export interface SessionStableCore {
@@ -67,6 +67,14 @@ export interface SessionGovernanceState {
   stableCore: SessionStableCore;
   noveltyLane: SessionNoveltyItem[];
   opennessLane: SessionOpennessState;
+  governancePrinciples?: string[];
+  invariants?: string[];
+  continuitySafeguards?: string[];
+  rejectedDirections?: string[];
+  quarantineLog?: string[];
+  deferredItems?: string[];
+  mutationTargets?: MutationTarget[];
+  adversarialGovernance?: AdversarialGovernanceState;
   monitors: SessionMonitors;
   diagnostics: SessionDiagnostics;
   createdAt: string;

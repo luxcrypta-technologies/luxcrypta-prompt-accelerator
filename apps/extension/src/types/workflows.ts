@@ -16,6 +16,14 @@ export interface Workflow {
   accepted_decisions?: string[];
   unresolved_issues?: string[];
   provisional_state?: string[];
+  governance_principles?: string[];
+  invariants?: string[];
+  continuity_safeguards?: string[];
+  rejected_directions?: string[];
+  quarantine_log?: string[];
+  deferred_items?: string[];
+  conditional_admissions?: string[];
+  mutation_targets?: unknown[];
   continuity_review?: Record<string, unknown>;
   continuity_state_history?: Record<string, unknown>[];
   workflow_evolution?: Record<string, unknown>[];

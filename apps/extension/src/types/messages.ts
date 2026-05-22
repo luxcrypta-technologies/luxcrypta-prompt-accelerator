@@ -2,13 +2,21 @@ import type { CarryForwardCapsule } from "./capsules";
 import type { HistoryItem } from "./actions";
 import type { ReviewSurfaceKind } from "./platform";
 import type { TransformRequest, TransformResult } from "./prompts";
-import type { ConversationSnapshot } from "./surfaces";
+import type { ConversationSnapshot, ProviderHealth, ProviderProfile } from "./surfaces";
 import type { DiagnosticSnapshot } from "./diagnostics";
-import type { SessionDiagnostics, SessionGovernanceState, SessionUpdateInput, SessionUpdateResult } from "./governance";
+import type {
+  SessionDiagnostics,
+  SessionGovernanceState,
+  SessionUpdateInput,
+  SessionUpdateResult
+} from "./governance";
 import type { UserPreferences } from "./preferences";
 import type { Workflow } from "./workflows";
 
-export type CapsuleSaveInput = Omit<CarryForwardCapsule, "capsule_version" | "id" | "created_at" | "updated_at">;
+export type CapsuleSaveInput = Omit<
+  CarryForwardCapsule,
+  "capsule_version" | "id" | "created_at" | "updated_at"
+>;
 
 export interface ExportBundle {
   version: 1;
@@ -40,9 +48,15 @@ export interface ReviewState {
 
 export type BackgroundMessage =
   | { type: "prompt:transform"; payload: TransformRequest }
-  | { type: "capsule:generate"; payload: { snapshot?: ConversationSnapshot; sourceSurface?: string } }
+  | {
+      type: "capsule:generate";
+      payload: { snapshot?: ConversationSnapshot; sourceSurface?: string };
+    }
   | { type: "capsule:save"; payload: { capsule: CapsuleSaveInput } }
-  | { type: "workflow:save"; payload: { workflow: Omit<Workflow, "id" | "createdAt" | "updatedAt"> } }
+  | {
+      type: "workflow:save";
+      payload: { workflow: Omit<Workflow, "id" | "createdAt" | "updatedAt"> };
+    }
   | { type: "history:list"; payload?: { limit?: number } }
   | { type: "preferences:get" }
   | { type: "preferences:update"; payload: Partial<UserPreferences> }
@@ -79,7 +93,18 @@ export type BackgroundMessageResult =
   | null;
 
 export type ContentMessageResult =
-  | { text: string; surfaceId?: string }
-  | { applied: boolean; text?: string; surfaceId?: string }
+  | {
+      text: string;
+      surfaceId?: string;
+      providerProfile?: ProviderProfile;
+      providerHealth?: ProviderHealth;
+    }
+  | {
+      applied: boolean;
+      text?: string;
+      surfaceId?: string;
+      providerProfile?: ProviderProfile;
+      providerHealth?: ProviderHealth;
+    }
   | ConversationSnapshot
   | null;

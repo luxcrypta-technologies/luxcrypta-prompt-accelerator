@@ -25,7 +25,9 @@ const chromeCandidates = [
 const chromeBin = chromeCandidates.find((candidate) => existsSync(candidate));
 
 if (!chromeBin) {
-  throw new Error("Could not find Chrome or Chromium. Set CHROME_BIN to a headless-capable browser path.");
+  throw new Error(
+    "Could not find Chrome or Chromium. Set CHROME_BIN to a headless-capable browser path."
+  );
 }
 
 for (const directory of [workDir, commonOutputDir, chromeOutputDir, firefoxOutputDir]) {
@@ -771,6 +773,8 @@ const scenes = [
               <div class="surface-row"><strong>Claude</strong><span>claude.ai</span></div>
               <div class="surface-row"><strong>Gemini</strong><span>gemini.google.com</span></div>
               <div class="surface-row"><strong>Grok</strong><span>grok.com</span></div>
+              <div class="surface-row"><strong>DeepSeek</strong><span>chat.deepseek.com</span></div>
+              <div class="surface-row"><strong>Perplexity</strong><span>perplexity.ai</span></div>
             </div>
           </article>
           <article class="card">
@@ -791,7 +795,7 @@ const scenes = [
       <section>
         <p class="eyebrow">Contextual toolbar</p>
         <h1>Prompt actions appear only on supported chat surfaces</h1>
-        <p class="lede">The toolbar stays close to the active draft and opens the same continuity review from ChatGPT, Claude, Gemini, and Grok.</p>
+        <p class="lede">The toolbar stays close to the active draft and opens the same continuity review from ChatGPT, Claude, Gemini, Grok, DeepSeek, and Perplexity.</p>
       </section>
       <div class="toolbar-showcase">
         <aside>
@@ -801,6 +805,8 @@ const scenes = [
             <article class="card"><span class="pill">Claude</span><p style="margin-top: 10px;">Prompt review near the composer.</p></article>
             <article class="card"><span class="pill gold">Gemini</span><p style="margin-top: 10px;">Local continuity workflow reuse.</p></article>
             <article class="card"><span class="pill blue">Grok</span><p style="margin-top: 10px;">Surface-aware prompt formatting.</p></article>
+            <article class="card"><span class="pill green">DeepSeek</span><p style="margin-top: 10px;">Structured reasoning continuity checks.</p></article>
+            <article class="card"><span class="pill gold">Perplexity</span><p style="margin-top: 10px;">Retrieval-governed continuity checks.</p></article>
           </div>
         </aside>
         <section class="browser-shell">
@@ -865,7 +871,9 @@ for (const scene of scenes) {
 
   const size = pngSize(outputPath);
   if (size.width !== width || size.height !== height) {
-    throw new Error(`${scene.name} rendered at ${size.width}x${size.height}; expected ${width}x${height}.`);
+    throw new Error(
+      `${scene.name} rendered at ${size.width}x${size.height}; expected ${width}x${height}.`
+    );
   }
 
   copyFileSync(outputPath, resolve(chromeOutputDir, `${scene.name}.png`));

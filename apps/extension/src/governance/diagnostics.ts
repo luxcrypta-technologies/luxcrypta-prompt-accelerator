@@ -36,6 +36,15 @@ function warningsFor(monitors: SessionMonitors): string[] {
   return warnings;
 }
 
+function governanceWarnings(state: Omit<SessionGovernanceState, "diagnostics">): string[] {
+  const warnings: string[] = [];
+  if (state.quarantineLog?.length) warnings.push("Quarantined items are preserved for analysis only.");
+  if (state.rejectedDirections?.length) warnings.push("Rejected directions are tracked separately from governance principles.");
+  if (state.mutationTargets?.length) warnings.push("Mutation risk targets were preserved without applying them.");
+  if (state.adversarialGovernance?.metric_warnings.length) warnings.push(...state.adversarialGovernance.metric_warnings);
+  return warnings;
+}
+
 function suggestionsFor(monitors: SessionMonitors): string[] {
   const suggestions: string[] = [];
   if (monitors.noveltyLoad > 0) suggestions.push("Review new/provisional items and promote the ones that are now accepted.");
@@ -53,7 +62,7 @@ export function generateSessionDiagnostics(state: Omit<SessionGovernanceState, "
     stableCoreSummary: summarizeCore(state.stableCore),
     noveltySummary: summarizeNovelty(state.noveltyLane),
     opennessSummary: summarizeOpenness(state.opennessLane),
-    warnings: warningsFor(state.monitors),
+    warnings: [...warningsFor(state.monitors), ...governanceWarnings(state)],
     actionsSuggested: [...noveltySuggestions, ...suggestionsFor(state.monitors)],
     generatedAt: timestamp
   };

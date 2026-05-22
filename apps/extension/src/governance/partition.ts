@@ -1,14 +1,25 @@
 import { extractConstraints } from "@/core/constraints";
 import type { SessionUpdateInput } from "@/types/governance";
 import type { ExtractedConstraint } from "@/types/prompts";
-import { firstMeaningfulLine, isMeaningfullyDuplicate, uniqueMeaningfulStrings } from "@/utils/text";
+import {
+  firstMeaningfulLine,
+  isMeaningfullyDuplicate,
+  uniqueMeaningfulStrings
+} from "@/utils/text";
 import type { SessionCandidate, SessionPartition } from "./types";
 
 const DECISION_RE = /\b(decided|decision|we will|chosen|approved|use|keep|ship|adopt)\b/i;
 const OPEN_RE = /\?|open question|unclear|needs confirmation|still need|not sure|unknown/i;
-const UNCERTAINTY_RE = /\b(uncertain|uncertainty|unknown|assumption|risk|may|might|where relevant|if relevant)\b/i;
-const OPTIONAL_RE = /\b(optional|alternative|branch|variant|explore|creative|brainstorm|could also|consider)\b/i;
+const UNCERTAINTY_RE =
+  /\b(uncertain|uncertainty|unknown|assumption|risk|may|might|where relevant|if relevant)\b/i;
+const OPTIONAL_RE =
+  /\b(optional|alternative|branch|variant|explore|creative|brainstorm|could also|consider)\b/i;
 const OUTPUT_RE = /\b(json|markdown|table|csv|yaml|bullet|format|schema|return as|output)\b/i;
+const TASK_LOCAL_RE =
+  /\b(follow the required format|end with (?:a )?(?:score|rating)|give (?:a )?table|use (?:a )?table|separate into \d+ sections?|build a priority model|stage \d+|final scores?|reconstruction confidence score|respond with|answer format)\b/i;
+const ASSISTANT_SOURCE_RE = /^\s*(assistant|model|ai)\s*:/i;
+const SCAFFOLD_RE =
+  /\b(below is|here is|structured response|copy[-\s]?paste|prompt block|final scores?|stage \d+)\b/i;
 
 function splitLines(text: string): string[] {
   const structured = text
@@ -21,7 +32,12 @@ function splitLines(text: string): string[] {
 }
 
 function stripLabel(text: string): string {
-  return text.replace(/^\s*[-*•]?\s*(objective|requirements?|hard requirements?|output contract|context):\s*/i, "").trim();
+  return text
+    .replace(
+      /^\s*[-*•]?\s*(objective|requirements?|hard requirements?|output contract|context):\s*/i,
+      ""
+    )
+    .trim();
 }
 
 function outputFragment(text: string): string {
@@ -30,6 +46,18 @@ function outputFragment(text: string): string {
     .map((sentence) => stripLabel(sentence))
     .find((sentence) => OUTPUT_RE.test(sentence));
   return fragment ?? stripLabel(text);
+}
+
+function isTaskLocalInstruction(text: string): boolean {
+  const durableSignals =
+    /\b(durable|stable|governance|invariant|continuity|trusted state|carry[-\s]?forward)\b/i.test(
+      text
+    );
+  return !durableSignals && (TASK_LOCAL_RE.test(text) || OUTPUT_RE.test(text));
+}
+
+function isAdmissibleSourceLine(text: string): boolean {
+  return !ASSISTANT_SOURCE_RE.test(text) && !SCAFFOLD_RE.test(text);
 }
 
 function asCandidate(
@@ -47,9 +75,16 @@ function objectiveFromText(text: string): string | null {
   const firstLine = text
     .split("\n")
     .map((line) => stripLabel(line))
-    .find((line) => line.length > 3 && !/^(mode|task):\s*/i.test(line));
+    .find(
+      (line) => line.length > 3 && !/^(mode|task):\s*/i.test(line) && isAdmissibleSourceLine(line)
+    );
   const firstSentence = firstLine?.match(/^.+?[.!?](?:\s|$)/)?.[0].trim();
-  return firstSentence?.slice(0, 220) || firstLine?.slice(0, 220) || firstMeaningfulLine(text, "").slice(0, 220) || null;
+  return (
+    firstSentence?.slice(0, 220) ||
+    firstLine?.slice(0, 220) ||
+    firstMeaningfulLine(text, "").slice(0, 220) ||
+    null
+  );
 }
 
 function candidatesFromConstraints(
@@ -59,7 +94,9 @@ function candidatesFromConstraints(
   return constraints.map((constraint) =>
     asCandidate(
       stripLabel(constraint.text),
-      constraint.kind === "output_contract" || constraint.kind === "format" ? "output_contract" : "constraint",
+      constraint.kind === "output_contract" || constraint.kind === "format"
+        ? "output_contract"
+        : "constraint",
       source,
       constraint.confidence
     )
@@ -75,11 +112,21 @@ function candidatesFromText(text: string, source: SessionCandidate["source"]): S
 
   for (const line of splitLines(text)) {
     const cleanLine = stripLabel(line);
-    if (DECISION_RE.test(cleanLine)) candidates.push(asCandidate(cleanLine, "decision", source, 0.62));
-    if (OPEN_RE.test(cleanLine)) candidates.push(asCandidate(cleanLine, "open_question", source, 0.72));
-    if (UNCERTAINTY_RE.test(cleanLine)) candidates.push(asCandidate(cleanLine, "uncertainty", source, 0.66));
-    if (OPTIONAL_RE.test(cleanLine)) candidates.push(asCandidate(cleanLine, "optional_branch", source, 0.58));
-    if (OUTPUT_RE.test(cleanLine)) candidates.push(asCandidate(outputFragment(cleanLine), "output_contract", source, 0.6));
+    if (!isAdmissibleSourceLine(cleanLine)) continue;
+    if (isTaskLocalInstruction(cleanLine)) {
+      candidates.push(asCandidate(cleanLine, "task_local_instruction", source, 0.58));
+      continue;
+    }
+    if (DECISION_RE.test(cleanLine))
+      candidates.push(asCandidate(cleanLine, "decision", source, 0.62));
+    if (OPEN_RE.test(cleanLine))
+      candidates.push(asCandidate(cleanLine, "open_question", source, 0.72));
+    if (UNCERTAINTY_RE.test(cleanLine))
+      candidates.push(asCandidate(cleanLine, "uncertainty", source, 0.66));
+    if (OPTIONAL_RE.test(cleanLine))
+      candidates.push(asCandidate(cleanLine, "optional_branch", source, 0.58));
+    if (OUTPUT_RE.test(cleanLine))
+      candidates.push(asCandidate(outputFragment(cleanLine), "output_contract", source, 0.6));
   }
 
   return candidates;
@@ -89,7 +136,9 @@ function dedupeCandidates(candidates: SessionCandidate[]): SessionCandidate[] {
   const output: SessionCandidate[] = [];
   for (const candidate of candidates) {
     const duplicate = output.some(
-      (existing) => existing.kind === candidate.kind && isMeaningfullyDuplicate(existing.text, candidate.text, 0.74)
+      (existing) =>
+        existing.kind === candidate.kind &&
+        isMeaningfullyDuplicate(existing.text, candidate.text, 0.74)
     );
     if (duplicate) continue;
     output.push(candidate);
@@ -114,14 +163,24 @@ export function extractSessionCandidates(input: SessionUpdateInput): SessionCand
     candidates.push(...candidatesFromText(input.transformRequest.sourceText, "draft"));
   }
   if (input.transformResult) {
-    candidates.push(...candidatesFromConstraints(input.transformResult.extractedConstraints, "transform"));
+    candidates.push(
+      ...candidatesFromConstraints(input.transformResult.extractedConstraints, "transform")
+    );
     candidates.push(...candidatesFromText(input.transformResult.transformedText, "transform"));
   }
   if (input.capsule) {
     candidates.push(asCandidate(input.capsule.objective, "objective", "capsule", 0.78));
-    candidates.push(...input.capsule.constraints.map((item) => asCandidate(item, "constraint", "capsule", 0.78)));
-    candidates.push(...input.capsule.decisions.map((item) => asCandidate(item, "decision", "capsule", 0.72)));
-    candidates.push(...input.capsule.open_questions.map((item) => asCandidate(item, "open_question", "capsule", 0.76)));
+    candidates.push(
+      ...input.capsule.constraints.map((item) => asCandidate(item, "constraint", "capsule", 0.78))
+    );
+    candidates.push(
+      ...input.capsule.decisions.map((item) => asCandidate(item, "decision", "capsule", 0.72))
+    );
+    candidates.push(
+      ...input.capsule.open_questions.map((item) =>
+        asCandidate(item, "open_question", "capsule", 0.76)
+      )
+    );
   }
   if (input.conversationSnapshot?.turns.length) {
     const userText = input.conversationSnapshot.turns
@@ -135,18 +194,36 @@ export function extractSessionCandidates(input: SessionUpdateInput): SessionCand
 }
 
 export function partitionSessionCandidates(candidates: SessionCandidate[]): SessionPartition {
-  const stableKinds: SessionCandidate["kind"][] = ["objective", "constraint", "decision", "output_contract"];
-  const opennessKinds: SessionCandidate["kind"][] = ["open_question", "uncertainty", "optional_branch"];
+  const stableKinds: SessionCandidate["kind"][] = [
+    "objective",
+    "constraint",
+    "decision",
+    "output_contract"
+  ];
+  const opennessKinds: SessionCandidate["kind"][] = [
+    "open_question",
+    "uncertainty",
+    "optional_branch"
+  ];
 
   return {
     stableCandidates: candidates.filter((candidate) => stableKinds.includes(candidate.kind)),
     noveltyCandidates: candidates.filter(
-      (candidate) => candidate.kind === "objective" || candidate.kind === "constraint" || candidate.kind === "output_contract"
+      (candidate) =>
+        candidate.kind === "objective" ||
+        candidate.kind === "constraint" ||
+        candidate.kind === "output_contract" ||
+        candidate.kind === "task_local_instruction"
     ),
     opennessCandidates: candidates.filter((candidate) => opennessKinds.includes(candidate.kind))
   };
 }
 
-export function uniqueCandidateTexts(candidates: SessionCandidate[], kind: SessionCandidate["kind"]): string[] {
-  return uniqueMeaningfulStrings(candidates.filter((candidate) => candidate.kind === kind).map((candidate) => candidate.text));
+export function uniqueCandidateTexts(
+  candidates: SessionCandidate[],
+  kind: SessionCandidate["kind"]
+): string[] {
+  return uniqueMeaningfulStrings(
+    candidates.filter((candidate) => candidate.kind === kind).map((candidate) => candidate.text)
+  );
 }

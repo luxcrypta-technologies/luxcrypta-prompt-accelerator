@@ -11,5 +11,5 @@ export const DEFAULT_CONTINUITY_PREFERENCES: UserPreferences = {
   conservativeStableCoreUpdates: true,
   saveSessionStateLocally: true,
   localOnlyMode: true,
-  supportedSurfaces: ["chatgpt", "claude", "gemini", "grok"]
+  supportedSurfaces: ["chatgpt", "claude", "gemini", "grok", "deepseek", "perplexity"]
 };

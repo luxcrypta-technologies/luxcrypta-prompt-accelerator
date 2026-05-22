@@ -4,7 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { EXTENSION_VERSION } from "@/app/constants";
 import type { CarryForwardCapsule } from "@/types/capsules";
 import type { SessionGovernanceState, SessionUpdateResult } from "@/types/governance";
-import type { BackgroundMessage, ContentMessage, ContentMessageResult, ReviewState } from "@/types/messages";
+import type {
+  BackgroundMessage,
+  ContentMessage,
+  ContentMessageResult,
+  ReviewState
+} from "@/types/messages";
 import type { TransformResult } from "@/types/prompts";
 import type { Workflow } from "@/types/workflows";
 import { ActionBar } from "@/ui/ActionBar";
@@ -28,14 +33,7 @@ import {
 const platform = getPlatformAPI();
 
 type ToolbarAction = "apply" | "copy" | "workflow" | "capsule";
-type ReviewAction =
-  | ToolbarAction
-  | "workflow-copy"
-  | "workflow-download"
-  | "capsule-copy"
-  | "capsule-download"
-  | "diagnostics-copy"
-  | "diagnostics-download";
+type ReviewAction = string;
 type FeedbackTone = "loading" | "success" | "error";
 
 interface ToolbarFeedback {
@@ -125,7 +123,10 @@ function downloadTextFile(text: string, filename: string, type = "application/js
   URL.revokeObjectURL(url);
 }
 
-async function copyOrDownloadJson(text: string, filename: string): Promise<"clipboard" | "download"> {
+async function copyOrDownloadJson(
+  text: string,
+  filename: string
+): Promise<"clipboard" | "download"> {
   const copied = await copyToClipboardSafely(text);
   if (copied) {
     return "clipboard";
@@ -142,10 +143,117 @@ function getExtensionVersion(): string {
   }
 }
 
-function ReviewListSection({ title, items, emptyText }: { title: string; items: string[]; emptyText: string }) {
+function markdownBlock(title: string, content: string | string[], emptyText?: string): string {
+  const items = Array.isArray(content) ? content.filter(Boolean) : [content].filter(Boolean);
+  return [
+    title,
+    ...(items.length
+      ? items.map((item) => (Array.isArray(content) ? `- ${item}` : item))
+      : [emptyText ?? "No data available."])
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function stableJsonPayload(
+  title: string,
+  payload: unknown,
+  metadata?: Record<string, unknown>
+): Record<string, unknown> {
+  return {
+    title,
+    payload,
+    metadata
+  };
+}
+
+function SectionCopyControls({
+  title,
+  text,
+  jsonPayload,
+  onCopy
+}: {
+  title: string;
+  text: string;
+  jsonPayload?: unknown;
+  onCopy: (label: string, text: string, jsonPayload?: unknown) => void;
+}) {
   return (
-    <section className="review-section continuity-section">
+    <div className="section-copy-controls" aria-label={`${title} copy controls`}>
+      <button
+        type="button"
+        className="section-copy-button"
+        aria-label={`Copy ${title}`}
+        title={`Copy ${title}`}
+        onClick={() => onCopy(title, text)}
+      >
+        <Clipboard size={13} />
+        Copy
+      </button>
+      <button
+        type="button"
+        className="section-copy-button"
+        aria-label={`Copy ${title} as JSON`}
+        title={`Copy ${title} as JSON`}
+        onClick={() =>
+          onCopy(`${title} JSON`, JSON.stringify(jsonPayload ?? { title, text }, null, 2))
+        }
+      >
+        JSON
+      </button>
+    </div>
+  );
+}
+
+function ReviewSectionHeader({
+  title,
+  text,
+  jsonPayload,
+  onCopy
+}: {
+  title: string;
+  text: string;
+  jsonPayload?: unknown;
+  onCopy: (label: string, text: string, jsonPayload?: unknown) => void;
+}) {
+  return (
+    <div className="review-section__header">
       <h2>{title}</h2>
+      <SectionCopyControls title={title} text={text} jsonPayload={jsonPayload} onCopy={onCopy} />
+    </div>
+  );
+}
+
+function ReviewListSection({
+  title,
+  items,
+  emptyText,
+  metadata,
+  variant = "section",
+  onCopy
+}: {
+  title: string;
+  items: string[];
+  emptyText: string;
+  metadata?: Record<string, unknown>;
+  variant?: "section" | "block";
+  onCopy: (label: string, text: string, jsonPayload?: unknown) => void;
+}) {
+  const text = markdownBlock(title, items, emptyText);
+  return (
+    <section
+      className={
+        variant === "block"
+          ? "diagnostics-block continuity-section"
+          : "review-section continuity-section"
+      }
+    >
+      <ReviewSectionHeader
+        title={title}
+        text={text}
+        jsonPayload={stableJsonPayload(title, items, metadata)}
+        onCopy={onCopy}
+      />
       {items.length ? (
         <ul>
           {items.map((item) => (
@@ -155,6 +263,36 @@ function ReviewListSection({ title, items, emptyText }: { title: string; items: 
       ) : (
         <p className="governance-muted">{emptyText}</p>
       )}
+    </section>
+  );
+}
+
+function ReviewTextSection({
+  className,
+  title,
+  text,
+  emptyText,
+  jsonPayload,
+  onCopy
+}: {
+  className?: string;
+  title: string;
+  text?: string;
+  emptyText: string;
+  jsonPayload?: unknown;
+  onCopy: (label: string, text: string, jsonPayload?: unknown) => void;
+}) {
+  const displayText = text?.trim() || emptyText;
+  const copyText = markdownBlock(title, displayText);
+  return (
+    <section className={`review-section${className ? ` ${className}` : ""}`}>
+      <ReviewSectionHeader
+        title={title}
+        text={copyText}
+        jsonPayload={jsonPayload ?? stableJsonPayload(title, displayText)}
+        onCopy={onCopy}
+      />
+      <p>{displayText}</p>
     </section>
   );
 }
@@ -170,7 +308,10 @@ export function App() {
   const [actionFeedback, setActionFeedback] = useState<ToolbarFeedback | null>(null);
 
   const loadSessionState = useCallback(async () => {
-    const next = await platform.messaging.sendMessage<BackgroundMessage, SessionGovernanceState | null>({
+    const next = await platform.messaging.sendMessage<
+      BackgroundMessage,
+      SessionGovernanceState | null
+    >({
       type: "session:get"
     });
     setSessionState(next);
@@ -189,11 +330,15 @@ export function App() {
         setStatus(next ? "Ready to review." : "Review expired. Run a prompt action again.");
         void loadSessionState();
       })
-      .catch((error: unknown) => setStatus(error instanceof Error ? error.message : "Unable to load review."));
+      .catch((error: unknown) =>
+        setStatus(error instanceof Error ? error.message : "Unable to load review.")
+      );
   }, [loadSessionState]);
 
   const result: TransformResult | null = state?.result ?? null;
-  const sourcePreviewText = result?.continuityReview.diagnostics.rawCapsule ? result.normalizedText : result?.originalText ?? "";
+  const sourcePreviewText = result?.continuityReview.diagnostics.rawCapsule
+    ? result.normalizedText
+    : (result?.originalText ?? "");
   const isActionBusy = pendingAction !== null;
 
   const setFeedback = useCallback((feedback: ToolbarFeedback) => {
@@ -223,7 +368,8 @@ export function App() {
         currentUrl: window.location.href,
         saveStatus: currentFeedback,
         exportStatus: currentFeedback,
-        errorLogs: actionFeedback?.tone === "error" ? [actionFeedback.detail ?? actionFeedback.message] : [],
+        errorLogs:
+          actionFeedback?.tone === "error" ? [actionFeedback.detail ?? actionFeedback.message] : [],
         ...overrides
       };
     },
@@ -233,7 +379,8 @@ export function App() {
   const actionLabel = useCallback(
     (action: ToolbarAction) => {
       if (pendingAction === action) return ACTION_LABELS[action].pending;
-      if (actionFeedback?.action === action && actionFeedback.tone === "success") return ACTION_LABELS[action].success;
+      if (actionFeedback?.action === action && actionFeedback.tone === "success")
+        return ACTION_LABELS[action].success;
       return ACTION_LABELS[action].idle;
     },
     [actionFeedback, pendingAction]
@@ -252,14 +399,21 @@ export function App() {
       if (!applyResponse?.applied) {
         throw new Error("The draft surface rejected the update.");
       }
-      if ("text" in applyResponse && applyResponse.text !== undefined && applyResponse.text.trim() !== editableText.trim()) {
+      if (
+        "text" in applyResponse &&
+        applyResponse.text !== undefined &&
+        applyResponse.text.trim() !== editableText.trim()
+      ) {
         throw new Error("The draft text could not be verified after applying.");
       }
 
       let detail: string | undefined;
       if (result) {
         try {
-          const updated = await platform.messaging.sendMessage<BackgroundMessage, SessionUpdateResult | null>({
+          const updated = await platform.messaging.sendMessage<
+            BackgroundMessage,
+            SessionUpdateResult | null
+          >({
             type: "session:update",
             payload: {
               transformResult: { ...result, transformedText: editableText },
@@ -268,7 +422,9 @@ export function App() {
           });
           setSessionState((current) => updated?.state ?? current);
         } catch (error) {
-          detail = errorDetail(error) ? "Draft updated. Session state refresh did not complete." : undefined;
+          detail = errorDetail(error)
+            ? "Draft updated. Session state refresh did not complete."
+            : undefined;
         }
       }
 
@@ -288,7 +444,7 @@ export function App() {
   const copy = useCallback(async () => {
     if (!result) return;
     setPendingAction("copy");
-    setFeedback({ action: "copy", tone: "loading", message: "Copying..." });
+    setFeedback({ action: "copy", tone: "loading", message: "Copying all review..." });
 
     try {
       const copied = await copyToClipboardSafely(formatContinuityExport(result, editableText));
@@ -299,7 +455,8 @@ export function App() {
         action: "copy",
         tone: "success",
         message: "Copied continuity review",
-        detail: "Clean export copied with objective, stable core, provisional items, open items, next actions, and transformed draft."
+        detail:
+          "Clean export copied with objective, stable core, provisional items, open items, next actions, and transformed draft."
       });
     } catch (error) {
       setFeedback({
@@ -312,6 +469,137 @@ export function App() {
       setPendingAction(null);
     }
   }, [editableText, result, setFeedback]);
+
+  const diagnosticStateJson = useCallback(() => {
+    const context =
+      artifactContext({
+        exportStatus: "Prompt Review visible state"
+      }) ??
+      (result
+        ? {
+            result,
+            transformedText: editableText,
+            sessionState,
+            extensionVersion: getExtensionVersion(),
+            currentUrl: window.location.href
+          }
+        : null);
+    return context ? JSON.stringify(buildDiagnosticState(context), null, 2) : "";
+  }, [artifactContext, editableText, result, sessionState]);
+
+  const engineeringSummary = useCallback(() => {
+    if (!result) return "";
+    const review = result.continuityReview;
+    const governance = review.diagnostics.adversarialGovernance;
+    return [
+      "Engineering Summary",
+      `Provider: ${review.diagnostics.providerProfile?.provider ?? review.diagnostics.sourceSurface ?? "unknown"}`,
+      `Active Objective: ${review.activeObjective}`,
+      `Stable Core Count: ${review.stableCore.length}`,
+      `Provisional Count: ${review.newProvisional.length}`,
+      `Open / Unresolved Count: ${review.openUnresolved.length}`,
+      `Rejected Directions Count: ${governance?.rejected_directions.length ?? 0}`,
+      `Quarantine Count: ${governance?.quarantine_log.length ?? 0}`,
+      `Source Purity: ${result.scores.sourcePurityScore ?? "n/a"}`,
+      `Bucket Exclusivity: ${result.scores.bucketExclusivityScore ?? "n/a"}`,
+      "",
+      "Metric Warnings",
+      ...(review.diagnostics.metric_warnings?.length
+        ? review.diagnostics.metric_warnings.map((item) => `- ${item}`)
+        : ["- None"])
+    ].join("\n");
+  }, [result]);
+
+  const copyReviewWithJson = useCallback(async () => {
+    if (!result) return;
+    setPendingAction("review-json-copy");
+    setFeedback({
+      action: "review-json-copy",
+      tone: "loading",
+      message: "Copying review and raw JSON..."
+    });
+    try {
+      const text = [
+        formatContinuityExport(result, editableText),
+        "Raw JSON",
+        diagnosticStateJson()
+      ].join("\n\n");
+      const copied = await copyToClipboardSafely(text);
+      if (!copied) throw new Error("Clipboard unavailable.");
+      setFeedback({
+        action: "review-json-copy",
+        tone: "success",
+        message: "Copied review and raw JSON"
+      });
+    } catch (error) {
+      setFeedback({
+        action: "review-json-copy",
+        tone: "error",
+        message: "Could not copy review and raw JSON.",
+        detail: errorDetail(error)
+      });
+    } finally {
+      setPendingAction(null);
+    }
+  }, [diagnosticStateJson, editableText, result, setFeedback]);
+
+  const copyEngineeringSummary = useCallback(async () => {
+    if (!result) return;
+    setPendingAction("engineering-summary-copy");
+    setFeedback({
+      action: "engineering-summary-copy",
+      tone: "loading",
+      message: "Copying engineering summary..."
+    });
+    try {
+      const copied = await copyToClipboardSafely(engineeringSummary());
+      if (!copied) throw new Error("Clipboard unavailable.");
+      setFeedback({
+        action: "engineering-summary-copy",
+        tone: "success",
+        message: "Copied engineering summary"
+      });
+    } catch (error) {
+      setFeedback({
+        action: "engineering-summary-copy",
+        tone: "error",
+        message: "Could not copy engineering summary.",
+        detail: errorDetail(error)
+      });
+    } finally {
+      setPendingAction(null);
+    }
+  }, [engineeringSummary, result, setFeedback]);
+
+  const copyReviewBlock = useCallback(
+    async (label: string, text: string) => {
+      setPendingAction(`section-copy:${label}`);
+      setFeedback({
+        action: `section-copy:${label}`,
+        tone: "loading",
+        message: `Copying ${label}...`
+      });
+      try {
+        const copied = await copyToClipboardSafely(text);
+        if (!copied) throw new Error("Clipboard unavailable.");
+        setFeedback({
+          action: `section-copy:${label}`,
+          tone: "success",
+          message: `Copied ${label}`
+        });
+      } catch (error) {
+        setFeedback({
+          action: `section-copy:${label}`,
+          tone: "error",
+          message: `Could not copy ${label}.`,
+          detail: errorDetail(error)
+        });
+      } finally {
+        setPendingAction(null);
+      }
+    },
+    [setFeedback]
+  );
 
   const saveWorkflow = useCallback(async () => {
     if (!result) return;
@@ -348,7 +636,9 @@ export function App() {
       setFeedback({
         action: "workflow",
         tone: "error",
-        message: savedWorkflow ? "Workflow saved to storage, but export failed." : "Could not save workflow.",
+        message: savedWorkflow
+          ? "Workflow saved to storage, but export failed."
+          : "Could not save workflow.",
         detail: errorDetail(error)
       });
     } finally {
@@ -391,7 +681,9 @@ export function App() {
       setFeedback({
         action: "capsule",
         tone: "error",
-        message: savedCapsule ? "Capsule saved to storage, but export failed." : "Could not save capsule.",
+        message: savedCapsule
+          ? "Capsule saved to storage, but export failed."
+          : "Could not save capsule.",
         detail: errorDetail(error)
       });
     } finally {
@@ -407,11 +699,15 @@ export function App() {
       const context = artifactContext({ workflow });
       if (!context) throw new Error("No workflow data available.");
       const json = JSON.stringify(buildPortableWorkflowArtifact(workflow, context), null, 2);
-      const retrieval = await copyOrDownloadJson(json, artifactFilename("workflow", workflow.title));
+      const retrieval = await copyOrDownloadJson(
+        json,
+        artifactFilename("workflow", workflow.title)
+      );
       setFeedback({
         action: "workflow-copy",
         tone: "success",
-        message: retrieval === "clipboard" ? "Workflow copied to clipboard" : "Workflow exported as JSON",
+        message:
+          retrieval === "clipboard" ? "Workflow copied to clipboard" : "Workflow exported as JSON",
         detail:
           retrieval === "clipboard"
             ? "Saved workflow artifact is ready to paste."
@@ -467,7 +763,8 @@ export function App() {
       setFeedback({
         action: "capsule-copy",
         tone: "success",
-        message: retrieval === "clipboard" ? "Capsule copied to clipboard" : "Capsule exported as JSON",
+        message:
+          retrieval === "clipboard" ? "Capsule copied to clipboard" : "Capsule exported as JSON",
         detail:
           retrieval === "clipboard"
             ? "Saved capsule artifact is ready to paste."
@@ -515,12 +812,20 @@ export function App() {
     const context = artifactContext({ exportStatus: "Copy Raw Diagnostic Data" });
     if (!context) return;
     setPendingAction("diagnostics-copy");
-    setFeedback({ action: "diagnostics-copy", tone: "loading", message: "Copying raw diagnostic data..." });
+    setFeedback({
+      action: "diagnostics-copy",
+      tone: "loading",
+      message: "Copying raw diagnostic data..."
+    });
     try {
       const markdown = formatDiagnosticMarkdown(context);
       const copied = await copyToClipboardSafely(markdown);
       if (!copied) {
-        downloadTextFile(markdown, artifactFilename("diagnostic", "raw-diagnostic-data").replace(/\.json$/, ".md"), "text/markdown");
+        downloadTextFile(
+          markdown,
+          artifactFilename("diagnostic", "raw-diagnostic-data").replace(/\.json$/, ".md"),
+          "text/markdown"
+        );
       }
       setFeedback({
         action: "diagnostics-copy",
@@ -576,6 +881,28 @@ export function App() {
     );
   }
 
+  const review = result.continuityReview;
+  const governance = review.diagnostics.adversarialGovernance;
+  const rawDiagnosticJson = diagnosticStateJson();
+  const rawDiagnosticMarkdown = artifactContext({ exportStatus: "Raw Diagnostic Markdown" })
+    ? formatDiagnosticMarkdown(artifactContext({ exportStatus: "Raw Diagnostic Markdown" })!)
+    : "";
+  const mutationRiskLines =
+    governance?.mutation_targets.map(
+      (item) =>
+        `${item.target_component}: ${item.attempted_mutation} (${item.risk_level}, applied: ${item.applied ? "yes" : "no"})`
+    ) ?? [];
+  const providerProfileLines = review.diagnostics.providerProfile
+    ? Object.entries(review.diagnostics.providerProfile).map(
+        ([key, value]) => `${key}: ${Array.isArray(value) ? value.join("; ") : String(value)}`
+      )
+    : [];
+  const providerHealthLines = review.diagnostics.providerHealth
+    ? Object.entries(review.diagnostics.providerHealth).map(
+        ([key, value]) => `${key}: ${Array.isArray(value) ? value.join("; ") : String(value)}`
+      )
+    : [];
+
   return (
     <main className="review-shell">
       <header className="review-header">
@@ -587,16 +914,49 @@ export function App() {
       </header>
 
       <ActionBar>
-        <Button icon={<Check size={15} />} variant="primary" disabled={isActionBusy} onClick={() => void apply()}>
+        <Button
+          icon={<Check size={15} />}
+          variant="primary"
+          disabled={isActionBusy}
+          onClick={() => void apply()}
+        >
           {actionLabel("apply")}
         </Button>
-        <Button icon={<Clipboard size={15} />} disabled={isActionBusy} onClick={() => void copy()}>
-          {actionLabel("copy")}
+        <Button
+          icon={<Clipboard size={15} />}
+          aria-label="Copy"
+          title="Copy All Review"
+          disabled={isActionBusy}
+          onClick={() => void copy()}
+        >
+          Copy All Review
         </Button>
-        <Button icon={<Save size={15} />} disabled={isActionBusy} onClick={() => void saveWorkflow()}>
+        <Button
+          icon={<Clipboard size={15} />}
+          disabled={isActionBusy}
+          onClick={() => void copyReviewWithJson()}
+        >
+          Copy Review + Raw JSON
+        </Button>
+        <Button
+          icon={<Clipboard size={15} />}
+          disabled={isActionBusy}
+          onClick={() => void copyEngineeringSummary()}
+        >
+          Copy Engineering Summary
+        </Button>
+        <Button
+          icon={<Save size={15} />}
+          disabled={isActionBusy}
+          onClick={() => void saveWorkflow()}
+        >
           {actionLabel("workflow")}
         </Button>
-        <Button icon={<FilePlus2 size={15} />} disabled={isActionBusy} onClick={() => void saveCapsule()}>
+        <Button
+          icon={<FilePlus2 size={15} />}
+          disabled={isActionBusy}
+          onClick={() => void saveCapsule()}
+        >
           {actionLabel("capsule")}
         </Button>
       </ActionBar>
@@ -611,52 +971,152 @@ export function App() {
         </div>
       ) : null}
 
-      <section className="review-section clean-summary">
-        <h2>Clean Summary</h2>
-        <p>{result.continuityReview.cleanSummary}</p>
-      </section>
+      <ReviewTextSection
+        className="clean-summary"
+        title="Clean Summary"
+        text={review.cleanSummary}
+        emptyText="No clean summary available."
+        jsonPayload={stableJsonPayload("Clean Summary", review.cleanSummary)}
+        onCopy={copyReviewBlock}
+      />
 
-      <section className="review-section active-objective">
-        <h2>Active Objective</h2>
-        <p>{result.continuityReview.activeObjective}</p>
-      </section>
+      <ReviewTextSection
+        className="active-objective"
+        title="Active Objective"
+        text={review.activeObjective}
+        emptyText="No active objective detected."
+        jsonPayload={stableJsonPayload("Active Objective", review.activeObjective, {
+          bucket: "stable_core",
+          source: "continuity_review",
+          decision: "admit"
+        })}
+        onCopy={copyReviewBlock}
+      />
 
       <div className="review-grid continuity-grid">
         <ReviewListSection
           title="Stable Core"
-          items={result.continuityReview.stableCore}
+          items={review.stableCore}
           emptyText="No stable constraints or accepted decisions detected yet."
+          metadata={{ bucket: "stable_core", decision: "admit" }}
+          onCopy={copyReviewBlock}
         />
         <ReviewListSection
           title="New / Provisional"
-          items={result.continuityReview.newProvisional}
+          items={review.newProvisional}
           emptyText="No new provisional changes detected."
+          metadata={{ bucket: "provisional_state", decision: "admit" }}
+          onCopy={copyReviewBlock}
         />
         <ReviewListSection
           title="Open / Unresolved"
-          items={result.continuityReview.openUnresolved}
+          items={review.openUnresolved}
           emptyText="No open questions or unresolved risks detected."
+          metadata={{ bucket: "open_unresolved", decision: "defer" }}
+          onCopy={copyReviewBlock}
         />
         <ReviewListSection
           title="What Changed"
-          items={result.continuityReview.whatChanged}
+          items={review.whatChanged}
           emptyText="No material runtime changes detected."
+          metadata={{ source: "continuity_review" }}
+          onCopy={copyReviewBlock}
         />
       </div>
 
       <ReviewListSection
         title="Recommended Next Actions"
-        items={result.continuityReview.recommendedNextActions}
+        items={review.recommendedNextActions}
         emptyText="No next actions suggested."
+        metadata={{ source: "continuity_review" }}
+        onCopy={copyReviewBlock}
       />
+
+      <div className="review-grid continuity-grid">
+        <ReviewListSection
+          title="Rejected Directions"
+          items={governance?.rejected_directions ?? []}
+          emptyText="No rejected directions detected."
+          metadata={{ bucket: "rejected_directions", decision: "reject" }}
+          onCopy={copyReviewBlock}
+        />
+        <ReviewListSection
+          title="Governance Principles"
+          items={governance?.governance_principles ?? []}
+          emptyText="No governance principles detected."
+          metadata={{ bucket: "governance_principles", decision: "admit" }}
+          onCopy={copyReviewBlock}
+        />
+        <ReviewListSection
+          title="Invariants"
+          items={governance?.invariants ?? []}
+          emptyText="No invariants detected."
+          metadata={{ bucket: "invariants", decision: "admit" }}
+          onCopy={copyReviewBlock}
+        />
+        <ReviewListSection
+          title="Continuity Safeguards"
+          items={governance?.continuity_safeguards ?? []}
+          emptyText="No continuity safeguards detected."
+          metadata={{ bucket: "continuity_safeguards", decision: "admit" }}
+          onCopy={copyReviewBlock}
+        />
+        <ReviewListSection
+          title="Quarantine / Deferred"
+          items={[
+            ...(governance?.quarantine_log ?? []),
+            ...(governance?.deferred_items.map((item) => item.text) ?? [])
+          ]}
+          emptyText="No quarantined or deferred items detected."
+          metadata={{ bucket: "quarantine_log", decision: "quarantine_or_defer" }}
+          onCopy={copyReviewBlock}
+        />
+        <ReviewListSection
+          title="Mutation Risk Report"
+          items={mutationRiskLines}
+          emptyText="No mutation risks detected."
+          metadata={governance?.mutation_risk_report as Record<string, unknown> | undefined}
+          onCopy={copyReviewBlock}
+        />
+        <ReviewListSection
+          title="Trusted State Summary"
+          items={review.diagnostics.trusted_state_summary ?? []}
+          emptyText="No trusted state summary available."
+          metadata={{ source: "diagnostics" }}
+          onCopy={copyReviewBlock}
+        />
+        <ReviewListSection
+          title="Untrusted Instruction Summary"
+          items={review.diagnostics.untrusted_instruction_summary ?? []}
+          emptyText="No untrusted instructions detected."
+          metadata={{ source: "diagnostics" }}
+          onCopy={copyReviewBlock}
+        />
+      </div>
 
       <section className="review-grid review-comparison" aria-label="Continuity comparison">
         <article className="review-pane review-pane--comparison">
-          <h2>Continuity Source</h2>
+          <ReviewSectionHeader
+            title="Continuity Source"
+            text={markdownBlock(
+              "Continuity Source",
+              sourcePreviewText || "No source text available."
+            )}
+            jsonPayload={stableJsonPayload("Continuity Source", sourcePreviewText)}
+            onCopy={copyReviewBlock}
+          />
           <pre className="review-pane__content">{sourcePreviewText}</pre>
         </article>
         <article className="review-pane review-pane--comparison">
-          <h2>Transformed</h2>
+          <ReviewSectionHeader
+            title="Transformed Text"
+            text={markdownBlock(
+              "Transformed Text",
+              editableText || "No transformed text available."
+            )}
+            jsonPayload={stableJsonPayload("Transformed Text", editableText)}
+            onCopy={copyReviewBlock}
+          />
           <textarea
             className="review-pane__content"
             aria-label="Transformed continuity draft"
@@ -667,7 +1127,20 @@ export function App() {
       </section>
 
       <section className="review-section">
-        <h2>Diff</h2>
+        <ReviewSectionHeader
+          title="Diff"
+          text={markdownBlock(
+            "Diff",
+            result.diff
+              .map(
+                (block) =>
+                  `${block.operation}: ${block.originalText || block.transformedText}${block.reason ? ` (${block.reason})` : ""}`
+              )
+              .join("\n") || "No diff available."
+          )}
+          jsonPayload={stableJsonPayload("Diff", result.diff)}
+          onCopy={copyReviewBlock}
+        />
         <DiffView blocks={result.diff} />
       </section>
 
@@ -676,10 +1149,18 @@ export function App() {
           <div className="saved-artifact">
             <WorkflowCard workflow={workflow} />
             <div className="saved-artifact__actions">
-              <Button icon={<Clipboard size={15} />} disabled={isActionBusy} onClick={() => void copySavedWorkflow()}>
+              <Button
+                icon={<Clipboard size={15} />}
+                disabled={isActionBusy}
+                onClick={() => void copySavedWorkflow()}
+              >
                 Copy saved workflow
               </Button>
-              <Button icon={<Download size={15} />} disabled={isActionBusy} onClick={() => downloadSavedWorkflow()}>
+              <Button
+                icon={<Download size={15} />}
+                disabled={isActionBusy}
+                onClick={() => downloadSavedWorkflow()}
+              >
                 Download JSON
               </Button>
             </div>
@@ -689,10 +1170,18 @@ export function App() {
           <div className="saved-artifact">
             <CapsuleCard capsule={capsule} />
             <div className="saved-artifact__actions">
-              <Button icon={<Clipboard size={15} />} disabled={isActionBusy} onClick={() => void copySavedCapsule()}>
+              <Button
+                icon={<Clipboard size={15} />}
+                disabled={isActionBusy}
+                onClick={() => void copySavedCapsule()}
+              >
                 Copy saved capsule
               </Button>
-              <Button icon={<Download size={15} />} disabled={isActionBusy} onClick={() => downloadSavedCapsule()}>
+              <Button
+                icon={<Download size={15} />}
+                disabled={isActionBusy}
+                onClick={() => downloadSavedCapsule()}
+              >
                 Download JSON
               </Button>
             </div>
@@ -703,39 +1192,155 @@ export function App() {
       <details className="review-section diagnostics-panel">
         <summary>Advanced Diagnostics</summary>
         <div className="diagnostics-actions">
-          <Button icon={<Clipboard size={15} />} disabled={isActionBusy} onClick={() => void copyDiagnosticData()}>
+          <Button
+            icon={<Clipboard size={15} />}
+            disabled={isActionBusy}
+            onClick={() => void copyDiagnosticData()}
+          >
             Copy Raw Diagnostic Data
           </Button>
-          <Button icon={<Download size={15} />} disabled={isActionBusy} onClick={() => downloadDiagnosticJson()}>
+          <Button
+            icon={<Download size={15} />}
+            disabled={isActionBusy}
+            onClick={() => downloadDiagnosticJson()}
+          >
             Export Diagnostic State
           </Button>
         </div>
         <div className="health-grid">
-          <span>Continuity {sessionState?.monitors.continuityScore ?? result.scores.constraintPreservationScore * 100}%</span>
+          <span>
+            Continuity{" "}
+            {sessionState?.monitors.continuityScore ??
+              result.scores.constraintPreservationScore * 100}
+            %
+          </span>
           <span>Drift {sessionState?.monitors.driftScore ?? 0}%</span>
-          <span>Novelty {sessionState?.monitors.noveltyLoad ?? result.continuityReview.newProvisional.length}</span>
-          <span>Open {sessionState?.monitors.opennessScore ?? result.continuityReview.openUnresolved.length}</span>
-          <span>Density {sessionState?.monitors.compressionDensity ?? result.scores.compactnessScore * 100}%</span>
+          <span>
+            Novelty{" "}
+            {sessionState?.monitors.noveltyLoad ?? result.continuityReview.newProvisional.length}
+          </span>
+          <span>
+            Open{" "}
+            {sessionState?.monitors.opennessScore ?? result.continuityReview.openUnresolved.length}
+          </span>
+          <span>
+            Density{" "}
+            {sessionState?.monitors.compressionDensity ?? result.scores.compactnessScore * 100}%
+          </span>
           <span>Status {sessionState?.monitors.sessionHealth ?? "review"}</span>
         </div>
-        <h3>Raw Capsule / Diagnostic Data</h3>
-        <pre className="diagnostics-json">
-          {JSON.stringify(
-            buildDiagnosticState(
-              artifactContext({
-                exportStatus: "Advanced Diagnostics visible state"
-              }) ?? {
-                result,
-                transformedText: editableText,
-                sessionState,
-                extensionVersion: getExtensionVersion(),
-                currentUrl: window.location.href
-              }
-            ),
-            null,
-            2
-          )}
-        </pre>
+        <div className="review-grid continuity-grid diagnostics-grid">
+          <ReviewListSection
+            title="Conflict Report"
+            variant="block"
+            items={[
+              ...(governance?.conflict_report.trusted_summary.map((item) => `Trusted: ${item}`) ??
+                []),
+              ...(governance?.conflict_report.untrusted_summary.map(
+                (item) => `Untrusted: ${item}`
+              ) ?? []),
+              ...(governance?.conflict_report.warnings ?? [])
+            ]}
+            emptyText="No conflict report entries detected."
+            metadata={governance?.conflict_report as Record<string, unknown> | undefined}
+            onCopy={copyReviewBlock}
+          />
+          <ReviewListSection
+            title="Metric Warnings"
+            variant="block"
+            items={review.diagnostics.metric_warnings ?? result.scores.warnings ?? []}
+            emptyText="No metric warnings."
+            metadata={{ scores: result.scores }}
+            onCopy={copyReviewBlock}
+          />
+          <ReviewListSection
+            title="Admission Filter"
+            variant="block"
+            items={
+              governance?.canonical_items.map((item) => `${item.primary_bucket}: ${item.text}`) ??
+              []
+            }
+            emptyText="No canonical admission items."
+            metadata={
+              governance ? { canonical_item_count: governance.canonical_items.length } : undefined
+            }
+            onCopy={copyReviewBlock}
+          />
+          <ReviewListSection
+            title="Provider Profile"
+            variant="block"
+            items={providerProfileLines}
+            emptyText="No provider profile available."
+            metadata={review.diagnostics.providerProfile as Record<string, unknown> | undefined}
+            onCopy={copyReviewBlock}
+          />
+          <ReviewListSection
+            title="Provider Health"
+            variant="block"
+            items={providerHealthLines}
+            emptyText="No provider health available."
+            metadata={review.diagnostics.providerHealth as Record<string, unknown> | undefined}
+            onCopy={copyReviewBlock}
+          />
+          <ReviewListSection
+            title="Last Transformation Result"
+            variant="block"
+            items={[
+              `Mode: ${result.modeApplied ?? "none"}`,
+              `Target model: ${result.targetModelApplied ?? "none"}`,
+              `Diff blocks: ${result.diff.length}`,
+              `Risk score: ${result.scores.riskScore}`
+            ]}
+            emptyText="No transformation result available."
+            metadata={{
+              explanation: result.explanation,
+              diff_blocks: result.diff.length,
+              scores: result.scores
+            }}
+            onCopy={copyReviewBlock}
+          />
+          <ReviewListSection
+            title="Canonical Items"
+            variant="block"
+            items={
+              governance?.canonical_items.map(
+                (item) =>
+                  `${item.primary_bucket} | ${item.decision ?? "n/a"} | ${item.source_role ?? item.source ?? "unknown"} | ${item.text}`
+              ) ?? []
+            }
+            emptyText="No canonical items available."
+            metadata={{ canonical_items: governance?.canonical_items ?? [] }}
+            onCopy={copyReviewBlock}
+          />
+          <ReviewListSection
+            title="Active Constraints"
+            variant="block"
+            items={result.extractedConstraints.map(
+              (constraint) =>
+                `${constraint.kind} | ${constraint.hard ? "hard" : "soft"} | ${constraint.confidence}: ${constraint.text}`
+            )}
+            emptyText="No active constraints detected."
+            metadata={{ active_constraints: result.extractedConstraints }}
+            onCopy={copyReviewBlock}
+          />
+          <ReviewListSection
+            title="Raw Diagnostic Markdown"
+            variant="block"
+            items={rawDiagnosticMarkdown ? [rawDiagnosticMarkdown] : []}
+            emptyText="No raw diagnostic markdown available."
+            metadata={{ format: "markdown" }}
+            onCopy={copyReviewBlock}
+          />
+        </div>
+        <div className="diagnostics-json-block">
+          <ReviewSectionHeader
+            title="Raw JSON"
+            text={rawDiagnosticJson || "No raw diagnostic JSON available."}
+            jsonPayload={rawDiagnosticJson ? (JSON.parse(rawDiagnosticJson) as unknown) : {}}
+            onCopy={copyReviewBlock}
+          />
+          <pre className="diagnostics-json">{rawDiagnosticJson}</pre>
+        </div>
       </details>
 
       <p className="status-line">{status}</p>

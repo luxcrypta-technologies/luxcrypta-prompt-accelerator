@@ -1,11 +1,14 @@
 import type { CarryForwardCapsule } from "@/types/capsules";
 import type { SessionGovernanceState } from "@/types/governance";
-import type { TransformResult } from "@/types/prompts";
+import type { MutationTarget, TransformResult } from "@/types/prompts";
 import type { Workflow } from "@/types/workflows";
 import { isMeaningfullyDuplicate, normalizeMeaning, uniqueMeaningfulStrings } from "@/utils/text";
 
 type WorkflowDraft = Omit<Workflow, "id" | "createdAt" | "updatedAt">;
-export type CapsuleDraft = Omit<CarryForwardCapsule, "capsule_version" | "id" | "created_at" | "updated_at">;
+export type CapsuleDraft = Omit<
+  CarryForwardCapsule,
+  "capsule_version" | "id" | "created_at" | "updated_at"
+>;
 
 export interface ReviewArtifactContext {
   result: TransformResult;
@@ -75,6 +78,13 @@ interface AdmittedContinuityState {
   acceptedDecisions: string[];
   unresolvedIssues: string[];
   rejectedDirections: string[];
+  governancePrinciples: string[];
+  invariants: string[];
+  continuitySafeguards: string[];
+  quarantineLog: string[];
+  deferredItems: string[];
+  conditionalAdmissions: string[];
+  mutationTargets: MutationTarget[];
   continuityAnchors: string[];
   provisionalState: string[];
   workflowEvolution: string[];
@@ -96,12 +106,18 @@ const OPERATIONAL_RE =
   /\b(continuity|workflow|capsule|diagnostic|save|export|state|runtime|governance|objective|constraint|decision|unresolved|anchor|portable|artifact|review|session|model|extension|toolbar|admission|filter|semantic|carry[-\s]?forward|cognition|prompt accelerator|luxcrypta|stable core|raw json|product|prompt optimization|chat history|review surface|compress|focus)\b/i;
 const OPERATIONAL_VERB_RE =
   /\b(preserve|keep|maintain|avoid|exclude|downgrade|quarantine|normalize|distill|dedupe|build|save|export|refine|evaluate|reconstruct|continue|separate|classify|filter|attach|protect|tighten|reduce|implement|route|promote|carry forward)\b/i;
-const GOVERNANCE_RE = /\b(governance|stable core|accepted decision|rejected direction|unresolved|open question|risk|continuity invariant|cognition)\b/i;
-const CONTINUITY_RE = /\b(continuity|carry[-\s]?forward|reconstruct|workflow identity|session|portable|capsule|anchor)\b/i;
-const REJECTED_RE = /\b(do not|don't|never|avoid|forbidden|must not|should not|no\s+\w+|exclude|without)\b/i;
-const DECISION_RE = /\b(decision|decided|accepted|approved|we will|chosen|locked|keep\b|use\b|preserve\b)\b/i;
-const OPEN_RE = /\?|(?:\b(open question|unclear|unknown|risk|unresolved|needs confirmation|tension|blocked|uncertain|investigate)\b)/i;
-const IDENTITY_RE = /\b(luxcrypta|prompt accelerator|continuity runtime|browser extension|workflow identity|operational cognition|save\/export|workflow|capsule|diagnostic)\b/i;
+const GOVERNANCE_RE =
+  /\b(governance|trusted|untrusted|stable core|accepted decision|rejected direction|unresolved|open question|risk|continuity invariant|cognition)\b/i;
+const CONTINUITY_RE =
+  /\b(continuity|carry[-\s]?forward|reconstruct|workflow identity|session|portable|capsule|anchor)\b/i;
+const REJECTED_RE =
+  /\b(do not|don't|never|avoid|forbidden|must not|should not|no\s+\w+|exclude|without)\b/i;
+const DECISION_RE =
+  /\b(decision|decided|accepted|approved|we will|chosen|locked|keep\b|use\b|preserve\b)\b/i;
+const OPEN_RE =
+  /\?|(?:\b(open question|unclear|unknown|risk|unresolved|needs confirmation|tension|blocked|uncertain|investigate)\b)/i;
+const IDENTITY_RE =
+  /\b(luxcrypta|prompt accelerator|continuity runtime|browser extension|workflow identity|operational cognition|save\/export|workflow|capsule|diagnostic)\b/i;
 
 function cleanLine(value: string | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
@@ -123,11 +139,19 @@ function cleanFragmentText(value: string | undefined): string {
     .trim();
 }
 
-function candidate(text: string | undefined, source: string, preferredClass?: FragmentClass): CandidateInput {
+function candidate(
+  text: string | undefined,
+  source: string,
+  preferredClass?: FragmentClass
+): CandidateInput {
   return { text, source, preferredClass };
 }
 
-function candidatesFrom(items: Array<string | undefined>, source: string, preferredClass?: FragmentClass): CandidateInput[] {
+function candidatesFrom(
+  items: Array<string | undefined>,
+  source: string,
+  preferredClass?: FragmentClass
+): CandidateInput[] {
   return items.map((item) => candidate(item, source, preferredClass));
 }
 
@@ -152,7 +176,11 @@ function truncatePortable(value: string, length = MAX_PORTABLE_ITEM_LENGTH): str
   const clean = cleanFragmentText(value).replace(/\s*[:;]\s*$/, "");
   if (clean.length <= length) return clean;
   const clipped = clean.slice(0, length - 3);
-  const sentenceEnd = Math.max(clipped.lastIndexOf("."), clipped.lastIndexOf(";"), clipped.lastIndexOf(","));
+  const sentenceEnd = Math.max(
+    clipped.lastIndexOf("."),
+    clipped.lastIndexOf(";"),
+    clipped.lastIndexOf(",")
+  );
   const safe = sentenceEnd > 80 ? clipped.slice(0, sentenceEnd) : clipped;
   return `${safe.trim()}...`;
 }
@@ -207,7 +235,9 @@ function isUiArtifact(text: string): boolean {
     /^(activeobjective|stablecore|newprovisional|openunresolved|recommendednextactions|transformedcontinuitydraft|cleansummary|advanceddiagnostics|rawcapsulediagnosticdata|poweredbyluxcrypta|readytoreview)$/.test(
       compact
     ) ||
-    /^(copying|copied|saving workflow|saving capsule|workflow saved|capsule saved|download started|ready to review)\.?$/.test(lower)
+    /^(copying|copied|saving workflow|saving capsule|workflow saved|capsule saved|download started|ready to review)\.?$/.test(
+      lower
+    )
   );
 }
 
@@ -222,8 +252,13 @@ function isConversationDebris(text: string): boolean {
     /^this is what i see when i click\b/.test(lower) ||
     /^analy[sz]e everything[.! ]*$/.test(lower) ||
     /^please analy[sz]e everything[.! ]*$/.test(lower) ||
-    /^(here are|these are|i uploaded|i'?m attaching|attached|uploading)\b.*\b(images?|screenshots?|files?)\b/.test(lower) ||
-    /^(below is|here is)\b.*\b(copy[-\s]?paste|patch directive|directive|task block|prompt block|instructions?)\b/.test(lower) ||
+    /^(here are|these are|i uploaded|i'?m attaching|attached|uploading)\b.*\b(images?|screenshots?|files?)\b/.test(
+      lower
+    ) ||
+    /^(below is|here is)\b.*\b(copy[-\s]?paste|patch directive|directive|task block|prompt block|instructions?)\b/.test(
+      lower
+    ) ||
+    /\b(giant copied block|upload chatter|screenshot setup)\b/.test(lower) ||
     /^razak[,]?$/.test(lower) ||
     /^if you want\b/.test(lower) ||
     /^next i can produce\b/.test(lower)
@@ -240,7 +275,9 @@ function isMetaDirectiveHeading(text: string): boolean {
 }
 
 function isToolChatter(text: string): boolean {
-  return /\b(upload|uploading|click(?:ed)?|browser screenshot|save button|copy button|review window|screenshot workflow)\b/i.test(text);
+  return /\b(upload|uploading|click(?:ed)?|browser screenshot|save button|copy button|review window|screenshot workflow)\b/i.test(
+    text
+  );
 }
 
 function isScreenshotDebris(text: string): boolean {
@@ -250,18 +287,24 @@ function isScreenshotDebris(text: string): boolean {
 }
 
 function isScreenshotMissionCritical(context: AdmissionContext): boolean {
-  return /\b(screenshot|store listing|product hunt|promo image|marketing asset)\b/i.test(context.objectiveHint);
+  return /\b(screenshot|store listing|product hunt|promo image|marketing asset)\b/i.test(
+    context.objectiveHint
+  );
 }
 
 function isQuotedBlockNoise(text: string): boolean {
   return (
     text.length > 360 &&
-    /\b(copy[-\s]?paste|directive|instructions?|prompt block|quoted|below is|raw review|transcript)\b/i.test(text)
+    /\b(copy[-\s]?paste|directive|instructions?|prompt block|quoted|below is|raw review|transcript)\b/i.test(
+      text
+    )
   );
 }
 
 function isOperationallyRelevant(text: string): boolean {
-  return OPERATIONAL_RE.test(text) || (OPERATIONAL_VERB_RE.test(text) && text.split(/\s+/).length >= 4);
+  return (
+    OPERATIONAL_RE.test(text) || (OPERATIONAL_VERB_RE.test(text) && text.split(/\s+/).length >= 4)
+  );
 }
 
 function isIdentityBearing(text: string): boolean {
@@ -283,7 +326,12 @@ function recordDiscard(context: AdmissionContext, text: string, debris = false):
   if (debris) context.debrisRemoved += 1;
 }
 
-function scoreFragment(text: string, target: AdmissionTarget, context: AdmissionContext, preferredClass?: FragmentClass): number {
+function scoreFragment(
+  text: string,
+  target: AdmissionTarget,
+  context: AdmissionContext,
+  preferredClass?: FragmentClass
+): number {
   let score = 0;
   if (isOperationallyRelevant(text)) score += 2;
   if (OPERATIONAL_VERB_RE.test(text)) score += 1;
@@ -299,12 +347,17 @@ function scoreFragment(text: string, target: AdmissionTarget, context: Admission
 
   if (preferredClass) score += 3;
   if (target === "rejected_directions" && !REJECTED_RE.test(text)) score -= 5;
-  if (target === "accepted_decisions" && !preferredClass && !/\b(decision|decided|accepted|approved|chosen|we will)\b/i.test(text)) {
+  if (
+    target === "accepted_decisions" &&
+    !preferredClass &&
+    !/\b(decision|decided|accepted|approved|chosen|we will)\b/i.test(text)
+  ) {
     score -= 3;
   }
   if (target === "continuity_anchors" && !isIdentityBearing(text)) score -= 3;
   if (target === "unresolved_issues" && !OPEN_RE.test(text)) score -= 4;
-  if (target === "stable_constraints" && !isOperationallyRelevant(text) && !REJECTED_RE.test(text)) score -= 2;
+  if (target === "stable_constraints" && !isOperationallyRelevant(text) && !REJECTED_RE.test(text))
+    score -= 2;
 
   if (isConversationDebris(text) || isUiArtifact(text)) score -= 10;
   if (isToolChatter(text) && !isOperationallyRelevant(text)) score -= 6;
@@ -314,25 +367,57 @@ function scoreFragment(text: string, target: AdmissionTarget, context: Admission
   return score;
 }
 
-function classifyStateFragment(input: CandidateInput, text: string, target: AdmissionTarget, context: AdmissionContext): ClassifiedFragment {
+function classifyStateFragment(
+  input: CandidateInput,
+  text: string,
+  target: AdmissionTarget,
+  context: AdmissionContext
+): ClassifiedFragment {
   const clean = cleanFragmentText(text);
   if (!clean) {
-    return { originalText: text, text: clean, fragmentClass: "discard", score: -10, source: input.source };
+    return {
+      originalText: text,
+      text: clean,
+      fragmentClass: "discard",
+      score: -10,
+      source: input.source
+    };
   }
 
   if (isConversationDebris(clean) || isUiArtifact(clean) || isMetaDirectiveHeading(clean)) {
     recordDiscard(context, clean, true);
-    return { originalText: text, text: clean, fragmentClass: "discard", score: -10, source: input.source };
+    return {
+      originalText: text,
+      text: clean,
+      fragmentClass: "discard",
+      score: -10,
+      source: input.source
+    };
   }
 
-  if ((isToolChatter(clean) || isScreenshotDebris(clean)) && !isScreenshotMissionCritical(context)) {
+  if (
+    (isToolChatter(clean) || isScreenshotDebris(clean)) &&
+    !isScreenshotMissionCritical(context)
+  ) {
     recordDiagnosticOnly(context, clean);
-    return { originalText: text, text: clean, fragmentClass: "diagnostic_only", score: -2, source: input.source };
+    return {
+      originalText: text,
+      text: clean,
+      fragmentClass: "diagnostic_only",
+      score: -2,
+      source: input.source
+    };
   }
 
   if (isQuotedBlockNoise(clean)) {
     recordDiagnosticOnly(context, clean);
-    return { originalText: text, text: clean, fragmentClass: "diagnostic_only", score: -1, source: input.source };
+    return {
+      originalText: text,
+      text: clean,
+      fragmentClass: "diagnostic_only",
+      score: -1,
+      source: input.source
+    };
   }
 
   const score = scoreFragment(clean, target, context, input.preferredClass);
@@ -382,7 +467,11 @@ function allowedClassesFor(target: AdmissionTarget): FragmentClass[] {
   }
 }
 
-function distillLongFragment(text: string, target: AdmissionTarget, context: AdmissionContext): string {
+function distillLongFragment(
+  text: string,
+  target: AdmissionTarget,
+  context: AdmissionContext
+): string {
   if (isScreenshotDebris(text) && isScreenshotMissionCritical(context)) {
     return "Use stitched full-page screenshots for before/after workflow continuity comparison.";
   }
@@ -396,7 +485,9 @@ function distillLongFragment(text: string, target: AdmissionTarget, context: Adm
   const best = fragments
     .map((item) => ({ item, score: scoreFragment(item, target, context) }))
     .filter(({ score }) => score >= 2)
-    .sort((left, right) => right.score - left.score || left.item.length - right.item.length)[0]?.item;
+    .sort(
+      (left, right) => right.score - left.score || left.item.length - right.item.length
+    )[0]?.item;
 
   return truncatePortable(best ?? text);
 }
@@ -411,9 +502,33 @@ function isTrueRejectedDirection(text: string): boolean {
   );
 }
 
-function canonicalizeForTarget(text: string, target: AdmissionTarget, context: AdmissionContext): string {
+function isPortableStateDebris(text: string, context: AdmissionContext): boolean {
+  return (
+    isUiArtifact(text) ||
+    isConversationDebris(text) ||
+    isToolChatter(text) ||
+    isMetaDirectiveHeading(text) ||
+    isQuotedBlockNoise(text) ||
+    (isScreenshotDebris(text) && !isScreenshotMissionCritical(context))
+  );
+}
+
+function filterPortableStateItems(items: string[], context: AdmissionContext): string[] {
+  return uniqueNonEmpty(items)
+    .filter((item) => !isPortableStateDebris(item, context))
+    .map((item) => truncatePortable(item));
+}
+
+function canonicalizeForTarget(
+  text: string,
+  target: AdmissionTarget,
+  context: AdmissionContext
+): string {
   const distilled = distillLongFragment(text, target, context)
-    .replace(/^(?:decision|constraint|requirement|open question|risk|note|objective|stable core|rejected direction):\s*/i, "")
+    .replace(
+      /^(?:decision|constraint|requirement|open question|risk|note|objective|stable core|rejected direction):\s*/i,
+      ""
+    )
     .trim();
   if (target === "rejected_directions" && text.length !== distilled.length) {
     context.normalizedRejected += 1;
@@ -422,14 +537,22 @@ function canonicalizeForTarget(text: string, target: AdmissionTarget, context: A
 }
 
 function preferCandidate(current: string, next: string): string {
-  const currentScore = (current.length <= MAX_PORTABLE_ITEM_LENGTH ? 2 : 0) + (OPERATIONAL_VERB_RE.test(current) ? 1 : 0);
-  const nextScore = (next.length <= MAX_PORTABLE_ITEM_LENGTH ? 2 : 0) + (OPERATIONAL_VERB_RE.test(next) ? 1 : 0);
+  const currentScore =
+    (current.length <= MAX_PORTABLE_ITEM_LENGTH ? 2 : 0) +
+    (OPERATIONAL_VERB_RE.test(current) ? 1 : 0);
+  const nextScore =
+    (next.length <= MAX_PORTABLE_ITEM_LENGTH ? 2 : 0) + (OPERATIONAL_VERB_RE.test(next) ? 1 : 0);
   if (nextScore > currentScore) return next;
   if (nextScore === currentScore && next.length < current.length) return next;
   return current;
 }
 
-function admitCandidates(inputs: CandidateInput[], target: AdmissionTarget, context: AdmissionContext, limit: number): string[] {
+function admitCandidates(
+  inputs: CandidateInput[],
+  target: AdmissionTarget,
+  context: AdmissionContext,
+  limit: number
+): string[] {
   const allowed = allowedClassesFor(target);
   const output: string[] = [];
 
@@ -441,7 +564,11 @@ function admitCandidates(inputs: CandidateInput[], target: AdmissionTarget, cont
         recordDiagnosticOnly(context, classified.text);
         continue;
       }
-      if (target === "continuity_anchors" && !isIdentityBearing(classified.text) && classified.score < 4) {
+      if (
+        target === "continuity_anchors" &&
+        !isIdentityBearing(classified.text) &&
+        classified.score < 4
+      ) {
         recordDiagnosticOnly(context, classified.text);
         continue;
       }
@@ -449,7 +576,9 @@ function admitCandidates(inputs: CandidateInput[], target: AdmissionTarget, cont
       const canonical = canonicalizeForTarget(classified.text, target, context);
       if (!canonical || canonical.length < 4) continue;
 
-      const duplicateIndex = output.findIndex((item) => isMeaningfullyDuplicate(item, canonical, 0.74));
+      const duplicateIndex = output.findIndex((item) =>
+        isMeaningfullyDuplicate(item, canonical, 0.74)
+      );
       if (duplicateIndex >= 0) {
         output[duplicateIndex] = preferCandidate(output[duplicateIndex], canonical);
         continue;
@@ -476,21 +605,31 @@ function objectiveCandidatesFromText(text: string): string[] {
   }
 
   candidates.push(
-    ...splitCandidateFragments(text).filter((line) =>
-      /\b(implement|evaluate|refine|tighten|fix|build|preserve)\b/i.test(line) && OPERATIONAL_RE.test(line)
+    ...splitCandidateFragments(text).filter(
+      (line) =>
+        /\b(implement|evaluate|refine|tighten|fix|build|preserve)\b/i.test(line) &&
+        OPERATIONAL_RE.test(line)
     )
   );
   return uniqueMeaningfulStrings(candidates).slice(0, 12);
 }
 
 function derivedObjectiveFromMission(missionText: string): string | undefined {
-  if (/\b(state hygiene|semantic admission|admission filtering|admission layer)\b/i.test(missionText)) {
+  if (
+    /\b(state hygiene|semantic admission|admission filtering|admission layer)\b/i.test(missionText)
+  ) {
     return "Implement semantic admission filtering for Workflow, Capsule, and Diagnostic exports.";
   }
-  if (/\bsave\/export|save and export|saved state|exported state\b/i.test(missionText) && /\bcontinuity\b/i.test(missionText)) {
+  if (
+    /\bsave\/export|save and export|saved state|exported state\b/i.test(missionText) &&
+    /\bcontinuity\b/i.test(missionText)
+  ) {
     return "Evaluate Prompt Accelerator continuity behavior and refine save/export functionality.";
   }
-  if (/\bcapsule\b/i.test(missionText) && /\bportable|compact|carry[-\s]?forward\b/i.test(missionText)) {
+  if (
+    /\bcapsule\b/i.test(missionText) &&
+    /\bportable|compact|carry[-\s]?forward\b/i.test(missionText)
+  ) {
     return "Create a compact portable continuity capsule for the active workflow.";
   }
   return undefined;
@@ -502,7 +641,9 @@ function isWeakObjective(objective: string): boolean {
   return (
     !clean ||
     words.length <= 3 ||
-    /^(hybrid workspace|workspace|continuity|prompt review|review|session|untitled|continue|active session)$/i.test(clean) ||
+    /^(hybrid workspace|workspace|continuity|prompt review|review|session|untitled|continue|active session)$/i.test(
+      clean
+    ) ||
     (clean.length < 34 && !OPERATIONAL_VERB_RE.test(clean) && !/[.!?]/.test(clean))
   );
 }
@@ -515,23 +656,34 @@ function scoreObjectiveCandidate(objective: string): number {
   if (CONTINUITY_RE.test(objective)) score += 2;
   if (isIdentityBearing(objective)) score += 1;
   if (isWeakObjective(objective)) score -= 4;
-  if (isConversationDebris(objective) || isUiArtifact(objective) || isMetaDirectiveHeading(objective)) score -= 8;
+  if (
+    isConversationDebris(objective) ||
+    isUiArtifact(objective) ||
+    isMetaDirectiveHeading(objective)
+  )
+    score -= 8;
   return score;
 }
 
-function normalizeObjective(result: TransformResult, transformedText: string, context: AdmissionContext): string {
+function normalizeObjective(
+  result: TransformResult,
+  transformedText: string,
+  context: AdmissionContext
+): string {
   const review = result.continuityReview;
   const parsed = review.diagnostics.parsedCapsule;
   const current = cleanFragmentText(review.activeObjective);
   const generated = derivedObjectiveFromMission(context.missionText);
-  const candidates = uniqueMeaningfulStrings([
-    current,
-    parsed?.active_objective,
-    generated,
-    ...objectiveCandidatesFromText(result.originalText),
-    ...objectiveCandidatesFromText(result.normalizedText),
-    ...objectiveCandidatesFromText(transformedText)
-  ].filter(Boolean) as string[]);
+  const candidates = uniqueMeaningfulStrings(
+    [
+      current,
+      parsed?.active_objective,
+      generated,
+      ...objectiveCandidatesFromText(result.originalText),
+      ...objectiveCandidatesFromText(result.normalizedText),
+      ...objectiveCandidatesFromText(transformedText)
+    ].filter(Boolean) as string[]
+  );
   const ranked = candidates
     .map((item) => ({ item: truncatePortable(item, 180), score: scoreObjectiveCandidate(item) }))
     .filter(({ item }) => item && !isConversationDebris(item) && !isUiArtifact(item))
@@ -560,7 +712,9 @@ function buildAdmissionWarnings(context: AdmissionContext): string[] {
   ]);
 }
 
-function portableAdmissionSummary(diagnostics: AdmittedContinuityState["diagnostics"]): Record<string, unknown> {
+function portableAdmissionSummary(
+  diagnostics: AdmittedContinuityState["diagnostics"]
+): Record<string, unknown> {
   return {
     warnings: diagnostics.warnings,
     discarded_fragment_count: diagnostics.discarded_fragment_count,
@@ -574,7 +728,12 @@ function portableAdmissionSummary(diagnostics: AdmittedContinuityState["diagnost
 function makeAdmissionContext(result: TransformResult, objectiveHint: string): AdmissionContext {
   return {
     objectiveHint,
-    missionText: [result.originalText, result.normalizedText, result.transformedText, result.continuityReview.cleanSummary]
+    missionText: [
+      result.originalText,
+      result.normalizedText,
+      result.transformedText,
+      result.continuityReview.cleanSummary
+    ]
       .filter(Boolean)
       .join("\n"),
     diagnosticOnly: [],
@@ -585,7 +744,11 @@ function makeAdmissionContext(result: TransformResult, objectiveHint: string): A
   };
 }
 
-function compactTextSection(title: string, items: string[], limit = MAX_CAPSULE_TEXT_ITEMS): string[] {
+function compactTextSection(
+  title: string,
+  items: string[],
+  limit = MAX_CAPSULE_TEXT_ITEMS
+): string[] {
   return bulletSection(title, items.slice(0, limit));
 }
 
@@ -595,19 +758,60 @@ function portableContinuityText(input: {
   acceptedDecisions: string[];
   unresolvedIssues: string[];
   rejectedDirections: string[];
+  governancePrinciples?: string[];
+  invariants?: string[];
+  continuitySafeguards?: string[];
+  quarantineLog?: string[];
+  deferredItems?: string[];
+  conditionalAdmissions?: string[];
   continuityAnchors: string[];
+  mutationTargets?: MutationTarget[];
   provisionalState?: string[];
   includeProvisional?: boolean;
 }): string {
   const sections = [
     ["Continuity Review"],
     ["Active Objective", input.activeObjective],
-    bulletSection("Stable Constraints", input.stableConstraints.slice(0, MAX_PORTABLE_CONTEXT_ITEMS), "No stable constraints admitted."),
-    bulletSection("Accepted Decisions", input.acceptedDecisions.slice(0, MAX_PORTABLE_CONTEXT_ITEMS)),
+    bulletSection(
+      "Stable Constraints",
+      input.stableConstraints.slice(0, MAX_PORTABLE_CONTEXT_ITEMS),
+      "No stable constraints admitted."
+    ),
+    bulletSection(
+      "Accepted Decisions",
+      input.acceptedDecisions.slice(0, MAX_PORTABLE_CONTEXT_ITEMS)
+    ),
     bulletSection("Open / Unresolved", input.unresolvedIssues.slice(0, MAX_PORTABLE_CONTEXT_ITEMS)),
-    bulletSection("Rejected Directions", input.rejectedDirections.slice(0, MAX_PORTABLE_CONTEXT_ITEMS)),
-    bulletSection("Continuity Anchors", input.continuityAnchors.slice(0, MAX_PORTABLE_CONTEXT_ITEMS)),
-    input.includeProvisional ? bulletSection("New / Provisional", input.provisionalState?.slice(0, 4) ?? []) : []
+    bulletSection(
+      "Rejected Directions",
+      input.rejectedDirections.slice(0, MAX_PORTABLE_CONTEXT_ITEMS)
+    ),
+    bulletSection(
+      "Governance Principles",
+      input.governancePrinciples?.slice(0, MAX_PORTABLE_CONTEXT_ITEMS) ?? []
+    ),
+    bulletSection("Invariants", input.invariants?.slice(0, MAX_PORTABLE_CONTEXT_ITEMS) ?? []),
+    bulletSection(
+      "Continuity Safeguards",
+      input.continuitySafeguards?.slice(0, MAX_PORTABLE_CONTEXT_ITEMS) ?? []
+    ),
+    bulletSection("Quarantine Log", input.quarantineLog?.slice(0, 4) ?? []),
+    bulletSection("Deferred Items", input.deferredItems?.slice(0, 4) ?? []),
+    bulletSection("Conditional Admissions", input.conditionalAdmissions?.slice(0, 4) ?? []),
+    bulletSection(
+      "Mutation Targets",
+      (input.mutationTargets ?? [])
+        .map((item) => String(item.attempted_mutation ?? item.target_component ?? ""))
+        .filter(Boolean)
+        .slice(0, 4)
+    ),
+    bulletSection(
+      "Continuity Anchors",
+      input.continuityAnchors.slice(0, MAX_PORTABLE_CONTEXT_ITEMS)
+    ),
+    input.includeProvisional
+      ? bulletSection("New / Provisional", input.provisionalState?.slice(0, 4) ?? [])
+      : []
   ];
   return sections
     .filter((section) => section.length)
@@ -615,9 +819,13 @@ function portableContinuityText(input: {
     .join("\n\n");
 }
 
-function buildAdmittedState(result: TransformResult, transformedText: string): AdmittedContinuityState {
+function buildAdmittedState(
+  result: TransformResult,
+  transformedText: string
+): AdmittedContinuityState {
   const review = result.continuityReview;
   const parsed = review.diagnostics.parsedCapsule;
+  const adversarialGovernance = review.diagnostics.adversarialGovernance;
   const preliminaryObjective = cleanFragmentText(review.activeObjective);
   const context = makeAdmissionContext(result, preliminaryObjective);
   const activeObjective = normalizeObjective(result, transformedText, context);
@@ -625,8 +833,15 @@ function buildAdmittedState(result: TransformResult, transformedText: string): A
 
   const stableConstraints = admitCandidates(
     [
-      ...candidatesFrom(result.extractedConstraints.map((constraint) => constraint.text), "extracted_constraints"),
-      ...candidatesFrom(parsed?.stable_constraints ?? [], "parsed_capsule.stable_constraints", "operational_constraint"),
+      ...candidatesFrom(
+        result.extractedConstraints.map((constraint) => constraint.text),
+        "extracted_constraints"
+      ),
+      ...candidatesFrom(
+        parsed?.stable_constraints ?? [],
+        "parsed_capsule.stable_constraints",
+        "operational_constraint"
+      ),
       ...candidatesFrom(review.stableCore, "continuity_review.stable_core")
     ],
     "stable_constraints",
@@ -635,7 +850,11 @@ function buildAdmittedState(result: TransformResult, transformedText: string): A
   );
   const acceptedDecisions = admitCandidates(
     [
-      ...candidatesFrom(parsed?.accepted_decisions ?? [], "parsed_capsule.accepted_decisions", "accepted_decision"),
+      ...candidatesFrom(
+        parsed?.accepted_decisions ?? [],
+        "parsed_capsule.accepted_decisions",
+        "accepted_decision"
+      ),
       ...candidatesFrom(review.whatChanged, "continuity_review.what_changed")
     ],
     "accepted_decisions",
@@ -644,9 +863,21 @@ function buildAdmittedState(result: TransformResult, transformedText: string): A
   );
   const unresolvedIssues = admitCandidates(
     [
-      ...candidatesFrom(parsed?.open_questions ?? [], "parsed_capsule.open_questions", "unresolved_tension"),
-      ...candidatesFrom(parsed?.unresolved_risks ?? [], "parsed_capsule.unresolved_risks", "unresolved_tension"),
-      ...candidatesFrom(review.openUnresolved, "continuity_review.open_unresolved", "unresolved_tension")
+      ...candidatesFrom(
+        parsed?.open_questions ?? [],
+        "parsed_capsule.open_questions",
+        "unresolved_tension"
+      ),
+      ...candidatesFrom(
+        parsed?.unresolved_risks ?? [],
+        "parsed_capsule.unresolved_risks",
+        "unresolved_tension"
+      ),
+      ...candidatesFrom(
+        review.openUnresolved,
+        "continuity_review.open_unresolved",
+        "unresolved_tension"
+      )
     ],
     "unresolved_issues",
     context,
@@ -660,15 +891,63 @@ function buildAdmittedState(result: TransformResult, transformedText: string): A
   );
   const rejectedDirections = admitCandidates(
     [
+      ...candidatesFrom(
+        adversarialGovernance?.rejected_directions ?? [],
+        "diagnostics.adversarial_governance.rejected_directions",
+        "rejected_direction"
+      ),
       ...candidatesFrom(stableConstraints, "admitted.stable_constraints"),
       ...candidatesFrom(parsed?.stable_constraints ?? [], "parsed_capsule.stable_constraints"),
       ...candidatesFrom(review.stableCore, "continuity_review.stable_core"),
-      ...candidatesFrom(result.extractedConstraints.map((constraint) => constraint.text), "extracted_constraints")
+      ...candidatesFrom(
+        result.extractedConstraints.map((constraint) => constraint.text),
+        "extracted_constraints"
+      )
     ],
     "rejected_directions",
     context,
     8
   );
+  const governancePrinciples = filterPortableStateItems(
+    [
+      ...(adversarialGovernance?.governance_principles ?? []),
+      ...(review.diagnostics.governance_principles ?? [])
+    ],
+    context
+  ).slice(0, MAX_PORTABLE_CONTEXT_ITEMS);
+  const invariants = filterPortableStateItems(
+    [...(adversarialGovernance?.invariants ?? []), ...(review.diagnostics.invariants ?? [])],
+    context
+  ).slice(0, MAX_PORTABLE_CONTEXT_ITEMS);
+  const continuitySafeguards = filterPortableStateItems(
+    [
+      ...(adversarialGovernance?.continuity_safeguards ?? []),
+      ...(review.diagnostics.continuity_safeguards ?? [])
+    ],
+    context
+  ).slice(0, MAX_PORTABLE_CONTEXT_ITEMS);
+  const quarantineLog = filterPortableStateItems(
+    [
+      ...(adversarialGovernance?.quarantine_log ?? []),
+      ...(review.diagnostics.quarantined_items ?? [])
+    ],
+    context
+  ).slice(0, MAX_PORTABLE_CONTEXT_ITEMS);
+  const deferredItems = filterPortableStateItems(
+    [
+      ...(adversarialGovernance?.deferred_items.map((item) => item.text) ?? []),
+      ...(review.diagnostics.deferred_items ?? [])
+    ],
+    context
+  ).slice(0, MAX_PORTABLE_CONTEXT_ITEMS);
+  const conditionalAdmissions = filterPortableStateItems(
+    [
+      ...(adversarialGovernance?.conditional_admissions.map((item) => item.text) ?? []),
+      ...(review.diagnostics.conditional_admissions ?? [])
+    ],
+    context
+  ).slice(0, MAX_PORTABLE_CONTEXT_ITEMS);
+  const mutationTargets = (adversarialGovernance?.mutation_targets ?? []).slice(0, 8);
   const continuityAnchors = admitCandidates(
     [
       candidate(activeObjective, "admitted.active_objective", "continuity_anchor"),
@@ -699,6 +978,13 @@ function buildAdmittedState(result: TransformResult, transformedText: string): A
     acceptedDecisions,
     unresolvedIssues,
     rejectedDirections,
+    governancePrinciples,
+    invariants,
+    continuitySafeguards,
+    quarantineLog,
+    deferredItems,
+    conditionalAdmissions,
+    mutationTargets,
     continuityAnchors,
     provisionalState,
     includeProvisional: true
@@ -710,12 +996,22 @@ function buildAdmittedState(result: TransformResult, transformedText: string): A
     ...compactTextSection("Accepted Decisions", acceptedDecisions),
     ...compactTextSection("Open / Unresolved", unresolvedIssues),
     ...compactTextSection("Rejected Directions", rejectedDirections, 2),
+    ...compactTextSection("Governance Principles", governancePrinciples, 2),
+    ...compactTextSection("Invariants", invariants, 2),
+    ...compactTextSection("Continuity Safeguards", continuitySafeguards, 2),
+    ...compactTextSection("Quarantine Log", quarantineLog, 2),
+    ...compactTextSection("Deferred Items", deferredItems, 2),
     ...compactTextSection("Continuity Anchors", continuityAnchors, 2),
     ...compactTextSection("Recommended Next Actions", recommendedNextActions, 2)
   ]
     .filter(Boolean)
     .join("\n");
-  const rawNotesLength = [review.cleanSummary, ...review.newProvisional, ...review.recommendedNextActions, transformedText].join("\n").length;
+  const rawNotesLength = [
+    review.cleanSummary,
+    ...review.newProvisional,
+    ...review.recommendedNextActions,
+    transformedText
+  ].join("\n").length;
   if (capsuleText.length < rawNotesLength) {
     context.compactedCapsuleText = { before: rawNotesLength, after: capsuleText.length };
   }
@@ -726,6 +1022,13 @@ function buildAdmittedState(result: TransformResult, transformedText: string): A
     acceptedDecisions,
     unresolvedIssues,
     rejectedDirections,
+    governancePrinciples,
+    invariants,
+    continuitySafeguards,
+    quarantineLog,
+    deferredItems,
+    conditionalAdmissions,
+    mutationTargets,
     continuityAnchors,
     provisionalState,
     workflowEvolution,
@@ -744,7 +1047,9 @@ function buildAdmittedState(result: TransformResult, transformedText: string): A
   };
 }
 
-function compactGovernanceSummary(sessionState: SessionGovernanceState | null): Record<string, unknown> {
+function compactGovernanceSummary(
+  sessionState: SessionGovernanceState | null
+): Record<string, unknown> {
   if (!sessionState) {
     return {};
   }
@@ -769,6 +1074,14 @@ function cleanContinuityReview(
     accepted_decisions: admitted.acceptedDecisions,
     provisional_state: admitted.provisionalState,
     open_unresolved: admitted.unresolvedIssues,
+    rejected_directions: admitted.rejectedDirections,
+    governance_principles: admitted.governancePrinciples,
+    invariants: admitted.invariants,
+    continuity_safeguards: admitted.continuitySafeguards,
+    quarantine_log: admitted.quarantineLog,
+    deferred_items: admitted.deferredItems,
+    conditional_admissions: admitted.conditionalAdmissions,
+    mutation_targets: admitted.mutationTargets,
     what_changed: admitted.workflowEvolution,
     recommended_next_actions: admitted.recommendedNextActions
   };
@@ -781,6 +1094,9 @@ function cleanContinuityStateHistory(admitted: AdmittedContinuityState): Record<
       active_objective: admitted.activeObjective,
       stable_core_count: admitted.stableConstraints.length,
       unresolved_count: admitted.unresolvedIssues.length,
+      rejected_count: admitted.rejectedDirections.length,
+      quarantine_count: admitted.quarantineLog.length,
+      mutation_target_count: admitted.mutationTargets.length,
       admission_warnings: admitted.diagnostics.warnings
     }
   ];
@@ -790,6 +1106,13 @@ function scoreSummary(result: TransformResult): Record<string, number | undefine
   return {
     compactness_score: result.scores.compactnessScore,
     constraint_preservation_score: result.scores.constraintPreservationScore,
+    source_purity_score: result.scores.sourcePurityScore,
+    bucket_exclusivity_score: result.scores.bucketExclusivityScore,
+    chrome_contamination_score: result.scores.chromeContaminationScore,
+    assistant_contamination_score: result.scores.assistantContaminationScore,
+    durable_state_precision: result.scores.durableStatePrecision,
+    durable_state_recall: result.scores.durableStateRecall,
+    task_local_leakage_score: result.scores.taskLocalLeakageScore,
     risk_score: result.scores.riskScore,
     redundancy_before: result.scores.redundancyScoreBefore,
     redundancy_after: result.scores.redundancyScoreAfter,
@@ -798,13 +1121,24 @@ function scoreSummary(result: TransformResult): Record<string, number | undefine
   };
 }
 
-function diagnosticMetadata(result: TransformResult, transformedText: string, extensionVersion?: string): Record<string, unknown> {
+function diagnosticMetadata(
+  result: TransformResult,
+  transformedText: string,
+  extensionVersion?: string
+): Record<string, unknown> {
   return {
     source_surface: sourcePlatform(result),
     target_model: result.targetModelApplied ?? result.continuityReview.diagnostics.targetModel,
     requested_mode: result.continuityReview.diagnostics.requestedMode,
     mode_applied: result.modeApplied,
     pipeline_steps: result.continuityReview.diagnostics.pipelineSteps,
+    provider_profile: result.continuityReview.diagnostics.providerProfile,
+    provider_health: result.continuityReview.diagnostics.providerHealth,
+    retrieval_context: result.continuityReview.diagnostics.retrievalContext,
+    mutation_risk_report: result.continuityReview.diagnostics.mutation_risk_report,
+    metric_warnings: result.continuityReview.diagnostics.metric_warnings,
+    task_local_instructions: result.continuityReview.diagnostics.task_local_instructions,
+    task_local_forbidden: result.continuityReview.diagnostics.task_local_forbidden,
     raw_input_length: result.originalText.length,
     normalized_length: result.normalizedText.length,
     transformed_length: transformedText.length,
@@ -834,8 +1168,40 @@ export function formatContinuityExport(result: TransformResult, transformedText:
       uniqueNonEmpty([...admitted.stableConstraints, ...admitted.acceptedDecisions]),
       "No stable constraints or accepted decisions detected."
     ),
-    bulletSection("New / Provisional", admitted.provisionalState, "No new provisional changes detected."),
+    bulletSection(
+      "New / Provisional",
+      admitted.provisionalState,
+      "No new provisional changes detected."
+    ),
     bulletSection("Open / Unresolved", admitted.unresolvedIssues),
+    bulletSection(
+      "Rejected Directions",
+      admitted.rejectedDirections,
+      "No rejected directions detected."
+    ),
+    bulletSection(
+      "Governance Principles",
+      admitted.governancePrinciples,
+      "No governance principles detected."
+    ),
+    bulletSection("Invariants", admitted.invariants, "No invariants detected."),
+    bulletSection(
+      "Continuity Safeguards",
+      admitted.continuitySafeguards,
+      "No continuity safeguards detected."
+    ),
+    bulletSection(
+      "Quarantine / Deferred",
+      [...admitted.quarantineLog, ...admitted.deferredItems],
+      "No quarantined or deferred items detected."
+    ),
+    bulletSection(
+      "Mutation Risk Report",
+      admitted.mutationTargets.map(
+        (item) => `${item.target_component}: ${item.attempted_mutation} (${item.risk_level})`
+      ),
+      "No mutation risks detected."
+    ),
     bulletSection("Recommended Next Actions", admitted.recommendedNextActions),
     transformedText.trim() ? ["Transformed Continuity Draft", transformedText.trim()] : []
   ];
@@ -846,7 +1212,10 @@ export function formatContinuityExport(result: TransformResult, transformedText:
     .join("\n\n");
 }
 
-export function buildWorkflowDraft(result: TransformResult, transformedText: string): WorkflowDraft {
+export function buildWorkflowDraft(
+  result: TransformResult,
+  transformedText: string
+): WorkflowDraft {
   const review = result.continuityReview;
   const parsed = review.diagnostics.parsedCapsule;
   const admitted = buildAdmittedState(result, transformedText);
@@ -861,19 +1230,41 @@ export function buildWorkflowDraft(result: TransformResult, transformedText: str
     source_platform: sourcePlatform(result),
     detected_model: result.targetModelApplied ?? review.diagnostics.targetModel,
     active_objective: admitted.activeObjective,
-    objective: admitted.activeObjective || cleanLine(transformedText) || "Continue the reviewed prompt workflow.",
+    objective:
+      admitted.activeObjective ||
+      cleanLine(transformedText) ||
+      "Continue the reviewed prompt workflow.",
     mode: result.modeApplied ?? parsed?.preferred_mode ?? "precision",
     constraints: stableConstraints,
     stable_constraints: stableConstraints,
     accepted_decisions: acceptedDecisions,
     unresolved_issues: openIssues,
     provisional_state: admitted.provisionalState,
+    governance_principles: admitted.governancePrinciples,
+    invariants: admitted.invariants,
+    continuity_safeguards: admitted.continuitySafeguards,
+    rejected_directions: admitted.rejectedDirections,
+    quarantine_log: admitted.quarantineLog,
+    deferred_items: admitted.deferredItems,
+    conditional_admissions: admitted.conditionalAdmissions,
+    mutation_targets: admitted.mutationTargets,
     continuity_review: cleanContinuityReview(review, admitted),
     continuity_state_history: cleanContinuityStateHistory(admitted),
     workflow_evolution: admitted.workflowEvolution.map((change) => ({ change })),
     diagnostic_data: {
       ...diagnosticMetadata(result, transformedText),
-      admission_filter: portableAdmissionSummary(admitted.diagnostics)
+      admission_filter: portableAdmissionSummary(admitted.diagnostics),
+      trusted_state_summary: [
+        admitted.activeObjective,
+        ...admitted.stableConstraints,
+        ...admitted.acceptedDecisions
+      ].slice(0, MAX_PORTABLE_CONTEXT_ITEMS),
+      untrusted_instruction_summary: [
+        ...admitted.rejectedDirections,
+        ...admitted.quarantineLog,
+        ...admitted.deferredItems
+      ].slice(0, MAX_PORTABLE_CONTEXT_ITEMS),
+      mutation_risk_report: review.diagnostics.mutation_risk_report
     },
     risk_scores: { risk_score: result.scores.riskScore },
     compression_metrics: {
@@ -922,18 +1313,45 @@ export function buildCapsuleDraft(result: TransformResult, transformedText: stri
     source_platform: sourcePlatform(result),
     detected_model: result.targetModelApplied ?? review.diagnostics.targetModel,
     active_objective: admitted.activeObjective,
-    objective: admitted.activeObjective || cleanLine(transformedText) || "Continue the reviewed session.",
+    objective:
+      admitted.activeObjective || cleanLine(transformedText) || "Continue the reviewed session.",
     constraints,
     stable_constraints: constraints,
     decisions,
     accepted_decisions: decisions,
     open_questions: openQuestions,
     unresolved_issues: openQuestions,
-    governance_state: {},
+    governance_state: {
+      trusted_state_summary: [
+        admitted.activeObjective,
+        ...admitted.stableConstraints,
+        ...admitted.acceptedDecisions
+      ].slice(0, MAX_PORTABLE_CONTEXT_ITEMS),
+      untrusted_instruction_summary: [
+        ...admitted.rejectedDirections,
+        ...admitted.quarantineLog,
+        ...admitted.deferredItems
+      ].slice(0, MAX_PORTABLE_CONTEXT_ITEMS),
+      conflict_report: review.diagnostics.adversarialGovernance
+        ? {
+            has_conflict: review.diagnostics.adversarialGovernance.conflict_report.has_conflict,
+            conflicts: admitted.rejectedDirections.slice(0, MAX_PORTABLE_CONTEXT_ITEMS),
+            warnings: review.diagnostics.adversarialGovernance.conflict_report.warnings
+          }
+        : undefined,
+      mutation_risk_report: review.diagnostics.mutation_risk_report
+    },
+    governance_principles: admitted.governancePrinciples,
+    invariants: admitted.invariants,
+    continuity_safeguards: admitted.continuitySafeguards,
+    quarantine_log: admitted.quarantineLog,
+    deferred_items: admitted.deferredItems,
+    conditional_admissions: admitted.conditionalAdmissions,
+    mutation_targets: admitted.mutationTargets,
     rejected_directions: admitted.rejectedDirections,
     continuity_anchors: admitted.continuityAnchors,
     reconstruction_instructions:
-      "Use active_objective, stable_constraints, accepted_decisions, unresolved_issues, rejected_directions, and continuity_anchors to reconstruct the working context before continuing.",
+      "Use active_objective, stable_constraints, accepted_decisions, unresolved_issues, governance_principles, invariants, rejected_directions, quarantine_log, deferred_items, mutation_targets, and continuity_anchors to reconstruct the working context before continuing.",
     model_transfer_notes: {
       target_model: result.targetModelApplied,
       preferred_mode: result.modeApplied ?? parsed?.preferred_mode,
@@ -961,18 +1379,28 @@ export function buildPortableCapsuleArtifact(
     created_at: capsule.created_at,
     updated_at: capsule.updated_at ?? capsule.created_at,
     title: capsule.title,
-    workflow_identity: capsule.workflow_identity ?? titleFromObjective(admitted.activeObjective, "Continuity workflow"),
+    workflow_identity:
+      capsule.workflow_identity ??
+      titleFromObjective(admitted.activeObjective, "Continuity workflow"),
     source_platform: capsule.source_platform ?? sourcePlatform(context.result),
-    detected_model: capsule.detected_model ?? context.result.targetModelApplied ?? review.diagnostics.targetModel,
+    detected_model:
+      capsule.detected_model ?? context.result.targetModelApplied ?? review.diagnostics.targetModel,
     active_objective: admitted.activeObjective,
     stable_constraints: admitted.stableConstraints,
     accepted_decisions: admitted.acceptedDecisions,
     unresolved_issues: admitted.unresolvedIssues,
     governance_state: capsule.governance_state ?? compactGovernanceSummary(context.sessionState),
+    governance_principles: admitted.governancePrinciples,
+    invariants: admitted.invariants,
+    continuity_safeguards: admitted.continuitySafeguards,
+    quarantine_log: admitted.quarantineLog,
+    deferred_items: admitted.deferredItems,
+    conditional_admissions: admitted.conditionalAdmissions,
+    mutation_targets: admitted.mutationTargets,
     rejected_directions: admitted.rejectedDirections,
     continuity_anchors: admitted.continuityAnchors,
     reconstruction_instructions:
-      "Reconstruct the active objective, stable constraints, accepted decisions, unresolved issues, rejected directions, and continuity anchors before continuing the workflow.",
+      "Reconstruct the active objective, stable constraints, accepted decisions, unresolved issues, governance principles, invariants, rejected directions, quarantined items, deferred items, mutation targets, and continuity anchors before continuing the workflow.",
     model_transfer_notes: {
       ...(capsule.model_transfer_notes ?? {}),
       source_platform: sourcePlatform(context.result),
@@ -987,7 +1415,10 @@ export function buildPortableCapsuleArtifact(
   };
 }
 
-export function buildPortableWorkflowArtifact(workflow: Workflow, context: ReviewArtifactContext): Record<string, unknown> {
+export function buildPortableWorkflowArtifact(
+  workflow: Workflow,
+  context: ReviewArtifactContext
+): Record<string, unknown> {
   const admitted = buildAdmittedState(context.result, context.transformedText);
   return {
     workflow_id: workflow.workflow_id ?? workflow.id,
@@ -996,12 +1427,21 @@ export function buildPortableWorkflowArtifact(workflow: Workflow, context: Revie
     updated_at: workflow.updatedAt,
     title: workflow.title,
     source_platform: workflow.source_platform ?? sourcePlatform(context.result),
-    detected_model: workflow.detected_model ?? workflow.targetModel ?? context.result.targetModelApplied,
+    detected_model:
+      workflow.detected_model ?? workflow.targetModel ?? context.result.targetModelApplied,
     active_objective: admitted.activeObjective,
     stable_constraints: admitted.stableConstraints,
     accepted_decisions: admitted.acceptedDecisions,
     unresolved_issues: admitted.unresolvedIssues,
     provisional_state: admitted.provisionalState,
+    governance_principles: admitted.governancePrinciples,
+    invariants: admitted.invariants,
+    continuity_safeguards: admitted.continuitySafeguards,
+    rejected_directions: admitted.rejectedDirections,
+    quarantine_log: admitted.quarantineLog,
+    deferred_items: admitted.deferredItems,
+    conditional_admissions: admitted.conditionalAdmissions,
+    mutation_targets: admitted.mutationTargets,
     continuity_review: cleanContinuityReview(context.result.continuityReview, admitted),
     continuity_state_history: cleanContinuityStateHistory(admitted),
     workflow_evolution: admitted.workflowEvolution.map((change) => ({ change })),
@@ -1042,9 +1482,23 @@ export function buildDiagnosticState(context: ReviewArtifactContext): Record<str
     provisional_state: admitted.provisionalState,
     open_unresolved: admitted.unresolvedIssues,
     rejected_directions: admitted.rejectedDirections,
+    governance_principles: admitted.governancePrinciples,
+    invariants: admitted.invariants,
+    continuity_safeguards: admitted.continuitySafeguards,
+    quarantine_log: admitted.quarantineLog,
+    deferred_items: admitted.deferredItems,
+    conditional_admissions: admitted.conditionalAdmissions,
+    mutation_targets: admitted.mutationTargets,
+    mutation_risk_report: review.diagnostics.mutation_risk_report,
+    trusted_state_summary: review.diagnostics.trusted_state_summary,
+    untrusted_instruction_summary: review.diagnostics.untrusted_instruction_summary,
     continuity_anchors: admitted.continuityAnchors,
-    portable_capsule_snapshot: context.capsule ? buildPortableCapsuleArtifact(context.capsule, context) : null,
-    portable_workflow_snapshot: context.workflow ? buildPortableWorkflowArtifact(context.workflow, context) : null,
+    portable_capsule_snapshot: context.capsule
+      ? buildPortableCapsuleArtifact(context.capsule, context)
+      : null,
+    portable_workflow_snapshot: context.workflow
+      ? buildPortableWorkflowArtifact(context.workflow, context)
+      : null,
     raw_capsule: context.capsule ?? review.diagnostics.rawCapsule ?? null,
     raw_workflow_state: context.workflow ?? null,
     compression_score: context.result.scores.compactnessScore,
@@ -1060,14 +1514,29 @@ export function buildDiagnosticState(context: ReviewArtifactContext): Record<str
     current_url_or_domain: context.currentUrl,
     extension_version: context.extensionVersion,
     active_constraints: context.result.extractedConstraints,
+    provider_profile: review.diagnostics.providerProfile,
+    provider_health: review.diagnostics.providerHealth,
+    retrieval_context: review.diagnostics.retrievalContext,
+    adversarial_governance: review.diagnostics.adversarialGovernance,
+    metric_warnings: review.diagnostics.metric_warnings,
     admission_filter: admitted.diagnostics,
-    warnings: uniqueNonEmpty([...(context.sessionState?.diagnostics.warnings ?? []), ...admitted.diagnostics.warnings]),
+    warnings: uniqueNonEmpty([
+      ...(context.sessionState?.diagnostics.warnings ?? []),
+      ...admitted.diagnostics.warnings,
+      ...(review.diagnostics.metric_warnings ?? [])
+    ]),
     diagnostic_logs: review.diagnostics.pipelineSteps,
     raw_review_state: {
       active_objective: review.activeObjective,
       stable_core: review.stableCore,
       provisional_state: review.newProvisional,
       open_unresolved: review.openUnresolved,
+      rejected_directions: review.diagnostics.rejected_items,
+      task_local_instructions: review.diagnostics.task_local_instructions,
+      task_local_forbidden: review.diagnostics.task_local_forbidden,
+      governance_principles: review.diagnostics.governance_principles,
+      invariants: review.diagnostics.invariants,
+      continuity_safeguards: review.diagnostics.continuity_safeguards,
       what_changed: review.whatChanged,
       recommended_next_actions: review.recommendedNextActions
     },
@@ -1103,11 +1572,40 @@ export function formatDiagnosticMarkdown(context: ReviewArtifactContext): string
     "",
     ...bulletSection("## Stable Core", diagnostic.stable_core as string[], "No stable core items."),
     "",
-    ...bulletSection("## Provisional State", diagnostic.provisional_state as string[], "No provisional items."),
+    ...bulletSection(
+      "## Provisional State",
+      diagnostic.provisional_state as string[],
+      "No provisional items."
+    ),
     "",
-    ...bulletSection("## Open / Unresolved", diagnostic.open_unresolved as string[], "No open items."),
+    ...bulletSection(
+      "## Open / Unresolved",
+      diagnostic.open_unresolved as string[],
+      "No open items."
+    ),
     "",
-    ...bulletSection("## Rejected Directions", diagnostic.rejected_directions as string[], "No rejected directions admitted."),
+    ...bulletSection(
+      "## Rejected Directions",
+      diagnostic.rejected_directions as string[],
+      "No rejected directions admitted."
+    ),
+    "",
+    ...bulletSection(
+      "## Governance Principles",
+      diagnostic.governance_principles as string[],
+      "No governance principles admitted."
+    ),
+    "",
+    ...bulletSection("## Invariants", diagnostic.invariants as string[], "No invariants admitted."),
+    "",
+    ...bulletSection(
+      "## Quarantine / Deferred",
+      [
+        ...((diagnostic.quarantine_log as string[]) ?? []),
+        ...((diagnostic.deferred_items as string[]) ?? [])
+      ],
+      "No quarantined or deferred items."
+    ),
     "",
     ...bulletSection("## Warnings", diagnostic.warnings as string[], "No diagnostic warnings."),
     "",
@@ -1124,7 +1622,11 @@ export function formatDiagnosticMarkdown(context: ReviewArtifactContext): string
   return lines.join("\n");
 }
 
-export function artifactFilename(kind: "capsule" | "workflow" | "diagnostic", title: string, timestamp = new Date()): string {
+export function artifactFilename(
+  kind: "capsule" | "workflow" | "diagnostic",
+  title: string,
+  timestamp = new Date()
+): string {
   const safeTitle = cleanLine(title)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")

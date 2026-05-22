@@ -1,1 +1,6 @@
-export type { ChatSurfaceAdapter, ConversationSnapshot } from "@/types/surfaces";
+export type {
+  ChatSurfaceAdapter,
+  ConversationSnapshot,
+  ProviderHealth,
+  ProviderProfile
+} from "@/types/surfaces";

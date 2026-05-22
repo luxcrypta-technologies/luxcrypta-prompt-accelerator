@@ -69,7 +69,7 @@ Keep signing credentials out of the repo and provide them through the local shel
 - Update continuity state and review stable, provisional, unresolved, and health panels.
 - Create and reload capsules.
 - Save, reuse, and edit workflows through the selected-workflow save path.
-- Generate and copy handoffs for ChatGPT, Claude, Gemini, and Grok.
+- Generate and copy handoffs for ChatGPT, Claude, Gemini, Grok, DeepSeek, and Perplexity.
 - Export workspace data, inspect the JSON envelope, import it, and confirm state restoration.
 - Restart the packaged app and confirm workspace, capsule, workflow, and session persistence.
 - Confirm malformed JSON does not crash app startup.

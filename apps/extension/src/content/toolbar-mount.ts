@@ -1,4 +1,4 @@
-import { createToolbarElement } from "./toolbar-entry";
+import { bindToolbarHandlers, createToolbarElement } from "./toolbar-entry";
 import type { ChatSurfaceAdapter } from "@/types/surfaces";
 
 export const TOOLBAR_ROOT_ID = "lcpa-toolbar-root";
@@ -7,7 +7,7 @@ const TOOLBAR_CLASS = "lcpa-toolbar";
 
 interface ToolbarMountControllerDeps {
   getSurface: () => ChatSurfaceAdapter | null;
-  onAdvanced: (surface: ChatSurfaceAdapter) => void;
+  onAdvanced: (surface: ChatSurfaceAdapter) => Promise<void> | void;
   observeDom: (onChange: () => void) => () => void;
 }
 
@@ -27,7 +27,9 @@ function readySurface(surface: ChatSurfaceAdapter | null): ChatSurfaceAdapter | 
   return surface?.isReady() ? surface : null;
 }
 
-export function createToolbarMountController(deps: ToolbarMountControllerDeps): ToolbarMountController {
+export function createToolbarMountController(
+  deps: ToolbarMountControllerDeps
+): ToolbarMountController {
   const cleanupCallbacks: Array<() => void> = [];
   let lastUrl = window.location.href;
 
@@ -135,9 +137,13 @@ export function createToolbarMountController(deps: ToolbarMountControllerDeps): 
   }
 
   function removeDuplicateToolbars(): void {
-    const toolbars = Array.from(document.querySelectorAll<HTMLElement>(`.${TOOLBAR_CLASS}, #${TOOLBAR_ID}`));
+    const toolbars = Array.from(
+      document.querySelectorAll<HTMLElement>(`.${TOOLBAR_CLASS}, #${TOOLBAR_ID}`)
+    );
     const canonical =
-      toolbars.find((toolbar) => toolbar.id === TOOLBAR_ID && toolbar.parentElement?.id === TOOLBAR_ROOT_ID) ??
+      toolbars.find(
+        (toolbar) => toolbar.id === TOOLBAR_ID && toolbar.parentElement?.id === TOOLBAR_ROOT_ID
+      ) ??
       toolbars.find((toolbar) => toolbar.id === TOOLBAR_ID) ??
       toolbars[0];
 
@@ -165,25 +171,31 @@ export function createToolbarMountController(deps: ToolbarMountControllerDeps): 
     if (!root) return;
 
     const existing = document.getElementById(TOOLBAR_ID);
+    const handlers = {
+      onAdvanced: async () => {
+        const activeSurface = readySurface(deps.getSurface());
+        if (!activeSurface) {
+          throw new Error("No ready provider surface detected.");
+        }
+        await deps.onAdvanced(activeSurface);
+      }
+    };
     if (existing) {
       if (existing.parentElement !== root) {
         root.append(existing);
       }
+      root.dataset.mountStatus =
+        existing.dataset.listenerBound === "true" ? "mounted" : "rebinding";
+      bindToolbarHandlers(existing, handlers);
       root.dataset.surface = surface.id;
       positionToolbar();
       return;
     }
 
-    const toolbar = createToolbarElement({
-      onAdvanced: () => {
-        const activeSurface = readySurface(deps.getSurface());
-        if (activeSurface) {
-          deps.onAdvanced(activeSurface);
-        }
-      }
-    });
+    const toolbar = createToolbarElement(handlers);
     toolbar.id = TOOLBAR_ID;
     root.dataset.surface = surface.id;
+    root.dataset.mountStatus = "mounted";
     root.append(toolbar);
     positionToolbar();
     window.requestAnimationFrame(positionToolbar);

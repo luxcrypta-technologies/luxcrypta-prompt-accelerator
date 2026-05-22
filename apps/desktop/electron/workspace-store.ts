@@ -2,7 +2,10 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { executePromoteNovelty } from "@luxcrypta/continuity-domain/actions/promote-novelty";
-import { executeExportBundle, executeImportBundle } from "@luxcrypta/continuity-domain/actions/export-bundle";
+import {
+  executeExportBundle,
+  executeImportBundle
+} from "@luxcrypta/continuity-domain/actions/export-bundle";
 import { executeTransformPrompt } from "@luxcrypta/continuity-domain/actions/transform-prompt";
 import { executeUpdateSessionState } from "@luxcrypta/continuity-domain/actions/update-session-state";
 import { WorkflowService } from "@luxcrypta/continuity-domain/services/workflow-service";
@@ -16,7 +19,12 @@ import type { ContinuityStorage } from "@luxcrypta/continuity-types/storage";
 import { createDatedId } from "@luxcrypta/continuity-types/utils/ids";
 import { nowIso } from "@luxcrypta/continuity-types/utils/time";
 import type { Workflow } from "@luxcrypta/continuity-types/workflows";
-import { buildContinuityHandoff, PROVIDER_TARGETS, type ContinuityHandoff, type ProviderTarget } from "@luxcrypta/continuity-routing";
+import {
+  buildContinuityHandoff,
+  PROVIDER_TARGETS,
+  type ContinuityHandoff,
+  type ProviderTarget
+} from "@luxcrypta/continuity-routing";
 import type {
   DesktopSessionUpdateInput,
   DesktopSessionUpdateResult,
@@ -59,6 +67,10 @@ function unwrap<T>(value: unknown): T {
 
 function safeFileName(value: string): string {
   return value.replace(/[^a-zA-Z0-9._-]+/g, "_").replace(/^_+|_+$/g, "") || "item";
+}
+
+function providerTargetOrDefault(value: string | undefined): ProviderTarget {
+  return PROVIDER_TARGETS.includes(value as ProviderTarget) ? (value as ProviderTarget) : "chatgpt";
 }
 
 async function readJson<T>(path: string): Promise<T | null> {
@@ -113,7 +125,11 @@ class WorkspaceFileStorage implements ContinuityStorage {
   private pathForKey(key: string): string {
     const prefix = this.prefixForKey(key);
     const suffix = key.slice(prefix.length) || "default";
-    return join(this.workspacePath, this.directoryForPrefix(prefix), `${safeFileName(suffix)}.json`);
+    return join(
+      this.workspacePath,
+      this.directoryForPrefix(prefix),
+      `${safeFileName(suffix)}.json`
+    );
   }
 
   private prefixForKey(key: string): string {
@@ -141,7 +157,8 @@ export class DesktopWorkspaceRepository {
       return this.createWorkspace("Continuity Workspace");
     }
     const settings = await this.readSettings();
-    const activeWorkspace = workspaces.find((workspace) => workspace.id === settings.activeWorkspaceId) ?? workspaces[0];
+    const activeWorkspace =
+      workspaces.find((workspace) => workspace.id === settings.activeWorkspaceId) ?? workspaces[0];
     return this.loadState(activeWorkspace.id);
   }
 
@@ -157,7 +174,11 @@ export class DesktopWorkspaceRepository {
     };
     const workspacePath = this.workspacePath(workspace.id);
     await mkdir(workspacePath, { recursive: true });
-    await Promise.all(["sessions", "capsules", "workflows", "diagnostics", "exports", "history", "preferences"].map((dir) => mkdir(join(workspacePath, dir), { recursive: true })));
+    await Promise.all(
+      ["sessions", "capsules", "workflows", "diagnostics", "exports", "history", "preferences"].map(
+        (dir) => mkdir(join(workspacePath, dir), { recursive: true })
+      )
+    );
     await this.saveWorkspace(workspace);
     await this.writeSettings({ activeWorkspaceId: workspace.id });
     return this.loadState(workspace.id);
@@ -210,13 +231,17 @@ export class DesktopWorkspaceRepository {
 
   async promoteNovelty(ids: string[]): Promise<DesktopState> {
     const state = await this.getState();
-    await executePromoteNovelty({ noveltyIds: ids }, { storage: this.storageFor(state.activeWorkspace.id) });
+    await executePromoteNovelty(
+      { noveltyIds: ids },
+      { storage: this.storageFor(state.activeWorkspace.id) }
+    );
     return this.loadState(state.activeWorkspace.id);
   }
 
   async saveCapsuleFromCurrent(): Promise<DesktopState> {
     const state = await this.getState();
-    if (!state.currentSession) throw new Error("Create or update a session before saving a capsule.");
+    if (!state.currentSession)
+      throw new Error("Create or update a session before saving a capsule.");
     const capsule = createCarryForwardFromGovernance(state.currentSession);
     await new CapsuleStore(this.storageFor(state.activeWorkspace.id)).save(capsule);
     return this.loadState(state.activeWorkspace.id);
@@ -246,16 +271,23 @@ export class DesktopWorkspaceRepository {
     return this.updateSession({
       sourceText: this.workflowPrompt(workflow),
       mode: workflow.mode,
-      target: (workflow.targetModel === "chatgpt" || workflow.targetModel === "claude" || workflow.targetModel === "gemini" || workflow.targetModel === "grok"
-        ? workflow.targetModel
-        : "chatgpt") as ProviderTarget
+      target: providerTargetOrDefault(workflow.targetModel)
     });
   }
 
-  async generateHandoff(input: { target: ProviderTarget; capsuleId?: string; workflowId?: string; notes?: string }): Promise<ContinuityHandoff> {
+  async generateHandoff(input: {
+    target: ProviderTarget;
+    capsuleId?: string;
+    workflowId?: string;
+    notes?: string;
+  }): Promise<ContinuityHandoff> {
     const state = await this.getState();
-    const capsule = input.capsuleId ? state.capsules.find((item) => item.id === input.capsuleId) ?? null : state.capsules[0] ?? null;
-    const workflow = input.workflowId ? state.workflows.find((item) => item.id === input.workflowId) ?? null : null;
+    const capsule = input.capsuleId
+      ? (state.capsules.find((item) => item.id === input.capsuleId) ?? null)
+      : (state.capsules[0] ?? null);
+    const workflow = input.workflowId
+      ? (state.workflows.find((item) => item.id === input.workflowId) ?? null)
+      : null;
     const handoff = buildContinuityHandoff({
       target: input.target,
       session: state.currentSession,
@@ -267,9 +299,13 @@ export class DesktopWorkspaceRepository {
     return handoff;
   }
 
-  async exportActiveWorkspace(filePath: string): Promise<{ path: string | null; state: DesktopState }> {
+  async exportActiveWorkspace(
+    filePath: string
+  ): Promise<{ path: string | null; state: DesktopState }> {
     const state = await this.getState();
-    const bundle = await executeExportBundle({ storage: this.storageFor(state.activeWorkspace.id) });
+    const bundle = await executeExportBundle({
+      storage: this.storageFor(state.activeWorkspace.id)
+    });
     await writeJson(filePath, {
       kind: "luxcrypta-desktop-workspace-export",
       workspace: state.activeWorkspace,
@@ -278,7 +314,9 @@ export class DesktopWorkspaceRepository {
     return { path: filePath, state: await this.loadState(state.activeWorkspace.id) };
   }
 
-  async importIntoActiveWorkspace(filePath: string): Promise<{ path: string | null; state: DesktopState }> {
+  async importIntoActiveWorkspace(
+    filePath: string
+  ): Promise<{ path: string | null; state: DesktopState }> {
     const state = await this.getState();
     const payload = await readJson<{
       kind?: string;
@@ -287,7 +325,8 @@ export class DesktopWorkspaceRepository {
     if (!payload) {
       throw new Error("Import file is not valid JSON or uses an unsupported schema version.");
     }
-    const bundle = payload && typeof payload === "object" && "bundle" in payload ? payload.bundle : payload;
+    const bundle =
+      payload && typeof payload === "object" && "bundle" in payload ? payload.bundle : payload;
     await executeImportBundle(bundle, { storage: this.storageFor(state.activeWorkspace.id) });
     return { path: filePath, state: await this.loadState(state.activeWorkspace.id) };
   }
@@ -301,9 +340,7 @@ export class DesktopWorkspaceRepository {
     const capsules = await new CapsuleStore(storage).list();
     const workflows = await new WorkflowStore(storage).list();
     const handoff = buildContinuityHandoff({
-      target: currentSession?.stableCore.preferredTargetModel === "claude" || currentSession?.stableCore.preferredTargetModel === "gemini" || currentSession?.stableCore.preferredTargetModel === "grok"
-        ? currentSession.stableCore.preferredTargetModel
-        : "chatgpt",
+      target: providerTargetOrDefault(currentSession?.stableCore.preferredTargetModel),
       session: currentSession,
       capsule: capsules[0] ?? null
     });
@@ -329,8 +366,12 @@ export class DesktopWorkspaceRepository {
   private workflowPrompt(workflow: Workflow): string {
     return [
       `Objective: ${workflow.objective}`,
-      workflow.constraints.length ? `Hard requirements:\n${workflow.constraints.map((item) => `- ${item}`).join("\n")}` : "",
-      workflow.outputPreferences.length ? `Output contract:\n${workflow.outputPreferences.map((item) => `- ${item}`).join("\n")}` : "",
+      workflow.constraints.length
+        ? `Hard requirements:\n${workflow.constraints.map((item) => `- ${item}`).join("\n")}`
+        : "",
+      workflow.outputPreferences.length
+        ? `Output contract:\n${workflow.outputPreferences.map((item) => `- ${item}`).join("\n")}`
+        : "",
       workflow.carryForwardContext ? `Context:\n${workflow.carryForwardContext}` : ""
     ]
       .filter(Boolean)
@@ -339,7 +380,11 @@ export class DesktopWorkspaceRepository {
 
   private async saveExport(workspaceId: string, handoff: ContinuityHandoff): Promise<void> {
     const timestamp = nowIso();
-    const exportPath = join(this.workspacePath(workspaceId), "exports", `${safeFileName(`${handoff.target}_${timestamp}`)}.json`);
+    const exportPath = join(
+      this.workspacePath(workspaceId),
+      "exports",
+      `${safeFileName(`${handoff.target}_${timestamp}`)}.json`
+    );
     await writeJson(exportPath, { exportedAt: timestamp, handoff });
   }
 
@@ -355,9 +400,7 @@ export class DesktopWorkspaceRepository {
     if (!existsSync(this.rootPath)) return [];
     const entries = await readdir(this.rootPath, { withFileTypes: true });
     const workspaces = await Promise.all(
-      entries
-        .filter((entry) => entry.isDirectory())
-        .map((entry) => this.readWorkspace(entry.name))
+      entries.filter((entry) => entry.isDirectory()).map((entry) => this.readWorkspace(entry.name))
     );
     return workspaces
       .filter((workspace): workspace is DesktopWorkspace => Boolean(workspace))

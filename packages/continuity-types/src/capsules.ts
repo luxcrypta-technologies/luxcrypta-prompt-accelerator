@@ -5,6 +5,13 @@ export interface PortableCapsuleMetadata {
   detected_model?: string;
   workflow_identity?: string;
   governance_state?: Record<string, unknown>;
+  governance_principles?: string[];
+  invariants?: string[];
+  continuity_safeguards?: string[];
+  quarantine_log?: string[];
+  deferred_items?: string[];
+  conditional_admissions?: string[];
+  mutation_targets?: unknown[];
   rejected_directions?: string[];
   continuity_anchors?: string[];
   reconstruction_instructions?: string;
@@ -30,6 +37,13 @@ export interface CarryForwardCapsule {
   open_questions: string[];
   unresolved_issues?: string[];
   governance_state?: Record<string, unknown>;
+  governance_principles?: string[];
+  invariants?: string[];
+  continuity_safeguards?: string[];
+  quarantine_log?: string[];
+  deferred_items?: string[];
+  conditional_admissions?: string[];
+  mutation_targets?: unknown[];
   rejected_directions?: string[];
   continuity_anchors?: string[];
   reconstruction_instructions?: string;
