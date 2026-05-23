@@ -97,6 +97,8 @@ export type BackgroundMessageResult =
       surface: ReviewSurfaceKind;
       visibleToUser?: boolean;
       openStatus?: ProviderHealth["review_open_status"];
+      providerHealth?: ProviderHealth;
+      result?: TransformResult;
     }
   | null;
 

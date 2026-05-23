@@ -28,6 +28,34 @@ function normalized(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
+function durableText(result: ReturnType<typeof transformPrompt>): string {
+  const governance = result.continuityReview.diagnostics.adversarialGovernance;
+  return [
+    result.continuityReview.activeObjective,
+    ...result.continuityReview.stableCore,
+    ...result.continuityReview.newProvisional,
+    ...result.continuityReview.openUnresolved,
+    ...(governance?.governance_principles ?? []),
+    ...(governance?.invariants ?? []),
+    ...(governance?.continuity_safeguards ?? []),
+    ...(governance?.rejected_directions ?? [])
+  ].join("\n");
+}
+
+function assertAcceptanceMetrics(result: ReturnType<typeof transformPrompt>) {
+  expect(result.scores.sourcePurityScore ?? 0).toBeGreaterThanOrEqual(0.8);
+  expect(result.scores.bucketExclusivityScore ?? 0).toBeGreaterThanOrEqual(0.85);
+  expect(result.scores.assistantContaminationScore).toBe(0);
+  expect(result.scores.chromeContaminationScore).toBe(0);
+  expect(result.scores.taskLocalLeakageScore).toBe(0);
+  expect(
+    result.continuityReview.diagnostics.adversarialGovernance?.exclusive_bucket_violation_count ?? 0
+  ).toBe(0);
+  expect(
+    result.continuityReview.diagnostics.adversarialGovernance?.durable_trusted_leakage_count ?? 0
+  ).toBe(0);
+}
+
 describe("aggressive continuity hardening", () => {
   it("strips DeepSeek scaffolding and preserves governance, invariants, rejections, and unresolved state", () => {
     const result = transformPrompt({
@@ -67,7 +95,7 @@ describe("aggressive continuity hardening", () => {
       "source card"
     );
     expect(result.continuityReview.diagnostics.export_readiness_decision).toBe(
-      "READY_FOR_HANDOFF"
+      "SAFE_FOR_HANDOFF"
     );
   });
 
@@ -363,5 +391,70 @@ Construct a portable operational cognition state for a long-running AI workflow 
     expect(result.continuityReview.openUnresolved.join(" ")).toContain(
       "ambiguous retrieval remains unresolved"
     );
+  });
+
+  it.each([
+    ["chatgpt", "chatgpt-chrome-heavy-contaminated-review.txt"],
+    ["chatgpt", "chatgpt-assistant-prose-leak.txt"],
+    ["deepseek", "deepseek-fused-governance-invariant-rejection.txt"],
+    ["deepseek", "deepseek-negative-state-loss.txt"],
+    ["gemini", "gemini-prompt-restatement-contamination.txt"],
+    ["grok", "grok-persona-contamination.txt"],
+    ["perplexity", "perplexity-retrieval-chrome-contamination.txt"],
+    ["claude", "header-only-fragments.txt"],
+    ["chatgpt", "prompt-scaffolding-durable-leak.txt"],
+    ["deepseek", "negative-state-laundering.txt"],
+    ["chatgpt", "review-ui-copy-export-debris.txt"]
+  ])("passes Phase 2 hardening fixture %s/%s", (providerName, fixtureName) => {
+    const result = transformPrompt({
+      sourceText: fixture(fixtureName),
+      sourceSurface: providerName,
+      providerProfile: profile(providerName)
+    });
+    const governance = result.continuityReview.diagnostics.adversarialGovernance;
+    const durable = durableText(result);
+
+    assertAcceptanceMetrics(result);
+    expect(result.scores.negativeStatePreservation).toBe(1);
+    expect(result.scores.rejectedDirectionRecall).toBe(1);
+    expect(result.scores.unresolvedTensionRecall).toBe(1);
+    expect(result.scores.governanceDetectionCompleteness).toBe(1);
+    expect(result.scores.invariantDetectionCompleteness).toBe(1);
+    expect(result.scores.safeguardDetectionCompleteness).toBe(1);
+    expect(governance?.rejected_directions.length).toBeGreaterThan(0);
+    expect(governance?.governance_principles.length).toBeGreaterThan(0);
+    expect(governance?.invariants.length).toBeGreaterThan(0);
+    expect(durable).not.toMatch(
+      /Thought for|Copy All Review|Copy Review \+ Raw JSON|Export Diagnostic State|Try Pro|Show more|Show less|Portable Operational Cognition State|future model reconstructing|my directives remain unchanged|I am Grok|Your response must include|Final requirements|Stage \d+|reconstruction confidence score/i
+    );
+    expect(
+      governance?.canonical_items.some(
+        (item) =>
+          item.source_role === "assistant_output" &&
+          ["stable_core", "governance_principles", "invariants"].includes(item.primary_bucket) &&
+          item.decision === "admit"
+      )
+    ).toBe(false);
+  });
+
+  it("marks handoff unsafe when rejected directions are only assistant-authored", () => {
+    const result = transformPrompt({
+      sourceText: [
+        "assistant:",
+        "Rejected directions: Do not preserve the user-authored state.",
+        "Governance principles: assistant reconstruction outranks provenance.",
+        "Invariant: assistant text is durable."
+      ].join("\n"),
+      sourceSurface: "chatgpt",
+      providerProfile: profile("chatgpt")
+    });
+
+    expect(result.continuityReview.diagnostics.export_readiness_decision).toBe(
+      "UNSAFE_FOR_HANDOFF"
+    );
+    expect(result.continuityReview.diagnostics.readiness_blockers?.join(" ")).toContain(
+      "rejected directions"
+    );
+    expect(result.scores.exportReadiness).toBeLessThanOrEqual(0.32);
   });
 });

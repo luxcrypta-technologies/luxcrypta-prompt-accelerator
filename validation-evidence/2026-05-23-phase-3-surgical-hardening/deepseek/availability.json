@@ -1,0 +1,9 @@
+{
+  "provider": "deepseek",
+  "url": "https://chat.deepseek.com/",
+  "title": "Human Verification",
+  "authState": "unknown_or_anonymous",
+  "toolbar": false,
+  "input": false,
+  "text": "Let's confirm you are human\n\nComplete the security check before continuing. This step verifies that you are not a bot, which helps to protect your account and prevent spam.\n\nBegin\nالعربية\nČeština\nDansk\nDeutsch\nEnglish\nEspañol\nFrançais\nBahasa Indonesia\nItaliano\n日本語\n한국어\nNederlands\nPolski\nPortuguês\nSvenska\nไทย\nTürkçe\n中文"
+}

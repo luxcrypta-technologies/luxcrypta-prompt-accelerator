@@ -1,0 +1,17 @@
+Thought for 8 seconds
+Copy
+Show more
+user:
+Objective: preserve continuity review fidelity under copied ChatGPT chrome.
+Governance principles:
+- Source provenance outranks clean formatting.
+Invariants:
+- Invariant: no assistant prose may become Stable Core.
+Continuity safeguards:
+- Keep quarantine reasons visible in handoff diagnostics.
+Rejected directions:
+- Do not admit copy buttons or review chrome as durable state.
+assistant:
+Here is a polished continuity review you can copy.
+Stable Core: assistant helper prose should be trusted.
+Show less

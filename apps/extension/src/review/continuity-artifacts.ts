@@ -1140,7 +1140,10 @@ function scoreSummary(result: TransformResult): Record<string, number | undefine
     task_local_leakage_score: result.scores.taskLocalLeakageScore,
     governance_detection_completeness: result.scores.governanceDetectionCompleteness,
     invariant_detection_completeness: result.scores.invariantDetectionCompleteness,
+    safeguard_detection_completeness: result.scores.safeguardDetectionCompleteness,
     negative_state_preservation: result.scores.negativeStatePreservation,
+    rejected_direction_recall: result.scores.rejectedDirectionRecall,
+    unresolved_tension_recall: result.scores.unresolvedTensionRecall,
     export_readiness: result.scores.exportReadiness,
     review_truthfulness: result.scores.reviewTruthfulness,
     risk_score: result.scores.riskScore,
@@ -1172,7 +1175,14 @@ function diagnosticMetadata(
     likely_missing_categories: result.continuityReview.diagnostics.likely_missing_categories,
     compression_loss: result.continuityReview.diagnostics.compression_loss,
     export_readiness_decision: result.continuityReview.diagnostics.export_readiness_decision,
+    readiness_blockers: result.continuityReview.diagnostics.readiness_blockers,
+    readiness_metadata: result.continuityReview.diagnostics.readiness_metadata,
+    missing_state_summary: result.continuityReview.diagnostics.missing_state_summary,
     admission_counts: result.continuityReview.diagnostics.admission_counts,
+    admission_counts_by_source_role:
+      result.continuityReview.diagnostics.admission_counts_by_source_role,
+    quarantined_counts_by_source_role:
+      result.continuityReview.diagnostics.quarantined_counts_by_source_role,
     task_local_instructions: result.continuityReview.diagnostics.task_local_instructions,
     task_local_forbidden: result.continuityReview.diagnostics.task_local_forbidden,
     raw_input_length: result.originalText.length,
@@ -1204,6 +1214,13 @@ export function formatContinuityExport(result: TransformResult, transformedText:
     .trim();
   const sections = [
     ["Continuity Review"],
+    [
+      "Handoff Readiness",
+      result.continuityReview.diagnostics.export_readiness_decision ?? "UNSAFE_FOR_HANDOFF",
+      ...(result.continuityReview.diagnostics.readiness_blockers?.map(
+        (blocker) => `Blocker: ${blocker}`
+      ) ?? [])
+    ],
     ["Active Objective", admitted.activeObjective],
     bulletSection(
       "Stable Core",

@@ -1,0 +1,11 @@
+Gemini
+User prompt restatement:
+Your response must include a table, four sections, and final scores.
+user:
+Objective: preserve source purity during Gemini prompt restatements.
+Governance principles:
+- Restated prompts are diagnostic unless user-authored as durable state.
+Invariants:
+- Durable state must remain user-authored.
+Rejected directions:
+- Do not admit quoted prompt framing as Stable Core.

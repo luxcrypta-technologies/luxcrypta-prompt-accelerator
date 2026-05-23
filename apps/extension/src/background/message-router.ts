@@ -10,6 +10,7 @@ import {
 import { executeSaveWorkflow } from "@/domain/actions/save-workflow";
 import { executeTransformPrompt } from "@/domain/actions/transform-prompt";
 import { executeUpdateSessionState } from "@/domain/actions/update-session-state";
+import { transformPrompt } from "@/core/pipeline";
 import { CapsuleService } from "@/domain/services/capsule-service";
 import { HistoryService } from "@/domain/services/history-service";
 import { PreferenceService } from "@/domain/services/preference-service";
@@ -85,12 +86,32 @@ function markReviewOpenFailure(state: ReviewState, stage: string, reason: string
   const health = state.result.continuityReview.diagnostics.providerHealth;
   if (!health) return;
   health.review_open_attempted = true;
-  health.review_open_status = "failed";
+  health.review_open_status = "open_failed";
+  health.review_open_stage = "open_failed";
   health.review_open_error = reason;
   health.failure_stage = stage;
   health.failure_reason = reason;
   health.visible_to_user = false;
+  health.persisted = true;
   appendReviewOpenEvent(state, `review_open_failed:${stage}`);
+}
+
+function refreshReviewReadinessAfterOpen(state: ReviewState): void {
+  const current = state.result;
+  const diagnostics = current.continuityReview.diagnostics;
+  const refreshed = transformPrompt({
+    sourceText: current.originalText,
+    mode: diagnostics.requestedMode,
+    targetModel: current.targetModelApplied ?? diagnostics.targetModel,
+    preserveConstraints: true,
+    sourceSurface: diagnostics.sourceSurface,
+    providerProfile: diagnostics.providerProfile,
+    providerHealth: diagnostics.providerHealth
+  });
+  state.result = {
+    ...refreshed,
+    transformedText: current.transformedText
+  };
 }
 
 function isContentMessage(message: ExtensionMessage): message is ContentMessage {
@@ -171,12 +192,14 @@ export function createMessageRouter(platform: PlatformAPI) {
         const result = backgroundMessage.payload.result;
         if (result.continuityReview.diagnostics.providerHealth) {
           result.continuityReview.diagnostics.providerHealth.review_open_attempted = true;
-          result.continuityReview.diagnostics.providerHealth.review_open_status = "pending";
+          result.continuityReview.diagnostics.providerHealth.review_open_status = "requested";
+          result.continuityReview.diagnostics.providerHealth.review_open_stage = "requested";
           result.continuityReview.diagnostics.providerHealth.navigation_attempted = true;
           result.continuityReview.diagnostics.providerHealth.surface_created = false;
           result.continuityReview.diagnostics.providerHealth.app_mounted = false;
           result.continuityReview.diagnostics.providerHealth.first_content_rendered = false;
           result.continuityReview.diagnostics.providerHealth.visible_to_user = false;
+          result.continuityReview.diagnostics.providerHealth.persisted = false;
           result.continuityReview.diagnostics.providerHealth.review_open_events = [
             ...(result.continuityReview.diagnostics.providerHealth.review_open_events ?? []),
             "review_open_requested"
@@ -203,14 +226,25 @@ export function createMessageRouter(platform: PlatformAPI) {
         }
         if (state.result.continuityReview.diagnostics.providerHealth) {
           state.result.continuityReview.diagnostics.providerHealth.surface_created = true;
+          state.result.continuityReview.diagnostics.providerHealth.persisted = true;
+          state.result.continuityReview.diagnostics.providerHealth.review_open_status =
+            "surface_created";
+          state.result.continuityReview.diagnostics.providerHealth.review_open_stage =
+            "surface_created";
           state.result.continuityReview.diagnostics.providerHealth.review_open_events = [
             ...(state.result.continuityReview.diagnostics.providerHealth.review_open_events ?? []),
             "review_surface_created",
+            "review_state_persisted",
             "review_open_pending_visible_render"
           ];
         }
         await rememberReviewState(state, platform.storage);
-        return { reviewId: state.id, surface, visibleToUser: false, openStatus: "pending" };
+        return {
+          reviewId: state.id,
+          surface,
+          visibleToUser: false,
+          openStatus: "surface_created"
+        };
       }
       case "review:get":
         return getReviewState(platform.storage, backgroundMessage.payload.reviewId);
@@ -232,7 +266,7 @@ export function createMessageRouter(platform: PlatformAPI) {
               reviewId: state.id,
               surface: state.surface,
               visibleToUser: health?.visible_to_user ?? false,
-              openStatus: health?.review_open_status ?? "pending",
+              openStatus: health?.review_open_status ?? "requested",
               providerHealth: health
             }
           : null;
@@ -243,25 +277,33 @@ export function createMessageRouter(platform: PlatformAPI) {
         const health = state.result.continuityReview.diagnostics.providerHealth;
         if (health) {
           health.review_open_attempted = true;
-          health.review_open_status = health.retry_count ? "retry_success" : "success";
           health.app_mounted = true;
           health.first_content_rendered = true;
           health.visible_to_user = true;
+          health.persisted = true;
+          health.review_open_status = "open_success";
+          health.review_open_stage = "open_success";
           health.failure_stage = undefined;
           health.failure_reason = undefined;
           health.review_open_events = [
             ...(health.review_open_events ?? []),
             "review_app_mounted",
             "review_first_content_rendered",
-            "review_visible_to_user"
+            "review_visible_to_user",
+            "review_visible_acknowledged",
+            "review_state_persisted",
+            "review_open_success"
           ];
         }
+        refreshReviewReadinessAfterOpen(state);
         await rememberReviewState(state, platform.storage);
         return {
           reviewId: state.id,
           surface: state.surface,
           visibleToUser: true,
-          openStatus: health?.review_open_status ?? "success"
+          openStatus: health?.review_open_status ?? "open_success",
+          providerHealth: health,
+          result: state.result
         };
       }
       default:

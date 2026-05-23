@@ -1,0 +1,9 @@
+{
+  "provider": "grok",
+  "url": "https://grok.com/",
+  "title": "Grok",
+  "authState": "logged_out_or_auth_required",
+  "toolbar": false,
+  "input": true,
+  "text": "Imagine\nSign in\nSign up\nFast\nBy messaging Grok, you agree to our Terms and Privacy Policy."
+}

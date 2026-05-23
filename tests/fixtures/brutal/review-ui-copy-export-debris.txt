@@ -1,0 +1,16 @@
+Prompt Review
+Copy All Review
+Copy Review + Raw JSON
+Export Diagnostic State
+Active Objective
+user:
+Objective: keep review UI labels out of extracted continuity state.
+Governance principles:
+- Review chrome is never source truth.
+Invariants:
+- Export artifact labels cannot re-enter durable state.
+Continuity safeguards:
+- Preserve readiness blockers in diagnostics.
+Rejected directions:
+- Do not admit copy/export button text.
+Raw JSON

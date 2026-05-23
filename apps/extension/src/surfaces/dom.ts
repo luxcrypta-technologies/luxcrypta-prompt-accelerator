@@ -1,7 +1,7 @@
 export type DraftInputElement = HTMLElement | HTMLTextAreaElement;
 
 const UI_TEXT_RE =
-  /^(?:show more|show less|show more show less|copy|copied|copy json|copy raw|copy link|copy all review|copy review \+ raw json|copy engineering summary|copy portable capsule|copy workflow export|prompt review|advanced|retry open|review opened|opening review|review did not open|apply|save|save workflow|save capsule|download|download json|export|share|rewrite|sources?|citations?|related|ask follow-?up|thread|library|discover|home|settings|sign in|login|logout|upgrade|try pro|new chat)$/i;
+  /^(?:show more|show less|show more show less|copy|copied|copy json|copy raw|copy link|copy all review|copy review \+ raw json|copy engineering summary|copy portable capsule|copy workflow export|prompt review|advanced|retry open|review opened|opening review|review did not open|apply|save|save workflow|save capsule|download|download json|export|share|rewrite|sources?|citations?|related|ask follow-?up|thread|library|discover|home|settings|sign in|login|logout|upgrade|try pro|new chat|powered by|chatgpt|gemini|claude|deepseek|grok|perplexity|xai)$/i;
 
 function isVisible(element: Element): boolean {
   const html = element as HTMLElement;
@@ -60,6 +60,8 @@ export function isProviderChromeText(value: string): boolean {
   const compact = compactUiKey(clean);
   return (
     UI_TEXT_RE.test(clean) ||
+    /^thought for (?:a few|\d+(?:\.\d+)?) seconds?$/i.test(clean) ||
+    /^powered by\b/i.test(clean) ||
     /^(showmore|showless|showmoreshowless|copyjson|copyraw|promptreview|retryopen|reviewopened|openingreview|reviewdidnotopen|trypro|newchat|askfollowup)$/.test(
       compact
     )
@@ -70,6 +72,8 @@ export function stripProviderChromeLines(value: string): string {
   return value
     .replace(/\b(show more)\s*(show less)\b/gi, "\n")
     .replace(/\b(Copy JSON|Copy Raw|Copy All Review|Copy Review \+ Raw JSON|Copy Engineering Summary|Copy Portable Capsule|Copy Workflow Export|Prompt Review|Retry Open)\b/gi, "\n")
+    .replace(/^.*\bThought for (?:a few|\d+(?:\.\d+)?) seconds?\b.*$/gim, "\n")
+    .replace(/^.*\bPowered by\b.*$/gim, "\n")
     .split(/\n+/)
     .map((line) => line.trim())
     .filter((line) => line && !isProviderChromeText(line))

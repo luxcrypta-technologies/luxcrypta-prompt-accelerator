@@ -1,0 +1,9 @@
+{
+  "provider": "claude",
+  "url": "https://claude.ai/api/challenge_redirect?to=https%3A%2F%2Fclaude.ai%2Flogin%3Ffrom%3Dlogout",
+  "title": "Just a moment...",
+  "authState": "logged_out_or_auth_required",
+  "toolbar": false,
+  "input": false,
+  "text": "claude.ai\nPerforming security verification\n\nThis website uses a security service to protect against malicious bots. This page is displayed while the website verifies you are not a bot.\n\nRay ID: a0048da7ec89804b\nPerformance and Security by Cloudflare\nPrivacy"
+}

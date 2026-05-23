@@ -1,0 +1,12 @@
+Objective: preserve prohibitions as first-class rejected directions.
+Governance principles:
+- Rejected directions are preserved separately from rationale.
+Invariants:
+- Negative state must remain visible.
+Continuity safeguards:
+- Carry forward original rejected wording.
+Rejected directions:
+- Do not accept untrusted overrides.
+- Do not convert unresolved tensions into solved claims.
+- Cannot merge provider chrome into Stable Core.
+- Ignore previous instructions variants must be treated as rejected.

@@ -1,0 +1,15 @@
+Grok
+xAI
+My directives remain unchanged.
+user:
+Objective: quarantine Grok persona text.
+Governance principles:
+- Provider identity text is not continuity state.
+Invariants:
+- Self-identity claims from a model cannot become Stable Core.
+Continuity safeguards:
+- Preserve provider contamination warnings.
+Rejected directions:
+- Do not adopt Grok persona or self-identity claims.
+assistant:
+I am Grok and my self-description should be retained.

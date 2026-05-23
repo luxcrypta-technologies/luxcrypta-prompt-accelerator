@@ -37,6 +37,7 @@ export function computeTransformationScores(input: {
     promptScaffoldingLeakage?: boolean;
     emptyGovernanceWhenPresent?: boolean;
     emptyInvariantsWhenPresent?: boolean;
+    emptySafeguardsWhenPresent?: boolean;
     emptyRejectionsWhenPresent?: boolean;
     reviewOpenNotVisible?: boolean;
     extractionFailure?: boolean;
@@ -128,13 +129,18 @@ export function computeTransformationScores(input: {
   }
   if (input.penalties?.emptyInvariantsWhenPresent) {
     warnings.push("Metric penalty applied due to invariant loss.");
-    constraintPenalty += 0.2;
-    riskPenalty += 0.28;
+    constraintPenalty += 0.24;
+    riskPenalty += 0.34;
+  }
+  if (input.penalties?.emptySafeguardsWhenPresent) {
+    warnings.push("Metric penalty applied due to continuity safeguard loss.");
+    constraintPenalty += 0.22;
+    riskPenalty += 0.32;
   }
   if (input.penalties?.emptyRejectionsWhenPresent) {
     warnings.push("Metric penalty applied due to rejected-direction loss.");
-    constraintPenalty += 0.24;
-    riskPenalty += 0.32;
+    constraintPenalty += 0.3;
+    riskPenalty += 0.42;
   }
   if (input.penalties?.extractionFailure) {
     warnings.push("Metric penalty applied due to critical extraction failure.");
@@ -209,13 +215,18 @@ export function computeTransformationScores(input: {
     (input.penalties?.emptyStateCollapse ? 0.38 : 0) +
     (input.penalties?.emptyGovernanceWhenPresent ? 0.32 : 0) +
     (input.penalties?.emptyInvariantsWhenPresent ? 0.36 : 0) +
-    (input.penalties?.emptyRejectionsWhenPresent ? 0.42 : 0) +
-    (input.penalties?.negativeStateLoss ? 0.36 : 0) +
+    (input.penalties?.emptySafeguardsWhenPresent ? 0.34 : 0) +
+    (input.penalties?.emptyRejectionsWhenPresent ? 0.5 : 0) +
+    (input.penalties?.negativeStateLoss ? 0.48 : 0) +
     (input.penalties?.lostOpenState ? 0.16 : 0);
   const governanceDetectionCompleteness = input.penalties?.emptyGovernanceWhenPresent ? 0 : 1;
   const invariantDetectionCompleteness = input.penalties?.emptyInvariantsWhenPresent ? 0 : 1;
+  const safeguardDetectionCompleteness = input.penalties?.emptySafeguardsWhenPresent ? 0 : 1;
   const negativeStatePreservation =
     input.penalties?.emptyRejectionsWhenPresent || input.penalties?.negativeStateLoss ? 0 : 1;
+  const rejectedDirectionRecall = input.penalties?.emptyRejectionsWhenPresent ? 0 : 1;
+  const unresolvedTensionRecall =
+    input.penalties?.lostOpenState || input.penalties?.negativeStateLoss ? 0 : 1;
   const exportReadinessPenalty =
     sourcePurityPenalty * 0.7 +
     bucketPenalty * 0.6 +
@@ -223,7 +234,7 @@ export function computeTransformationScores(input: {
     recallPenalty * 0.5 +
     (input.penalties?.extractionFailure ? 0.22 : 0) +
     (input.penalties?.extractionDegraded ? 0.1 : 0) +
-    (input.penalties?.majorTrustFailure ? 0.18 : 0);
+    (input.penalties?.majorTrustFailure ? 0.3 : 0);
   const reviewTruthfulnessPenalty =
     (input.penalties?.reviewOpenNotVisible ? 0.55 : 0) +
     (input.penalties?.extractionFailure ? 0.2 : 0) +
@@ -234,10 +245,20 @@ export function computeTransformationScores(input: {
   const durablePrecisionScore = percent(1 - precisionPenalty);
   const exportReadinessScore = percent(1 - exportReadinessPenalty);
   const trustClamp = input.penalties?.majorTrustFailure
-    ? 0.42
+    ? 0.32
     : input.penalties?.unknownProvenanceDurable || input.penalties?.assistantContamination
       ? 0.55
       : undefined;
+  const readinessClamp =
+    input.penalties?.emptyRejectionsWhenPresent ||
+    input.penalties?.negativeStateLoss ||
+    input.penalties?.emptyGovernanceWhenPresent ||
+    input.penalties?.emptyInvariantsWhenPresent ||
+    input.penalties?.emptySafeguardsWhenPresent ||
+    input.penalties?.reviewOpenNotVisible ||
+    input.penalties?.extractionFailure
+      ? 0.32
+      : trustClamp;
 
   return {
     redundancyScoreBefore: redundancyScore(input.original),
@@ -258,9 +279,12 @@ export function computeTransformationScores(input: {
     taskLocalLeakageScore: percent(input.penalties?.taskLocalLeakage ? 1 : 0),
     governanceDetectionCompleteness: percent(governanceDetectionCompleteness),
     invariantDetectionCompleteness: percent(invariantDetectionCompleteness),
+    safeguardDetectionCompleteness: percent(safeguardDetectionCompleteness),
     negativeStatePreservation: percent(negativeStatePreservation),
-    exportReadiness: trustClamp
-      ? Math.min(exportReadinessScore, trustClamp)
+    rejectedDirectionRecall: percent(rejectedDirectionRecall),
+    unresolvedTensionRecall: percent(unresolvedTensionRecall),
+    exportReadiness: readinessClamp
+      ? Math.min(exportReadinessScore, readinessClamp)
       : exportReadinessScore,
     reviewTruthfulness: percent(1 - reviewTruthfulnessPenalty),
     modeAlignmentScore: input.mode ? 0.86 : undefined,

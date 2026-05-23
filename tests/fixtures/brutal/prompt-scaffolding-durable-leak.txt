@@ -1,0 +1,13 @@
+Stage 1: produce a table.
+Stage 2: score this.
+Final requirements:
+- Your response must include four sections.
+- End with a reconstruction confidence score.
+user:
+Objective: prevent task-local scaffolding from becoming continuity state.
+Governance principles:
+- Task-local formatting rules are diagnostic only.
+Invariants:
+- Durable buckets contain operational state, not answer-shape instructions.
+Rejected directions:
+- Do not admit stage labels or final-score instructions.

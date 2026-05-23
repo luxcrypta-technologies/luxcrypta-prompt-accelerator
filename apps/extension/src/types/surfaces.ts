@@ -24,13 +24,35 @@ export interface ProviderHealth {
   toolbar_mounted: boolean;
   draft_read_success: boolean;
   extraction_status?: "success" | "degraded" | "failed";
+  extraction_source?: "composer" | "last_user_turn" | "retrieved_context_only" | "empty";
+  extraction_source_summary?: string;
+  extracted_segment_count?: number;
+  body_first_extraction_success?: boolean;
   extraction_warnings?: string[];
   contamination_markers?: string[];
   writeback_attempted?: boolean;
   writeback_status?: "not_attempted" | "success" | "failed";
   writeback_success: boolean;
   review_open_attempted?: boolean;
-  review_open_status?: "not_attempted" | "pending" | "success" | "retry_success" | "failed";
+  review_open_status?:
+    | "not_attempted"
+    | "requested"
+    | "surface_created"
+    | "mounted"
+    | "rendered"
+    | "visible_acknowledged"
+    | "persisted"
+    | "open_success"
+    | "open_failed";
+  review_open_stage?:
+    | "requested"
+    | "surface_created"
+    | "mounted"
+    | "rendered"
+    | "visible_acknowledged"
+    | "persisted"
+    | "open_success"
+    | "open_failed";
   review_open_error?: string;
   review_open_events?: string[];
   click_detected?: boolean;
@@ -39,6 +61,7 @@ export interface ProviderHealth {
   app_mounted?: boolean;
   first_content_rendered?: boolean;
   visible_to_user?: boolean;
+  persisted?: boolean;
   retry_count?: number;
   failure_stage?: string;
   failure_reason?: string;

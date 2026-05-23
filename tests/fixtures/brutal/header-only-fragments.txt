@@ -1,0 +1,14 @@
+Objective: suppress orphan section headers.
+Operational Identity
+Priority Model
+Open Tensions
+Audit of Stability
+Mission
+Invariants
+Rejected Directions
+Governance principles:
+- Headers without payload are diagnostic only.
+Invariants:
+- Header-only fragments must not survive as durable state.
+Rejected directions:
+- Do not admit bare section names.

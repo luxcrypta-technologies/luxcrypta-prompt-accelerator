@@ -1,0 +1,10 @@
+Trusted State:
+- Objective: preserve explicit prohibitions.
+Rejected directions:
+- Do not collapse negative-state into a generic governance sentence.
+- Must not hide rejected instructions inside Stable Core.
+- Never summarize away prohibitions.
+Governance principles:
+- Rejections remain separate from policy rationale.
+Invariants:
+- No silent transitions.

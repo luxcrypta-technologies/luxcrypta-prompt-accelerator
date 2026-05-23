@@ -11,6 +11,7 @@ import type {
   ReviewState
 } from "@/types/messages";
 import type { TransformResult } from "@/types/prompts";
+import type { ProviderHealth } from "@/types/surfaces";
 import type { Workflow } from "@/types/workflows";
 import { ActionBar } from "@/ui/ActionBar";
 import { Button } from "@/ui/Button";
@@ -165,6 +166,21 @@ function stableJsonPayload(
     payload,
     metadata
   };
+}
+
+function handoffBlockers(result: TransformResult): string[] {
+  const blockers = result.continuityReview.diagnostics.readiness_blockers ?? [];
+  if (result.continuityReview.diagnostics.export_readiness_decision === "UNSAFE_FOR_HANDOFF") {
+    return blockers.length ? blockers : ["handoff readiness is unsafe"];
+  }
+  return [];
+}
+
+function assertSafeForHandoff(result: TransformResult): void {
+  const blockers = handoffBlockers(result);
+  if (blockers.length) {
+    throw new Error(`UNSAFE_FOR_HANDOFF: ${blockers.join("; ")}`);
+  }
 }
 
 function SectionCopyControls({
@@ -339,9 +355,41 @@ export function App() {
     if (!state?.id || !state.result) return;
     const frame = window.requestAnimationFrame(() => {
       void platform.messaging
-        .sendMessage<BackgroundMessage, unknown>({
+        .sendMessage<
+          BackgroundMessage,
+          {
+            providerHealth?: ProviderHealth;
+            openStatus?: ProviderHealth["review_open_status"];
+            result?: TransformResult;
+          } | null
+        >({
           type: "review:rendered",
           payload: { reviewId: state.id }
+        })
+        .then((ack) => {
+          if (!ack?.providerHealth) return;
+          setState((current) => {
+            if (!current || current.id !== state.id) return current;
+            if (ack.result) {
+              return {
+                ...current,
+                result: ack.result
+              };
+            }
+            return {
+              ...current,
+              result: {
+                ...current.result,
+                continuityReview: {
+                  ...current.result.continuityReview,
+                  diagnostics: {
+                    ...current.result.continuityReview.diagnostics,
+                    providerHealth: ack.providerHealth
+                  }
+                }
+              }
+            };
+          });
         })
         .catch((error: unknown) => {
           console.warn("Prompt Review visible-render acknowledgement failed:", error);
@@ -486,6 +534,7 @@ export function App() {
     try {
       const persistedResult = await persistVisibleReviewState();
       if (!persistedResult) throw new Error("No persisted review state available.");
+      assertSafeForHandoff(persistedResult);
       const copied = await copyToClipboardSafely(
         formatContinuityExport(persistedResult, editableText)
       );
@@ -562,6 +611,7 @@ export function App() {
     try {
       const persistedResult = await persistVisibleReviewState();
       if (!persistedResult) throw new Error("No persisted review state available.");
+      assertSafeForHandoff(persistedResult);
       const text = [
         formatContinuityExport(persistedResult, editableText),
         "Raw JSON",
@@ -625,6 +675,7 @@ export function App() {
     try {
       const persistedResult = await persistVisibleReviewState();
       if (!persistedResult) throw new Error("No persisted review state available.");
+      assertSafeForHandoff(persistedResult);
       const now = new Date().toISOString();
       const draft = buildWorkflowDraft(persistedResult, editableText);
       const exportWorkflow: Workflow = {
@@ -668,6 +719,7 @@ export function App() {
     try {
       const persistedResult = await persistVisibleReviewState();
       if (!persistedResult) throw new Error("No persisted review state available.");
+      assertSafeForHandoff(persistedResult);
       const now = new Date().toISOString();
       const draft = buildCapsuleDraft(persistedResult, editableText);
       const exportCapsule: CarryForwardCapsule = {
@@ -740,6 +792,7 @@ export function App() {
     try {
       const persistedResult = await persistVisibleReviewState();
       if (!persistedResult) throw new Error("No persisted review state available.");
+      assertSafeForHandoff(persistedResult);
       const saved = await platform.messaging.sendMessage<BackgroundMessage, Workflow>({
         type: "workflow:save",
         payload: {
@@ -787,6 +840,7 @@ export function App() {
     try {
       const persistedResult = await persistVisibleReviewState();
       if (!persistedResult) throw new Error("No persisted review state available.");
+      assertSafeForHandoff(persistedResult);
       const saved = await platform.messaging.sendMessage<BackgroundMessage, CarryForwardCapsule>({
         type: "capsule:save",
         payload: {
@@ -1062,6 +1116,27 @@ export function App() {
       ? `Review-open failed at ${review.diagnostics.providerHealth.failure_stage}: ${review.diagnostics.providerHealth.failure_reason ?? "unknown reason"}`
       : ""
   ].filter(Boolean);
+  const readinessLines = [
+    review.diagnostics.export_readiness_decision ?? "UNSAFE_FOR_HANDOFF",
+    ...(review.diagnostics.readiness_blockers?.map((blocker) => `Blocker: ${blocker}`) ?? []),
+    ...(review.diagnostics.missing_state_summary?.map((item) => `Missing state: ${item}`) ?? [])
+  ];
+  const extractionSourceLines = [
+    `Source: ${review.diagnostics.providerHealth?.extraction_source ?? "unknown"}`,
+    `Summary: ${review.diagnostics.providerHealth?.extraction_source_summary ?? "n/a"}`,
+    `Body-first success: ${review.diagnostics.providerHealth?.body_first_extraction_success ?? governance?.body_first_extraction_success ?? false}`,
+    `Segments: ${review.diagnostics.providerHealth?.extracted_segment_count ?? "n/a"}`,
+    `Fragments: ${governance?.preclean_fragment_count ?? "n/a"} -> ${governance?.postclean_fragment_count ?? "n/a"}`,
+    `Chrome removed: ${governance?.chrome_removed_count ?? 0}`,
+    `Surface confidence: ${governance?.provider_surface_confidence ?? "n/a"}`
+  ];
+  const bucketIntegrityLines = [
+    `Collision count: ${governance?.bucket_collision_attempt_count ?? 0}`,
+    `Exclusive bucket violations: ${governance?.exclusive_bucket_violation_count ?? 0}`,
+    `Durable/trusted leakage: ${governance?.durable_trusted_leakage_count ?? 0}`,
+    `Cross refs: ${governance?.cross_ref_count ?? 0}`,
+    `Negative-state loss: ${governance?.negative_state_loss_flag ? "yes" : "no"}`
+  ];
   const scoreLines = [
     `Source purity: ${result.scores.sourcePurityScore ?? "n/a"}`,
     `Bucket exclusivity: ${result.scores.bucketExclusivityScore ?? "n/a"}`,
@@ -1071,7 +1146,10 @@ export function App() {
     `Durable recall estimate: ${result.scores.durableRecallEstimate ?? result.scores.durableStateRecall ?? "n/a"}`,
     `Governance detection completeness: ${result.scores.governanceDetectionCompleteness ?? "n/a"}`,
     `Invariant detection completeness: ${result.scores.invariantDetectionCompleteness ?? "n/a"}`,
+    `Safeguard detection completeness: ${result.scores.safeguardDetectionCompleteness ?? "n/a"}`,
     `Negative-state preservation: ${result.scores.negativeStatePreservation ?? "n/a"}`,
+    `Rejected-direction recall: ${result.scores.rejectedDirectionRecall ?? "n/a"}`,
+    `Unresolved-tension recall: ${result.scores.unresolvedTensionRecall ?? "n/a"}`,
     `Export readiness: ${result.scores.exportReadiness ?? "n/a"}`,
     `Review truthfulness: ${result.scores.reviewTruthfulness ?? "n/a"}`,
     `Mutation risk: ${result.scores.riskScore}`
@@ -1164,6 +1242,17 @@ export function App() {
 
       <div className="review-grid continuity-grid">
         <ReviewListSection
+          title="Handoff Readiness"
+          items={readinessLines}
+          emptyText="UNSAFE_FOR_HANDOFF"
+          metadata={{
+            decision: review.diagnostics.export_readiness_decision,
+            blockers: review.diagnostics.readiness_blockers,
+            metadata: review.diagnostics.readiness_metadata
+          }}
+          onCopy={copyReviewBlock}
+        />
+        <ReviewListSection
           title="Warnings"
           items={visibleWarnings}
           emptyText="No hard warnings detected."
@@ -1178,6 +1267,28 @@ export function App() {
           items={scoreLines}
           emptyText="No scores available."
           metadata={result.scores as unknown as Record<string, unknown>}
+          onCopy={copyReviewBlock}
+        />
+        <ReviewListSection
+          title="Extraction Source"
+          items={extractionSourceLines}
+          emptyText="No extraction source diagnostics available."
+          metadata={{
+            provider_health: review.diagnostics.providerHealth,
+            cleaned_fragments: review.diagnostics.cleaned_fragments
+          }}
+          onCopy={copyReviewBlock}
+        />
+        <ReviewListSection
+          title="Bucket Integrity"
+          items={bucketIntegrityLines}
+          emptyText="No bucket integrity diagnostics available."
+          metadata={{
+            admission_counts: review.diagnostics.admission_counts,
+            bucket_collision_attempt_count: governance?.bucket_collision_attempt_count,
+            exclusive_bucket_violation_count: governance?.exclusive_bucket_violation_count,
+            durable_trusted_leakage_count: governance?.durable_trusted_leakage_count
+          }}
           onCopy={copyReviewBlock}
         />
         <ReviewListSection

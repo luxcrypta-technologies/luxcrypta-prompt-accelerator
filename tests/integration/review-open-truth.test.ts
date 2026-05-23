@@ -69,7 +69,7 @@ function result() {
       draft_read_success: true,
       writeback_success: false,
       review_open_attempted: true,
-      review_open_status: "pending",
+      review_open_status: "requested",
       click_detected: true,
       navigation_attempted: true,
       visible_to_user: false,
@@ -88,7 +88,8 @@ describe("Prompt Review open truth model", () => {
     })) as { reviewId: string; visibleToUser?: boolean; openStatus?: string };
 
     expect(opened.visibleToUser).toBe(false);
-    expect(opened.openStatus).toBe("pending");
+    expect(opened.openStatus).toBe("surface_created");
+    expect(opened.openStatus).not.toBe("open_success");
 
     const pending = (await route({
       type: "review:status",
@@ -96,15 +97,34 @@ describe("Prompt Review open truth model", () => {
     })) as { visibleToUser?: boolean; openStatus?: string };
 
     expect(pending.visibleToUser).toBe(false);
-    expect(pending.openStatus).toBe("pending");
+    expect(pending.openStatus).toBe("surface_created");
 
     const rendered = (await route({
       type: "review:rendered",
       payload: { reviewId: opened.reviewId }
-    })) as { visibleToUser?: boolean; openStatus?: string };
+    })) as {
+      visibleToUser?: boolean;
+      openStatus?: string;
+      providerHealth?: { review_open_events?: string[] };
+      result?: ReturnType<typeof result>;
+    };
 
     expect(rendered.visibleToUser).toBe(true);
-    expect(rendered.openStatus).toBe("success");
+    expect(rendered.openStatus).toBe("open_success");
+    expect(rendered.result?.continuityReview.diagnostics.export_readiness_decision).toBe(
+      "SAFE_FOR_HANDOFF"
+    );
+    expect(rendered.result?.continuityReview.diagnostics.readiness_blockers ?? []).not.toContain(
+      "review-open was not visibly confirmed"
+    );
+    expect(rendered.providerHealth?.review_open_events).toEqual(
+      expect.arrayContaining([
+        "review_first_content_rendered",
+        "review_visible_acknowledged",
+        "review_state_persisted",
+        "review_open_success"
+      ])
+    );
   });
 
   it("records the failed observable-open stage when surface creation throws", async () => {
@@ -125,7 +145,7 @@ describe("Prompt Review open truth model", () => {
     })) as { result: ReturnType<typeof result> };
 
     expect(latest.result.continuityReview.diagnostics.providerHealth).toMatchObject({
-      review_open_status: "failed",
+      review_open_status: "open_failed",
       visible_to_user: false,
       failure_stage: "surface_created",
       failure_reason: "tab creation blocked"
@@ -148,7 +168,7 @@ describe("Prompt Review open truth model", () => {
 
     expect(recovered?.id).toBe(opened.reviewId);
     expect(recovered?.result?.continuityReview.diagnostics.providerHealth).toMatchObject({
-      review_open_status: "pending",
+      review_open_status: "surface_created",
       surface_created: true,
       visible_to_user: false
     });

@@ -47,7 +47,10 @@ export interface TransformationScores {
   taskLocalLeakageScore?: number;
   governanceDetectionCompleteness?: number;
   invariantDetectionCompleteness?: number;
+  safeguardDetectionCompleteness?: number;
   negativeStatePreservation?: number;
+  rejectedDirectionRecall?: number;
+  unresolvedTensionRecall?: number;
   exportReadiness?: number;
   reviewTruthfulness?: number;
   modeAlignmentScore?: number;
@@ -80,13 +83,22 @@ export type ContinuityPrimaryBucket =
   | "diagnostic_only";
 
 export type ContinuitySourceRole =
+  | "user_input"
+  | "user_authored_body"
+  | "trusted_runtime_state"
+  | "trusted_review_state"
   | "trusted_user_input"
   | "user_authored_input"
   | "assistant_output"
+  | "model_output"
   | "provider_ui"
+  | "provider_chrome"
+  | "review_ui"
+  | "toolbar_ui"
   | "provider_ui_chrome"
   | "extension_ui_chrome"
   | "retrieval_content"
+  | "retrieved_content"
   | "retrieved_external_content"
   | "diagnostic_generated"
   | "prior_review_state"
@@ -119,6 +131,16 @@ export interface CanonicalContinuityItem {
   hard?: boolean;
   reason?: string;
   cross_refs?: ContinuityPrimaryBucket[];
+}
+
+export interface NegativeStateItem {
+  original_text: string;
+  normalized_text: string;
+  reason?: string;
+  source?: string;
+  source_role?: ContinuitySourceRole;
+  confidence: number;
+  durable_eligibility: boolean;
 }
 
 export interface TrustedStateSummary {
@@ -170,14 +192,42 @@ export interface AdversarialGovernanceState {
   conflict_report: ConflictReport;
   mutation_risk_report: MutationRiskReport;
   canonical_items: CanonicalContinuityItem[];
+  cleaned_fragments?: string[];
+  negative_state_items?: NegativeStateItem[];
   metric_warnings: string[];
   admission_counts?: Record<string, number>;
+  admission_counts_by_source_role?: Record<string, number>;
+  quarantined_counts_by_source_role?: Record<string, number>;
+  fail_closed_unknown_count?: number;
+  preclean_fragment_count?: number;
+  postclean_fragment_count?: number;
+  chrome_removed_count?: number;
+  ui_debris_removed_count?: number;
+  provider_chrome_removed_count?: number;
+  body_first_extraction_success?: boolean;
+  provider_surface_confidence?: number;
+  prompt_scaffolding_detected_count?: number;
+  task_local_leakage_count?: number;
+  durable_from_scaffolding_blocked_count?: number;
+  negative_state_detected_count?: number;
+  rejected_direction_preserved_count?: number;
+  negative_state_loss_flag?: boolean;
+  bucket_collision_attempt_count?: number;
+  exclusive_bucket_violation_count?: number;
+  durable_trusted_leakage_count?: number;
+  bucket_exclusivity_score?: number;
+  cross_ref_count?: number;
+  orphan_header_count?: number;
+  header_payload_bind_success_count?: number;
   duplicate_fragments_normalized?: number;
   bucket_collisions_prevented?: number;
   extraction_failure?: boolean;
   extraction_degraded?: boolean;
   extraction_contamination_markers?: string[];
   likely_missing_categories?: string[];
+  readiness_blockers?: string[];
+  readiness_metadata?: Record<string, unknown>;
+  missing_state_summary?: string[];
 }
 
 export interface ParsedCapsuleState {
@@ -229,14 +279,20 @@ export interface ContinuityDiagnostics {
   extraction_contamination_markers?: string[];
   fidelity_severity?: "info" | "warning" | "critical";
   likely_missing_categories?: string[];
+  cleaned_fragments?: string[];
   admission_counts?: Record<string, number>;
+  admission_counts_by_source_role?: Record<string, number>;
+  quarantined_counts_by_source_role?: Record<string, number>;
+  readiness_blockers?: string[];
+  readiness_metadata?: Record<string, unknown>;
+  missing_state_summary?: string[];
   compression_loss?: {
     lost_categories: string[];
     degraded_links: string[];
     omitted_rationale_count: number;
     unresolved_items_collapsed_count: number;
   };
-  export_readiness_decision?: "READY_FOR_HANDOFF" | "UNSAFE_FOR_HANDOFF";
+  export_readiness_decision?: "SAFE_FOR_HANDOFF" | "UNSAFE_FOR_HANDOFF";
 }
 
 export interface ContinuityReview {

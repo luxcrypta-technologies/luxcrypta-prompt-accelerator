@@ -62,6 +62,8 @@ describe("computeTransformationScores", () => {
 
     expect(scores.governanceDetectionCompleteness).toBe(0);
     expect(scores.negativeStatePreservation).toBe(0);
+    expect(scores.rejectedDirectionRecall).toBe(0);
+    expect(scores.unresolvedTensionRecall).toBe(0);
     expect(scores.exportReadiness).toBeLessThan(1);
     expect(scores.reviewTruthfulness).toBeLessThan(0.5);
     expect(scores.warnings?.join(" ")).toContain("Prompt Review visibility");

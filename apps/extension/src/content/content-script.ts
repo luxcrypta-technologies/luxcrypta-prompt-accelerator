@@ -1,5 +1,9 @@
 import { getPlatformAPI } from "@platform-runtime";
 import { observeDom } from "./dom-observer";
+import {
+  extractAuthorSourceFromSurface,
+  type AuthoredSourceExtraction
+} from "./extraction";
 import { createToolbarMountController, TOOLBAR_ID } from "./toolbar-mount";
 import { getCurrentSurface } from "./surface-registry";
 import type { BackgroundMessage, ContentMessage } from "@/types/messages";
@@ -8,17 +12,6 @@ import type { TransformResult } from "@/types/prompts";
 import type { ChatSurfaceAdapter, ProviderHealth } from "@/types/surfaces";
 
 const platform = getPlatformAPI();
-
-function snapshotToContinuityText(surface: ChatSurfaceAdapter): string {
-  const snapshot = surface.getConversationSnapshot?.();
-  if (!snapshot?.turns.length) return "";
-  return [
-    snapshot.title ? `Objective: ${snapshot.title}` : "",
-    ...snapshot.turns.map((turn) => `${turn.role}: ${turn.text}`)
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
 
 function extractionTelemetry(text: string): {
   status: ProviderHealth["extraction_status"];
@@ -53,12 +46,11 @@ function extractionTelemetry(text: string): {
       ? "Extracted text includes assistant/model role text; admission must quarantine it."
       : ""
   ].filter(Boolean);
-  const status =
-    !text.trim() || markers.includes("ui_heavy_capture")
+  const status = !text.trim()
+    ? "failed"
+    : markers.includes("ui_heavy_capture") || warnings.length
       ? "degraded"
-      : warnings.length
-        ? "degraded"
-        : "success";
+      : "success";
   return { status, warnings, markers };
 }
 
@@ -77,15 +69,17 @@ function providerHealth(
     appMounted?: boolean;
     firstContentRendered?: boolean;
     visibleToUser?: boolean;
+    persisted?: boolean;
     retryCount?: number;
     failureStage?: string;
     failureReason?: string;
-  }
+  },
+  extractionOverride?: AuthoredSourceExtraction
 ): ProviderHealth {
   const runtime_errors: string[] = [];
   let inputDetected = false;
   let draftReadSuccess = false;
-  let draftText = "";
+  let extracted = extractionOverride;
 
   try {
     inputDetected = surface.getInputElement() !== null;
@@ -94,12 +88,16 @@ function providerHealth(
   }
 
   try {
-    draftText = surface.getCurrentDraftText();
+    extracted = extracted ?? extractAuthorSourceFromSurface(surface);
     draftReadSuccess = true;
   } catch (error) {
     runtime_errors.push(error instanceof Error ? error.message : "Draft read failed.");
   }
-  const extraction = extractionTelemetry(draftText);
+  const extraction = extractionTelemetry(extracted?.text ?? "");
+  const extractionWarnings = [
+    ...extraction.warnings,
+    ...(extracted?.warnings ?? [])
+  ];
 
   return {
     provider: surface.id,
@@ -108,7 +106,12 @@ function providerHealth(
     toolbar_mounted: Boolean(document.getElementById(TOOLBAR_ID)),
     draft_read_success: draftReadSuccess,
     extraction_status: extraction.status,
-    extraction_warnings: extraction.warnings,
+    extraction_source: extracted?.source ?? "empty",
+    extraction_source_summary: extracted?.sourceSummary,
+    extracted_segment_count: extracted?.segmentCount ?? 0,
+    body_first_extraction_success:
+      extracted?.bodyFirst === true && extraction.status === "success",
+    extraction_warnings: extractionWarnings,
     contamination_markers: extraction.markers,
     writeback_attempted: writebackAttempted,
     writeback_status: writebackAttempted
@@ -127,6 +130,7 @@ function providerHealth(
     app_mounted: reviewOpen?.appMounted,
     first_content_rendered: reviewOpen?.firstContentRendered,
     visible_to_user: reviewOpen?.visibleToUser,
+    persisted: reviewOpen?.persisted,
     retry_count: reviewOpen?.retryCount,
     failure_stage: reviewOpen?.failureStage,
     failure_reason: reviewOpen?.failureReason,
@@ -170,7 +174,8 @@ async function waitForVisibleReview(reviewId: string): Promise<boolean> {
 async function openAdvancedReviewOnce(surface: ChatSurfaceAdapter, retry = false): Promise<void> {
   const events = [retry ? "fallback_retry" : "advanced_click"];
   advancedEvent(surface, retry ? "fallback_retry" : "advanced_click");
-  const sourceText = surface.getCurrentDraftText().trim() || snapshotToContinuityText(surface);
+  const authoredSource = extractAuthorSourceFromSurface(surface);
+  const sourceText = authoredSource.text;
   if (!sourceText.trim()) {
     advancedEvent(surface, "review_open_timeout", { reason: "empty_source" });
     throw new Error("No draft body was available for Prompt Review.");
@@ -184,12 +189,12 @@ async function openAdvancedReviewOnce(surface: ChatSurfaceAdapter, retry = false
       providerProfile: surface.getProviderProfile?.(),
       providerHealth: providerHealth(surface, false, false, {
         attempted: true,
-        status: "pending",
+        status: "requested",
         events,
         clickDetected: true,
         navigationAttempted: true,
         retryCount: retry ? 1 : 0
-      })
+      }, authoredSource)
     }
   });
   const response = await platform.messaging.sendMessage<
@@ -261,11 +266,12 @@ platform.messaging.onMessage((message: unknown) => {
     return null;
   }
   if (typedMessage.type === "content:draft:get") {
+    const authoredSource = extractAuthorSourceFromSurface(surface);
     return {
-      text: surface.getCurrentDraftText(),
+      text: authoredSource.text,
       surfaceId: surface.id,
       providerProfile: surface.getProviderProfile?.(),
-      providerHealth: providerHealth(surface)
+      providerHealth: providerHealth(surface, false, false, undefined, authoredSource)
     };
   }
   if (typedMessage.type === "content:draft:apply") {

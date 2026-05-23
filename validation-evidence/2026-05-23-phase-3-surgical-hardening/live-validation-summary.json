@@ -1,0 +1,92 @@
+[
+  {
+    "provider": "chatgpt",
+    "availability": {
+      "provider": "chatgpt",
+      "url": "https://chatgpt.com/",
+      "title": "ChatGPT",
+      "authState": "logged_out_or_auth_required",
+      "toolbar": false,
+      "input": true,
+      "text": "Skip to content\nChat history\nNew chat\nSearch chats\nImages\nApps\nDeep research\nSee plans and pricing\nSettings\nHelp\n\nGet responses tailored to you\n\nLog in to get answers based on saved chats, plus create images and upload files.\n\nLog in\nChatGPT\nLog in\nSign up for free\nWhere should we begin?\n\nVoice\nBy messaging ChatGPT, an AI chatbot, you agree to our Terms and have read our Privacy Policy."
+    },
+    "skipped": true,
+    "reason": "toolbar_or_input_unavailable",
+    "runs": []
+  },
+  {
+    "provider": "claude",
+    "availability": {
+      "provider": "claude",
+      "url": "https://claude.ai/api/challenge_redirect?to=https%3A%2F%2Fclaude.ai%2Flogin%3Ffrom%3Dlogout",
+      "title": "Just a moment...",
+      "authState": "logged_out_or_auth_required",
+      "toolbar": false,
+      "input": false,
+      "text": "claude.ai\nPerforming security verification\n\nThis website uses a security service to protect against malicious bots. This page is displayed while the website verifies you are not a bot.\n\nRay ID: a0048da7ec89804b\nPerformance and Security by Cloudflare\nPrivacy"
+    },
+    "skipped": true,
+    "reason": "toolbar_or_input_unavailable",
+    "runs": []
+  },
+  {
+    "provider": "gemini",
+    "availability": {
+      "provider": "gemini",
+      "url": "https://gemini.google.com/app",
+      "title": "Google Gemini",
+      "authState": "logged_out_or_auth_required",
+      "toolbar": false,
+      "input": true,
+      "text": "Sign in\nGemini\nAbout Gemini\nOpens in a new window\nGemini App\nOpens in a new window\nSubscriptions\nOpens in a new window\nFor Business\nOpens in a new window\nNew chat\nConversation with Gemini\nMeet Gemini, your personal AI assistant\nWrite\nPlan\nResearch\nLearn\n\n\n\n\nTools\nFlash\n\nGoogle Terms\nOpens in a new window\n and the Google Privacy Policy\nOpens in a new window\n apply. Gemini is AI and can make mistakes."
+    },
+    "skipped": true,
+    "reason": "toolbar_or_input_unavailable",
+    "runs": []
+  },
+  {
+    "provider": "grok",
+    "availability": {
+      "provider": "grok",
+      "url": "https://grok.com/",
+      "title": "Grok",
+      "authState": "logged_out_or_auth_required",
+      "toolbar": false,
+      "input": true,
+      "text": "Imagine\nSign in\nSign up\nFast\nBy messaging Grok, you agree to our Terms and Privacy Policy."
+    },
+    "skipped": true,
+    "reason": "toolbar_or_input_unavailable",
+    "runs": []
+  },
+  {
+    "provider": "perplexity",
+    "availability": {
+      "provider": "perplexity",
+      "url": "https://www.perplexity.ai/",
+      "title": "Perplexity",
+      "authState": "logged_out_or_auth_required",
+      "toolbar": false,
+      "input": true,
+      "text": "New\n⌘K\nComputer\nSpaces\nArtifacts\nCustomize\nHistory\nNo recent threads\nSign In\nDiscover\nFinance\nHealth\nAcademic\nPatents\n\n\n\n\nType @ for connectors and sources\nSearch\nComputer\nModel\nTry Computer\nLead generation\nOrganize my life\nBuild a business\nMonitor the situation\nHelp me learn\nRecruiting\nCreate a prototype\nFind potential integration partners\nMap out all businesses of a type in my area\nFind decision-makers at a company\nCookie Policy\n\nWe use cookies, pixels, SDKs, APIs, and server-to-server integrations for the correct functioning of our website. You can choose to allow us to use these technologies to measure our ad performance on third party partner websites and to improve our services. Perplexity will not use these technologies to sell third party ads on our services.\n\nCookie Policy\nWe use cookies, pixels, SDKs, APIs, and server-to-server integrations for the correct functioning of our website. You can choose to allow us to use these technologies to measure our ad performance on third party partner websites and to improve our services. Perplexity will not use these technologies to sell third party ads on our services.\nAllow all\nOnly necessary"
+    },
+    "skipped": true,
+    "reason": "toolbar_or_input_unavailable",
+    "runs": []
+  },
+  {
+    "provider": "deepseek",
+    "availability": {
+      "provider": "deepseek",
+      "url": "https://chat.deepseek.com/",
+      "title": "Human Verification",
+      "authState": "unknown_or_anonymous",
+      "toolbar": false,
+      "input": false,
+      "text": "Let's confirm you are human\n\nComplete the security check before continuing. This step verifies that you are not a bot, which helps to protect your account and prevent spam.\n\nBegin\nالعربية\nČeština\nDansk\nDeutsch\nEnglish\nEspañol\nFrançais\nBahasa Indonesia\nItaliano\n日本語\n한국어\nNederlands\nPolski\nPortuguês\nSvenska\nไทย\nTürkçe\n中文"
+    },
+    "skipped": true,
+    "reason": "toolbar_or_input_unavailable",
+    "runs": []
+  }
+]

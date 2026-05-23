@@ -1,0 +1,1 @@
+Objective: harden source admission. Governance principles: trusted state outranks untrusted model output. Invariants: No silent transitions. Continuity safeguards: keep reconstruction warnings visible. Rejected directions: Do not flatten quarantine, defer, and reject distinctions. Open question: how strict should ambiguous retrieval quarantine be?

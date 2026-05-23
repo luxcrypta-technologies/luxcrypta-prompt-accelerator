@@ -49,12 +49,13 @@ describe("review flow data", () => {
     });
 
     expect(result.continuityReview.stableCore.join(" ")).not.toContain("cited page says");
-    expect(result.continuityReview.newProvisional.join(" ")).toContain(
-      "Retrieved evidence (Provisional)"
-    );
+    expect(result.continuityReview.newProvisional.join(" ")).not.toContain("cited page says");
     expect(result.continuityReview.diagnostics.retrievalContext?.join(" ")).toContain(
       "cited page says"
     );
+    expect(
+      result.continuityReview.diagnostics.adversarialGovernance?.quarantine_log.join(" ")
+    ).toContain("cited page says");
     expect(result.transformedText).toContain("Stable Core first");
   });
 
