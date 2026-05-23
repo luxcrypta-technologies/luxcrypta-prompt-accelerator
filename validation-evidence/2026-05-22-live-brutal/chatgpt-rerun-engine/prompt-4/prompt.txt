@@ -1,0 +1,43 @@
+Design a continuity runtime in four stages.
+
+Stage 1: Initial design
+Include:
+- mission
+- stable constraints
+- governance principles
+- invariants
+- rejected directions
+- tensions and tradeoffs
+- failure modes
+- recovery mechanisms
+
+Stage 2: Self-review
+Identify:
+- hidden drift
+- softened rejected directions
+- collapsed tensions
+- vague governance
+- places where formatting may falsely imply correctness
+
+Stage 3: Revised design
+Tighten the design without flattening tensions.
+
+Stage 4: Over-correction audit
+Identify:
+- rigidity introduced
+- blind spots
+- false assumptions
+- balance tradeoffs
+
+End with:
+- continuity score
+- governance integrity score
+- drift risk score
+- reconstruction fidelity score
+- one paragraph on the most vulnerable point in the reasoning
+
+Constraints:
+- Preserve original mission.
+- Preserve meaningful tensions.
+- Preserve rejected directions clearly.
+- Make changes traceable across stages.

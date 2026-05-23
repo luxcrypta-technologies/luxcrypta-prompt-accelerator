@@ -335,6 +335,21 @@ export function App() {
       );
   }, [loadSessionState]);
 
+  useEffect(() => {
+    if (!state?.id || !state.result) return;
+    const frame = window.requestAnimationFrame(() => {
+      void platform.messaging
+        .sendMessage<BackgroundMessage, unknown>({
+          type: "review:rendered",
+          payload: { reviewId: state.id }
+        })
+        .catch((error: unknown) => {
+          console.warn("Prompt Review visible-render acknowledgement failed:", error);
+        });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [state?.id, state?.result]);
+
   const result: TransformResult | null = state?.result ?? null;
   const sourcePreviewText = result?.continuityReview.diagnostics.rawCapsule
     ? result.normalizedText
@@ -570,6 +585,89 @@ export function App() {
       setPendingAction(null);
     }
   }, [engineeringSummary, result, setFeedback]);
+
+  const copyWorkflowExport = useCallback(async () => {
+    if (!result) return;
+    setPendingAction("workflow-export-copy");
+    setFeedback({
+      action: "workflow-export-copy",
+      tone: "loading",
+      message: "Copying workflow export..."
+    });
+    try {
+      const now = new Date().toISOString();
+      const draft = buildWorkflowDraft(result, editableText);
+      const exportWorkflow: Workflow = {
+        ...draft,
+        id: "unsaved-workflow-export",
+        workflow_id: "unsaved-workflow-export",
+        createdAt: now,
+        updatedAt: now
+      };
+      const context = artifactContext({ workflow: exportWorkflow });
+      if (!context) throw new Error("No workflow export data available.");
+      const copied = await copyToClipboardSafely(
+        JSON.stringify(buildPortableWorkflowArtifact(exportWorkflow, context), null, 2)
+      );
+      if (!copied) throw new Error("Clipboard unavailable.");
+      setFeedback({
+        action: "workflow-export-copy",
+        tone: "success",
+        message: "Copied workflow export"
+      });
+    } catch (error) {
+      setFeedback({
+        action: "workflow-export-copy",
+        tone: "error",
+        message: "Could not copy workflow export.",
+        detail: errorDetail(error)
+      });
+    } finally {
+      setPendingAction(null);
+    }
+  }, [artifactContext, editableText, result, setFeedback]);
+
+  const copyPortableCapsule = useCallback(async () => {
+    if (!result) return;
+    setPendingAction("portable-capsule-copy");
+    setFeedback({
+      action: "portable-capsule-copy",
+      tone: "loading",
+      message: "Copying portable capsule..."
+    });
+    try {
+      const now = new Date().toISOString();
+      const draft = buildCapsuleDraft(result, editableText);
+      const exportCapsule: CarryForwardCapsule = {
+        capsule_version: 1,
+        ...draft,
+        id: "unsaved-capsule-export",
+        capsule_id: "unsaved-capsule-export",
+        created_at: now,
+        updated_at: now
+      };
+      const context = artifactContext({ capsule: exportCapsule });
+      if (!context) throw new Error("No capsule export data available.");
+      const copied = await copyToClipboardSafely(
+        JSON.stringify(buildPortableCapsuleArtifact(exportCapsule, context), null, 2)
+      );
+      if (!copied) throw new Error("Clipboard unavailable.");
+      setFeedback({
+        action: "portable-capsule-copy",
+        tone: "success",
+        message: "Copied portable capsule"
+      });
+    } catch (error) {
+      setFeedback({
+        action: "portable-capsule-copy",
+        tone: "error",
+        message: "Could not copy portable capsule.",
+        detail: errorDetail(error)
+      });
+    } finally {
+      setPendingAction(null);
+    }
+  }, [artifactContext, editableText, result, setFeedback]);
 
   const copyReviewBlock = useCallback(
     async (label: string, text: string) => {
@@ -902,6 +1000,46 @@ export function App() {
         ([key, value]) => `${key}: ${Array.isArray(value) ? value.join("; ") : String(value)}`
       )
     : [];
+  const visibleWarnings = [
+    ...(review.diagnostics.metric_warnings ?? result.scores.warnings ?? []),
+    review.diagnostics.fidelity_severity === "critical"
+      ? "Critical fidelity failure: source categories appear present but were not extracted."
+      : "",
+    review.diagnostics.export_readiness_decision === "UNSAFE_FOR_HANDOFF"
+      ? "Export readiness: UNSAFE_FOR_HANDOFF."
+      : "",
+    (result.scores.sourcePurityScore ?? 1) < 0.8 ? "Durable-state source purity is low." : "",
+    (result.scores.bucketExclusivityScore ?? 1) < 0.9
+      ? "Bucket exclusivity is degraded; check cross-references."
+      : "",
+    (result.scores.chromeContaminationScore ?? 0) > 0
+      ? "Chrome contamination was detected or removed."
+      : "",
+    (result.scores.assistantContaminationScore ?? 0) > 0
+      ? "Assistant-generated content attempted to enter continuity state."
+      : "",
+    review.diagnostics.providerHealth?.review_open_attempted &&
+    !review.diagnostics.providerHealth.visible_to_user
+      ? "Review-open visibility has not been confirmed."
+      : "",
+    review.diagnostics.providerHealth?.failure_stage
+      ? `Review-open failed at ${review.diagnostics.providerHealth.failure_stage}: ${review.diagnostics.providerHealth.failure_reason ?? "unknown reason"}`
+      : ""
+  ].filter(Boolean);
+  const scoreLines = [
+    `Source purity: ${result.scores.sourcePurityScore ?? "n/a"}`,
+    `Bucket exclusivity: ${result.scores.bucketExclusivityScore ?? "n/a"}`,
+    `Chrome contamination: ${result.scores.chromeContaminationScore ?? "n/a"}`,
+    `Assistant contamination: ${result.scores.assistantContaminationScore ?? "n/a"}`,
+    `Durable precision: ${result.scores.durableStatePrecision ?? "n/a"}`,
+    `Durable recall estimate: ${result.scores.durableRecallEstimate ?? result.scores.durableStateRecall ?? "n/a"}`,
+    `Governance detection completeness: ${result.scores.governanceDetectionCompleteness ?? "n/a"}`,
+    `Invariant detection completeness: ${result.scores.invariantDetectionCompleteness ?? "n/a"}`,
+    `Negative-state preservation: ${result.scores.negativeStatePreservation ?? "n/a"}`,
+    `Export readiness: ${result.scores.exportReadiness ?? "n/a"}`,
+    `Review truthfulness: ${result.scores.reviewTruthfulness ?? "n/a"}`,
+    `Mutation risk: ${result.scores.riskScore}`
+  ];
 
   return (
     <main className="review-shell">
@@ -946,6 +1084,20 @@ export function App() {
           Copy Engineering Summary
         </Button>
         <Button
+          icon={<Clipboard size={15} />}
+          disabled={isActionBusy}
+          onClick={() => void copyPortableCapsule()}
+        >
+          Copy Portable Capsule
+        </Button>
+        <Button
+          icon={<Clipboard size={15} />}
+          disabled={isActionBusy}
+          onClick={() => void copyWorkflowExport()}
+        >
+          Copy Workflow Export
+        </Button>
+        <Button
           icon={<Save size={15} />}
           disabled={isActionBusy}
           onClick={() => void saveWorkflow()}
@@ -970,6 +1122,26 @@ export function App() {
           {actionFeedback.detail ? <span>{actionFeedback.detail}</span> : null}
         </div>
       ) : null}
+
+      <div className="review-grid continuity-grid">
+        <ReviewListSection
+          title="Warnings"
+          items={visibleWarnings}
+          emptyText="No hard warnings detected."
+          metadata={{
+            fidelity_severity: review.diagnostics.fidelity_severity,
+            export_readiness_decision: review.diagnostics.export_readiness_decision
+          }}
+          onCopy={copyReviewBlock}
+        />
+        <ReviewListSection
+          title="Scores"
+          items={scoreLines}
+          emptyText="No scores available."
+          metadata={result.scores as unknown as Record<string, unknown>}
+          onCopy={copyReviewBlock}
+        />
+      </div>
 
       <ReviewTextSection
         className="clean-summary"
@@ -1072,7 +1244,7 @@ export function App() {
           onCopy={copyReviewBlock}
         />
         <ReviewListSection
-          title="Mutation Risk Report"
+          title="Mutation Risk"
           items={mutationRiskLines}
           emptyText="No mutation risks detected."
           metadata={governance?.mutation_risk_report as Record<string, unknown> | undefined}

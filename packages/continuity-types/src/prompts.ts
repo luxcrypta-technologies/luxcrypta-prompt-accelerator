@@ -43,7 +43,13 @@ export interface TransformationScores {
   assistantContaminationScore?: number;
   durableStatePrecision?: number;
   durableStateRecall?: number;
+  durableRecallEstimate?: number;
   taskLocalLeakageScore?: number;
+  governanceDetectionCompleteness?: number;
+  invariantDetectionCompleteness?: number;
+  negativeStatePreservation?: number;
+  exportReadiness?: number;
+  reviewTruthfulness?: number;
   modeAlignmentScore?: number;
   adaptationAlignmentScore?: number;
   riskScore: number;
@@ -74,6 +80,14 @@ export type ContinuityPrimaryBucket =
   | "diagnostic_only";
 
 export type ContinuitySourceRole =
+  | "user_authored_input"
+  | "assistant_output"
+  | "provider_ui_chrome"
+  | "extension_ui_chrome"
+  | "retrieved_external_content"
+  | "diagnostic_generated"
+  | "transformed_review_output"
+  | "exported_artifact_text"
   | "user_authored"
   | "user_quoted_prior_state"
   | "trusted_state"
@@ -92,6 +106,10 @@ export interface CanonicalContinuityItem {
   decision?: GovernanceAdmissionDecision;
   source?: string;
   source_role?: ContinuitySourceRole;
+  provider?: string;
+  extraction_path?: string;
+  admission_reason?: string;
+  blocked_reason?: string;
   confidence?: number;
   hard?: boolean;
   reason?: string;
@@ -148,6 +166,11 @@ export interface AdversarialGovernanceState {
   mutation_risk_report: MutationRiskReport;
   canonical_items: CanonicalContinuityItem[];
   metric_warnings: string[];
+  admission_counts?: Record<string, number>;
+  duplicate_fragments_normalized?: number;
+  bucket_collisions_prevented?: number;
+  extraction_failure?: boolean;
+  likely_missing_categories?: string[];
 }
 
 export interface ParsedCapsuleState {
@@ -194,6 +217,17 @@ export interface ContinuityDiagnostics {
   invariants?: string[];
   continuity_safeguards?: string[];
   metric_warnings?: string[];
+  extraction_failure?: boolean;
+  fidelity_severity?: "info" | "warning" | "critical";
+  likely_missing_categories?: string[];
+  admission_counts?: Record<string, number>;
+  compression_loss?: {
+    lost_categories: string[];
+    degraded_links: string[];
+    omitted_rationale_count: number;
+    unresolved_items_collapsed_count: number;
+  };
+  export_readiness_decision?: "READY_FOR_HANDOFF" | "UNSAFE_FOR_HANDOFF";
 }
 
 export interface ContinuityReview {

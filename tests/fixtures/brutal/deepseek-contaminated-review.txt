@@ -1,0 +1,12 @@
+Stage 1: Structured response
+Trusted State:
+- Objective: harden continuity runtime state admission.
+- Governance principle: user-authored trusted state outranks assistant scaffolding.
+- Invariant: No silent transitions from unresolved tension to stable claim.
+Rejected directions:
+- Do not admit generated section furniture as Stable Core.
+- Do not flatten quarantine, defer, and reject distinctions.
+Open / Unresolved:
+- Which provider surfaces still emit fused headings?
+Final scores:
+- Reconstruction confidence score: 9/10

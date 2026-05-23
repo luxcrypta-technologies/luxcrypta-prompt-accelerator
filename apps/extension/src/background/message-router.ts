@@ -14,6 +14,7 @@ import { CapsuleService } from "@/domain/services/capsule-service";
 import { HistoryService } from "@/domain/services/history-service";
 import { PreferenceService } from "@/domain/services/preference-service";
 import { SessionGovernanceService } from "@/domain/services/session-governance-service";
+import { reviewStateKey, STORAGE_PREFIXES } from "@/storage/keys";
 import type {
   BackgroundMessage,
   BackgroundMessageResult,
@@ -21,13 +22,13 @@ import type {
   ExtensionMessage,
   ReviewState
 } from "@/types/messages";
-import type { PlatformAPI } from "@/types/platform";
+import type { PlatformAPI, PlatformStorage } from "@/types/platform";
 import { createDatedId } from "@/utils/ids";
 import { nowIso } from "@/utils/time";
 
 const reviewStates = new Map<string, ReviewState>();
 
-function rememberReviewState(state: ReviewState): void {
+function rememberReviewStateInMemory(state: ReviewState): void {
   reviewStates.set(state.id, state);
   while (reviewStates.size > REVIEW_STATE_LIMIT) {
     const oldestKey = reviewStates.keys().next().value as string | undefined;
@@ -36,12 +37,60 @@ function rememberReviewState(state: ReviewState): void {
   }
 }
 
-function latestReviewState(): ReviewState | null {
+async function rememberReviewState(state: ReviewState, storage: PlatformStorage): Promise<void> {
+  rememberReviewStateInMemory(state);
+  await storage.set(reviewStateKey(state.id), state);
+  const persisted = await storage.list<ReviewState>(STORAGE_PREFIXES.review);
+  const expired = [...persisted]
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+    .slice(REVIEW_STATE_LIMIT);
+  await Promise.all(expired.map((review) => storage.remove(reviewStateKey(review.id))));
+}
+
+function latestReviewStateInMemory(): ReviewState | null {
   return (
     Array.from(reviewStates.values()).sort((left, right) =>
       right.createdAt.localeCompare(left.createdAt)
     )[0] ?? null
   );
+}
+
+async function getReviewState(
+  storage: PlatformStorage,
+  reviewId?: string
+): Promise<ReviewState | null> {
+  if (reviewId) {
+    const cached = reviewStates.get(reviewId);
+    if (cached) return cached;
+    const persisted = await storage.get<ReviewState>(reviewStateKey(reviewId));
+    if (persisted) rememberReviewStateInMemory(persisted);
+    return persisted;
+  }
+  const cached = latestReviewStateInMemory();
+  if (cached) return cached;
+  const persisted = await storage.list<ReviewState>(STORAGE_PREFIXES.review);
+  const latest =
+    [...persisted].sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ?? null;
+  if (latest) rememberReviewStateInMemory(latest);
+  return latest;
+}
+
+function appendReviewOpenEvent(state: ReviewState, event: string): void {
+  const health = state.result.continuityReview.diagnostics.providerHealth;
+  if (!health) return;
+  health.review_open_events = [...(health.review_open_events ?? []), event];
+}
+
+function markReviewOpenFailure(state: ReviewState, stage: string, reason: string): void {
+  const health = state.result.continuityReview.diagnostics.providerHealth;
+  if (!health) return;
+  health.review_open_attempted = true;
+  health.review_open_status = "failed";
+  health.review_open_error = reason;
+  health.failure_stage = stage;
+  health.failure_reason = reason;
+  health.visible_to_user = false;
+  appendReviewOpenEvent(state, `review_open_failed:${stage}`);
 }
 
 function isContentMessage(message: ExtensionMessage): message is ContentMessage {
@@ -123,6 +172,11 @@ export function createMessageRouter(platform: PlatformAPI) {
         if (result.continuityReview.diagnostics.providerHealth) {
           result.continuityReview.diagnostics.providerHealth.review_open_attempted = true;
           result.continuityReview.diagnostics.providerHealth.review_open_status = "pending";
+          result.continuityReview.diagnostics.providerHealth.navigation_attempted = true;
+          result.continuityReview.diagnostics.providerHealth.surface_created = false;
+          result.continuityReview.diagnostics.providerHealth.app_mounted = false;
+          result.continuityReview.diagnostics.providerHealth.first_content_rendered = false;
+          result.continuityReview.diagnostics.providerHealth.visible_to_user = false;
           result.continuityReview.diagnostics.providerHealth.review_open_events = [
             ...(result.continuityReview.diagnostics.providerHealth.review_open_events ?? []),
             "review_open_requested"
@@ -135,21 +189,71 @@ export function createMessageRouter(platform: PlatformAPI) {
           createdAt,
           sourceTabId: sourceTabId ?? undefined
         };
-        rememberReviewState(state);
-        await platform.reviewSurface.openReviewSurface(state.id);
+        await rememberReviewState(state, platform.storage);
+        try {
+          await platform.reviewSurface.openReviewSurface(state.id);
+        } catch (error) {
+          markReviewOpenFailure(
+            state,
+            "surface_created",
+            error instanceof Error ? error.message : String(error)
+          );
+          await rememberReviewState(state, platform.storage);
+          throw error;
+        }
         if (state.result.continuityReview.diagnostics.providerHealth) {
-          state.result.continuityReview.diagnostics.providerHealth.review_open_status = "success";
+          state.result.continuityReview.diagnostics.providerHealth.surface_created = true;
           state.result.continuityReview.diagnostics.providerHealth.review_open_events = [
             ...(state.result.continuityReview.diagnostics.providerHealth.review_open_events ?? []),
-            "review_open_success"
+            "review_surface_created",
+            "review_open_pending_visible_render"
           ];
         }
-        return { reviewId: state.id, surface };
+        await rememberReviewState(state, platform.storage);
+        return { reviewId: state.id, surface, visibleToUser: false, openStatus: "pending" };
       }
       case "review:get":
-        return backgroundMessage.payload.reviewId
-          ? (reviewStates.get(backgroundMessage.payload.reviewId) ?? null)
-          : latestReviewState();
+        return getReviewState(platform.storage, backgroundMessage.payload.reviewId);
+      case "review:status": {
+        const state = await getReviewState(platform.storage, backgroundMessage.payload.reviewId);
+        const health = state?.result.continuityReview.diagnostics.providerHealth;
+        return state
+          ? {
+              reviewId: state.id,
+              surface: state.surface,
+              visibleToUser: health?.visible_to_user ?? false,
+              openStatus: health?.review_open_status ?? "pending",
+              providerHealth: health
+            }
+          : null;
+      }
+      case "review:rendered": {
+        const state = await getReviewState(platform.storage, backgroundMessage.payload.reviewId);
+        if (!state) return null;
+        const health = state.result.continuityReview.diagnostics.providerHealth;
+        if (health) {
+          health.review_open_attempted = true;
+          health.review_open_status = health.retry_count ? "retry_success" : "success";
+          health.app_mounted = true;
+          health.first_content_rendered = true;
+          health.visible_to_user = true;
+          health.failure_stage = undefined;
+          health.failure_reason = undefined;
+          health.review_open_events = [
+            ...(health.review_open_events ?? []),
+            "review_app_mounted",
+            "review_first_content_rendered",
+            "review_visible_to_user"
+          ];
+        }
+        await rememberReviewState(state, platform.storage);
+        return {
+          reviewId: state.id,
+          surface: state.surface,
+          visibleToUser: true,
+          openStatus: health?.review_open_status ?? "success"
+        };
+      }
       default:
         throw new Error("Unsupported message route.");
     }

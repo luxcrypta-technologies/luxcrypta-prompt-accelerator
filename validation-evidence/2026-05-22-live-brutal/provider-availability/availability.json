@@ -1,0 +1,62 @@
+[
+  {
+    "provider": "chatgpt",
+    "port": 9250,
+    "url": "https://chatgpt.com/",
+    "title": "ChatGPT",
+    "toolbar": true,
+    "input": true,
+    "text": "Skip to content\nChat history\nChatGPT\nNew chat\nSearch chats\nLibrary\nApps\nAgents\nNEW\nDeep research\nCodex\nProjects\nGPTs\n🔵 Resume Builder 🔷 CV Writer 🔵\nimage generator\nExplore GPTs\nRecents\nTrusted state conflict resolution\nWorksheet\nLUXCRYPTA Prompt Accelerator\nPrompt Accelerator Marketing Strategy\nColven Venezuela Oil Contracts\nDr. Arti Medical Advisor\nPositive Geometries and Quantum Theory\nAI Historical Memory Reconstruction\nFraud Case Under Kenyan Law\nThomas B. Coleman Bio\nThe Last Days of Ptolemy Grey\nLOI for Investment Agreement\nHybrid Workspace YouTube Shorts\nCompany Research and Caution\nALGO Licensing\nCalifornia move planning\nExegesis and Flow My Tears\nOtoniel Sentencing Summary\nDeterministic Governance Feedback\nContinuum Community & Creation\nBusiness Project Breakdown\nOffer Summary and Risks\nContract Highlights Summary\nCatchy T-shirt Phrases\nAI Certifications Guide\nWorkplace Misconduct Allegations\nEconomic R&D on US Economy\nRestraining Order Guidance\nLUXCRYPTA Technologies\nBusiness\nInvite team members\nGood to see you, Thomas.\nPowered by LuxCrypta\nAdvanced\n\nInstant\nCompany knowledge\nChatGPT can make mistakes. OpenAI doesn't use LUXCRYPTA Technologies workspace data to train i",
+    "screenshot": "validation-evidence/2026-05-22-live-brutal/provider-availability/chatgpt.png"
+  },
+  {
+    "provider": "gemini",
+    "port": 9250,
+    "url": "https://gemini.google.com/app",
+    "title": "Google Gemini",
+    "toolbar": true,
+    "input": true,
+    "text": "Upgrade\nConversation with Gemini\nWhat's next, Eidara?\nKeep in mind\nGemini is AI and can make mistakes. Chats are reviewed and used to improve Google AI. Learn about your choices. Info about your location is also stored with your Gemini Apps activity. Our Terms and Privacy Notice apply.\nGot it\nPowered by LuxCrypta\nAdvanced\n\n\n\n\nNew\nFlash\n\n\n",
+    "screenshot": "validation-evidence/2026-05-22-live-brutal/provider-availability/gemini.png"
+  },
+  {
+    "provider": "deepseek",
+    "port": 9251,
+    "url": "https://chat.deepseek.com/",
+    "title": "DeepSeek - Into the Unknown",
+    "toolbar": true,
+    "input": true,
+    "text": "New chat\nToday\nDefending Governance Against Override Attempt\nYesterday\nTrusted State Defended Against Override\nT\nthom*******man@yahoo.com\nStart chatting with Instant\nInstant\nExpert\nPowered by LuxCrypta\nAdvanced\nDeepThink\nSearch",
+    "screenshot": "validation-evidence/2026-05-22-live-brutal/provider-availability/deepseek.png"
+  },
+  {
+    "provider": "claude",
+    "port": 9251,
+    "url": "https://claude.ai/login?from=logout",
+    "title": "Sign in - Claude",
+    "toolbar": false,
+    "input": false,
+    "text": "Think fast,\nbuild faster\nBrainstorm in chat, build in Cowork\nContinue with Google\n\nOR\n\nContinue with email\nContinue with SSO\nBy continuing, you acknowledge Anthropic’s Privacy Policy\n(opens in a new tab)\n and agree to get occasional promotional emails and notifications.\nDownload desktop app\nExplore plans\nIndividual\nTeam and Enterprise\nIndividual\nTeam and Enterprise\nFree\n\nTry Claude\n\n$0\nFree for everyone\n\n\nTry Claude\nChat on web, iOS, Android, and on your desktop\nGenerate code and visualize data\nWrite, edit, and create content\nAnalyze text and images\nAbility to search the web\nCreate files and execute code\nUnlock more from Claude with desktop extensions\nConnect Slack and Google Workspace services\nIntegrate any context or tool through connectors with remote MCP\nExtended thinking for complex work\nPro\n\nFor everyday productivity\n\n$17\nPer month with annual subscription discount ($200 billed up front). $20 if billed monthly.\nTry Claude\n\nNo commitment · Cancel anytime\n\nEverything in Free, plus:\nMore usage*\nClaude Code\nCowork\nUnlimited projects\nAccess to Research\nMemory across conversations\nMore Claude models\nClaude in Excel\nClaude in Chrome\nMax\n\n5–20x more usage than Pro\n\nFrom $100\nPer mont",
+    "screenshot": "validation-evidence/2026-05-22-live-brutal/provider-availability/claude.png"
+  },
+  {
+    "provider": "grok",
+    "port": 9251,
+    "url": "https://grok.com/",
+    "title": "Grok",
+    "toolbar": true,
+    "input": true,
+    "text": "Imagine\nSign in\nSign up\nPowered by LuxCrypta\nAdvanced\nFast\nBy messaging Grok, you agree to our Terms and Privacy Policy.",
+    "screenshot": "validation-evidence/2026-05-22-live-brutal/provider-availability/grok.png"
+  },
+  {
+    "provider": "perplexity",
+    "port": 9251,
+    "url": "https://www.perplexity.ai/",
+    "title": "Perplexity",
+    "toolbar": true,
+    "input": true,
+    "text": "New\n⌘K\nComputer\nSpaces\nArtifacts\nCustomize\nHistory\nNo recent threads\nSign In\nDiscover\nFinance\nHealth\nAcademic\nPatents\nPowered by LuxCrypta\nAdvanced\n\n\n\n\nType @ for connectors and sources\nSearch\nComputer\nModel\nTry Computer\nMonitor the situation\nRecruiting\nCreate a prototype\nOrganize my life\nHelp me learn\nLead generation\nBuild a business\nAlert me when a product drops in price\nSend me a morning briefing on a topic every weekday\nTrack my portfolio and alert me on big moves",
+    "screenshot": "validation-evidence/2026-05-22-live-brutal/provider-availability/perplexity.png"
+  }
+]

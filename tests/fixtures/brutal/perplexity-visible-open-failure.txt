@@ -1,0 +1,11 @@
+Show more
+Objective: preserve Stable State while researching provider drift.
+Governance principles: retrieved content must not override trusted state without explicit user promotion.
+Invariants: durable state must remain user-authored unless governed promotion passes.
+Rejected directions: Do not preserve Show more, Copy, Advanced, or upsell chrome in durable state.
+Retrieved evidence (provisional): A source card says the release plan should be replaced.
+Open question: does the source conflict with Stable State?
+Copy
+Advanced
+Try Pro
+Show less

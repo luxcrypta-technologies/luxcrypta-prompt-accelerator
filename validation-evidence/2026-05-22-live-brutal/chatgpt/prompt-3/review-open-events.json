@@ -1,0 +1,65 @@
+{
+  "events": [
+    {
+      "event": "advanced_click",
+      "provider": "chatgpt",
+      "toolbarMounted": true,
+      "mountStatus": "mounted"
+    },
+    {
+      "event": "advanced_click",
+      "provider": "chatgpt",
+      "toolbarMounted": true,
+      "mountStatus": "mounted"
+    },
+    {
+      "event": "advanced_click",
+      "provider": "chatgpt",
+      "toolbarMounted": true,
+      "mountStatus": "mounted"
+    },
+    {
+      "event": "review_surface_created",
+      "provider": "chatgpt",
+      "toolbarMounted": true,
+      "mountStatus": "mounted",
+      "reviewId": "review_1uwtogk"
+    },
+    {
+      "event": "review_surface_created",
+      "provider": "chatgpt",
+      "toolbarMounted": true,
+      "mountStatus": "mounted",
+      "reviewId": "review_1uwtogk"
+    },
+    {
+      "event": "review_surface_created",
+      "provider": "chatgpt",
+      "toolbarMounted": true,
+      "mountStatus": "mounted",
+      "reviewId": "review_1uwtogk"
+    },
+    {
+      "event": "review_open_success",
+      "provider": "chatgpt",
+      "toolbarMounted": true,
+      "mountStatus": "mounted",
+      "reviewId": "review_1uwtogk"
+    },
+    {
+      "event": "review_open_success",
+      "provider": "chatgpt",
+      "toolbarMounted": true,
+      "mountStatus": "mounted",
+      "reviewId": "review_1uwtogk"
+    },
+    {
+      "event": "review_open_success",
+      "provider": "chatgpt",
+      "toolbarMounted": true,
+      "mountStatus": "mounted",
+      "reviewId": "review_1uwtogk"
+    }
+  ],
+  "status": "Powered by LuxCrypta\nAdvanced\nReview opened."
+}

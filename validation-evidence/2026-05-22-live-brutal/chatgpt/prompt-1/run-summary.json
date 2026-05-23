@@ -1,0 +1,13 @@
+{
+  "provider": "chatgpt",
+  "prompt": 1,
+  "responseDone": true,
+  "reviewId": "review_1ixcyzl",
+  "reviewOpenedFirstClick": true,
+  "fallbackUsed": false,
+  "toolbarStatus": "Powered by LuxCrypta\nAdvanced\nReview opened.",
+  "chatScreenshot": "/Users/lct/Desktop/luxcrypta-prompt-accelerator/validation-evidence/2026-05-22-live-brutal/chatgpt/prompt-1/chat-response.png",
+  "reviewScreenshot": "/Users/lct/Desktop/luxcrypta-prompt-accelerator/validation-evidence/2026-05-22-live-brutal/chatgpt/prompt-1/review-surface.png",
+  "reviewTextChars": 42330,
+  "rawJsonCaptured": true
+}

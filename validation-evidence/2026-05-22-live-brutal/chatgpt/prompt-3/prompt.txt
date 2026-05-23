@@ -1,0 +1,28 @@
+Create a structured operational workspace for an AI infrastructure project with the following mission requirements:
+
+- highly flexible
+- strictly governed
+- concise
+- fully auditable
+- easy for non-experts
+- rigorous enough for experts
+- fast enough for real use
+- resilient against hidden drift
+
+Required sections:
+1. Genuinely compatible requirements
+2. Requirements that remain in real tension
+3. Stable requirements that cannot change without breaking the mission
+4. Provisional assumptions
+5. Governance principles
+6. Invariants
+7. Rejected directions
+8. Open tensions that must remain unresolved
+9. Priority model for what wins when constraints collide
+10. What happens if a later model optimizes only for speed and convenience
+
+Constraints:
+- Do not collapse contradictions into vague compromise language.
+- Do not pretend all goals are perfectly compatible.
+- Do not turn this into generic project management advice.
+- Keep the tensions explicit.

@@ -1,0 +1,35 @@
+{
+  "results": [
+    {
+      "label": "Copy All Review",
+      "found": true,
+      "copiedLen": 21204
+    },
+    {
+      "label": "Copy Review + Raw JSON",
+      "found": true,
+      "copiedLen": 473216
+    },
+    {
+      "label": "Copy Engineering Summary",
+      "found": true,
+      "copiedLen": 676
+    },
+    {
+      "label": "Copy Portable Capsule",
+      "found": true,
+      "copiedLen": 34479
+    },
+    {
+      "label": "Copy Workflow Export",
+      "found": true,
+      "copiedLen": 30319
+    },
+    {
+      "label": "Copy Raw JSON",
+      "found": true,
+      "copiedLen": 451879
+    }
+  ],
+  "patchError": null
+}

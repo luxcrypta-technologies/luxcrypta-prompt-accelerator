@@ -45,4 +45,25 @@ describe("computeTransformationScores", () => {
     expect(scores.warnings?.join(" ")).toContain("writeback failure");
     expect(scores.warnings?.join(" ")).toContain("bucket overlap");
   });
+
+  it("penalizes extraction failure, negative-state loss, and false review-open success paths", () => {
+    const scores = computeTransformationScores({
+      original: "Governance principles: preserve trusted state. Rejected directions: Do not flatten unresolved state.",
+      transformed: "Objective: preserve trusted state.",
+      constraints: [],
+      penalties: {
+        emptyGovernanceWhenPresent: true,
+        emptyRejectionsWhenPresent: true,
+        extractionFailure: true,
+        negativeStateLoss: true,
+        reviewOpenNotVisible: true
+      }
+    });
+
+    expect(scores.governanceDetectionCompleteness).toBe(0);
+    expect(scores.negativeStatePreservation).toBe(0);
+    expect(scores.exportReadiness).toBeLessThan(1);
+    expect(scores.reviewTruthfulness).toBeLessThan(0.5);
+    expect(scores.warnings?.join(" ")).toContain("Prompt Review visibility");
+  });
 });

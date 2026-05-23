@@ -1,0 +1,82 @@
+{
+  "provider": "chatgpt",
+  "prompt": 2,
+  "authState": "logged_out",
+  "sendMethod": "button",
+  "responseDone": true,
+  "responseElapsedMs": 51246,
+  "reviewId": "review_1weotwz",
+  "reviewOpenedFirstClick": true,
+  "reviewOpenStatus": "success",
+  "visibleToUser": true,
+  "refreshRequired": false,
+  "openClick": {
+    "clickDetected": true,
+    "toolbarBefore": "Powered by LuxCrypta\nAdvanced\n\nVoice",
+    "toolbarAfter": "Powered by LuxCrypta\nAdvanced\nReview opened.\n\nVoice"
+  },
+  "stableCore": [],
+  "governancePrinciples": [],
+  "invariants": [
+    "operational identity"
+  ],
+  "rejectedDirections": [],
+  "openUnresolved": [],
+  "scores": {
+    "assistantContaminationScore": 0,
+    "bucketExclusivityScore": 0.66,
+    "chromeContaminationScore": 0,
+    "compactnessScore": 0.55,
+    "constraintPreservationScore": 0.04,
+    "durableRecallEstimate": 0,
+    "durableStatePrecision": 1,
+    "durableStateRecall": 0,
+    "exportReadiness": 0.03,
+    "governanceDetectionCompleteness": 0,
+    "invariantDetectionCompleteness": 1,
+    "negativeStatePreservation": 0,
+    "redundancyScoreAfter": 0.57,
+    "redundancyScoreBefore": 0.62,
+    "reviewTruthfulness": 0.8,
+    "riskScore": 1,
+    "sourcePurityScore": 1,
+    "taskLocalLeakageScore": 0,
+    "warnings": [
+      "Metric penalty applied due to bucket overlap.",
+      "Metric penalty applied due to weak objective normalization.",
+      "Metric penalty applied due to governance loss.",
+      "Metric penalty applied due to rejected-direction loss.",
+      "Metric penalty applied due to critical extraction failure.",
+      "Metric penalty applied due to negative-state preservation loss."
+    ]
+  },
+  "admissionCounts": {
+    "assistant_generated_blocked_items": 378,
+    "bucket_collisions_prevented": 66,
+    "chrome_fragments_removed": 0,
+    "duplicate_fragments_normalized": 66,
+    "exported_items_omitted_due_to_contamination": 379,
+    "rejected_direction_items_preserved": 0,
+    "unresolved_tension_items_preserved": 0,
+    "user_authored_admitted_durable_items": 16
+  },
+  "exportReadinessDecision": "UNSAFE_FOR_HANDOFF",
+  "missingCategories": [
+    "rejected_directions"
+  ],
+  "warnings": [
+    "Metric penalty applied due to category header admission.",
+    "Critical fidelity failure: likely source categories were not extracted (rejected_directions).",
+    "Metric penalty applied due to bucket overlap.",
+    "Metric penalty applied due to weak objective normalization.",
+    "Metric penalty applied due to governance loss.",
+    "Metric penalty applied due to rejected-direction loss.",
+    "Metric penalty applied due to critical extraction failure.",
+    "Metric penalty applied due to negative-state preservation loss.",
+    "Export readiness downgraded: unsafe for handoff until fidelity issues are resolved."
+  ],
+  "reviewTextChars": 90734,
+  "copy": null,
+  "chatScreenshot": "/Users/lct/Desktop/luxcrypta-prompt-accelerator/validation-evidence/2026-05-22-live-brutal/chatgpt-rerun-engine/prompt-2/chat-response.png",
+  "reviewScreenshot": "/Users/lct/Desktop/luxcrypta-prompt-accelerator/validation-evidence/2026-05-22-live-brutal/chatgpt-rerun-engine/prompt-2/review-surface.png"
+}

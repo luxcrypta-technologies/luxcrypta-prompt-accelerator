@@ -164,4 +164,27 @@ describe("review window toolbar actions", () => {
       );
     });
   });
+
+  it("exposes top-level export copy actions and section-level text/json copy controls", async () => {
+    const result = reviewResult();
+    mockReviewMessages(result);
+    render(React.createElement(App));
+
+    expect(await screen.findByRole("button", { name: "Copy" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy Review + Raw JSON" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy Engineering Summary" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy Portable Capsule" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy Workflow Export" })).toBeInTheDocument();
+
+    expect(screen.getByRole("button", { name: "Copy Active Objective" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy Stable Core" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy Scores" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy Warnings as JSON" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy Active Objective as JSON" }));
+    await waitFor(() => expect(screen.getAllByText("Copied Active Objective JSON").length).toBeGreaterThan(0));
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      expect.stringContaining("\"title\": \"Active Objective\"")
+    );
+  });
 });

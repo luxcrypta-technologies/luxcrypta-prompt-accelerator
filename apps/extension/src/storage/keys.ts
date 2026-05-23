@@ -4,7 +4,8 @@ export const STORAGE_PREFIXES = {
   history: "history:",
   preference: "pref:",
   session: "session:",
-  diagnostic: "diagnostic:"
+  diagnostic: "diagnostic:",
+  review: "review:"
 } as const;
 
 export const PREFERENCE_KEY = `${STORAGE_PREFIXES.preference}user`;
@@ -28,4 +29,8 @@ export function sessionKey(id: string): string {
 
 export function diagnosticKey(id: string): string {
   return `${STORAGE_PREFIXES.diagnostic}${id}`;
+}
+
+export function reviewStateKey(id: string): string {
+  return `${STORAGE_PREFIXES.review}${id}`;
 }

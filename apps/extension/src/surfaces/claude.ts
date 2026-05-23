@@ -1,5 +1,11 @@
-import type { ChatSurfaceAdapter, ConversationSnapshot } from "./types";
-import { appendDraftText, queryFirstUsableInput, readDraftText, replaceDraftText, type DraftInputElement } from "./dom";
+import type { ChatSurfaceAdapter, ConversationSnapshot, ProviderProfile } from "./types";
+import {
+  appendDraftText,
+  queryFirstUsableInput,
+  readDraftText,
+  replaceDraftText,
+  type DraftInputElement
+} from "./dom";
 
 const INPUT_SELECTORS = [
   "div.ProseMirror[contenteditable='true']",
@@ -7,6 +13,23 @@ const INPUT_SELECTORS = [
   "textarea",
   "div[contenteditable='true']"
 ];
+
+export const CLAUDE_PROVIDER_PROFILE: ProviderProfile = {
+  provider: "claude",
+  continuity_style: "framing_resistant_analysis",
+  preferred_handoff: "user_structure_preserved_with_meta_filtered",
+  capsule_bias: "separate_framing_resistance_from_state",
+  risk_profile: [
+    "meta_refusal_contamination",
+    "role_framing_resistance",
+    "user_structure_over_pruning"
+  ],
+  recommended_runtime_emphasis: [
+    "distinguish framing resistance from state content",
+    "quarantine meta refusal text",
+    "preserve user-authored structure even when the model resists role framing"
+  ]
+};
 
 function queryInput(): DraftInputElement | null {
   return queryFirstUsableInput(INPUT_SELECTORS);
@@ -41,6 +64,11 @@ export const claudeSurface: ChatSurfaceAdapter = {
         text: ((node as HTMLElement).textContent ?? "").trim()
       }))
       .filter((turn) => turn.text.length > 0);
-    return candidates.length ? { title: document.title.replace("Claude", "").trim(), turns: candidates } : null;
+    return candidates.length
+      ? { title: document.title.replace("Claude", "").trim(), turns: candidates }
+      : null;
+  },
+  getProviderProfile() {
+    return CLAUDE_PROVIDER_PROFILE;
   }
 };

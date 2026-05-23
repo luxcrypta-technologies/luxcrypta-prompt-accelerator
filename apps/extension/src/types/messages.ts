@@ -68,7 +68,9 @@ export type BackgroundMessage =
   | { type: "session:reset" }
   | { type: "diagnostics:get" }
   | { type: "review:open"; payload: { result: TransformResult } }
-  | { type: "review:get"; payload: { reviewId?: string } };
+  | { type: "review:get"; payload: { reviewId?: string } }
+  | { type: "review:status"; payload: { reviewId: string } }
+  | { type: "review:rendered"; payload: { reviewId: string } };
 
 export type ContentMessage =
   | { type: "content:draft:get" }
@@ -89,7 +91,12 @@ export type BackgroundMessageResult =
   | SessionUpdateResult
   | SessionDiagnostics
   | ReviewState
-  | { reviewId: string; surface: ReviewSurfaceKind }
+  | {
+      reviewId: string;
+      surface: ReviewSurfaceKind;
+      visibleToUser?: boolean;
+      openStatus?: ProviderHealth["review_open_status"];
+    }
   | null;
 
 export type ContentMessageResult =

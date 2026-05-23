@@ -29,6 +29,15 @@ function providerHealth(
     status?: ProviderHealth["review_open_status"];
     error?: string;
     events?: string[];
+    clickDetected?: boolean;
+    navigationAttempted?: boolean;
+    surfaceCreated?: boolean;
+    appMounted?: boolean;
+    firstContentRendered?: boolean;
+    visibleToUser?: boolean;
+    retryCount?: number;
+    failureStage?: string;
+    failureReason?: string;
   }
 ): ProviderHealth {
   const runtime_errors: string[] = [];
@@ -65,6 +74,15 @@ function providerHealth(
     review_open_status: reviewOpen?.status,
     review_open_error: reviewOpen?.error,
     review_open_events: reviewOpen?.events,
+    click_detected: reviewOpen?.clickDetected,
+    navigation_attempted: reviewOpen?.navigationAttempted,
+    surface_created: reviewOpen?.surfaceCreated,
+    app_mounted: reviewOpen?.appMounted,
+    first_content_rendered: reviewOpen?.firstContentRendered,
+    visible_to_user: reviewOpen?.visibleToUser,
+    retry_count: reviewOpen?.retryCount,
+    failure_stage: reviewOpen?.failureStage,
+    failure_reason: reviewOpen?.failureReason,
     dom_mount_status: document.getElementById("lcpa-toolbar-root")?.dataset
       .mountStatus as ProviderHealth["dom_mount_status"],
     duplicate_guard_active: document.querySelectorAll(`#${TOOLBAR_ID}`).length <= 1,
@@ -88,6 +106,20 @@ function advancedEvent(
   console.info("LuxCrypta Prompt Review telemetry", payload);
 }
 
+async function waitForVisibleReview(reviewId: string): Promise<boolean> {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const status = await platform.messaging
+      .sendMessage<BackgroundMessage, { visibleToUser?: boolean } | null>({
+        type: "review:status",
+        payload: { reviewId }
+      })
+      .catch(() => null);
+    if (status?.visibleToUser) return true;
+    await new Promise((resolve) => window.setTimeout(resolve, 150));
+  }
+  return false;
+}
+
 async function openAdvancedReviewOnce(surface: ChatSurfaceAdapter, retry = false): Promise<void> {
   const events = [retry ? "fallback_retry" : "advanced_click"];
   advancedEvent(surface, retry ? "fallback_retry" : "advanced_click");
@@ -106,17 +138,32 @@ async function openAdvancedReviewOnce(surface: ChatSurfaceAdapter, retry = false
       providerHealth: providerHealth(surface, false, false, {
         attempted: true,
         status: "pending",
-        events
+        events,
+        clickDetected: true,
+        navigationAttempted: true,
+        retryCount: retry ? 1 : 0
       })
     }
   });
-  const response = await platform.messaging.sendMessage<BackgroundMessage, { reviewId: string }>({
+  const response = await platform.messaging.sendMessage<
+    BackgroundMessage,
+    { reviewId: string; visibleToUser?: boolean }
+  >({
     type: "review:open",
     payload: { result }
   });
   if (!response?.reviewId) {
     advancedEvent(surface, "review_open_timeout", { reason: "missing_review_id" });
     throw new Error("Prompt Review did not return a review id.");
+  }
+  advancedEvent(surface, "review_surface_created", { reviewId: response.reviewId });
+  const visible = response.visibleToUser || (await waitForVisibleReview(response.reviewId));
+  if (!visible) {
+    advancedEvent(surface, "review_visible_timeout", {
+      reviewId: response.reviewId,
+      reason: "first_content_not_confirmed"
+    });
+    throw new Error("Prompt Review surface opened, but visible content was not confirmed.");
   }
   advancedEvent(surface, retry ? "fallback_retry_success" : "review_open_success", {
     reviewId: response.reviewId

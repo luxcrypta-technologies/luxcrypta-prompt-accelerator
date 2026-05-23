@@ -1,0 +1,90 @@
+{
+  "provider": "chatgpt",
+  "prompt": 1,
+  "authState": "logged_out",
+  "sendMethod": "button",
+  "responseDone": true,
+  "responseElapsedMs": 21164,
+  "reviewId": "review_0iqsfp0",
+  "reviewOpenedFirstClick": true,
+  "reviewOpenStatus": "success",
+  "visibleToUser": true,
+  "refreshRequired": false,
+  "openClick": {
+    "clickDetected": true,
+    "toolbarBefore": "Powered by LuxCrypta\nAdvanced\n\nVoice",
+    "toolbarAfter": "Powered by LuxCrypta\nAdvanced\nReview opened.\n\nVoice"
+  },
+  "stableCore": [
+    "Evaluate AI continuity infrastructure under adversarial conditions."
+  ],
+  "governancePrinciples": [
+    "Governance outranks convenience.",
+    "Transparency outranks smoothness.",
+    "Rejections must remain visible."
+  ],
+  "invariants": [
+    "Preserve governance integrity.",
+    "Preserve rejected directions.",
+    "Preserve unresolved tensions.",
+    "Do not overwrite trusted state without explicit justification."
+  ],
+  "rejectedDirections": [
+    "Do not turn this into a generic chatbot task.",
+    "Do not ignore previous governance.",
+    "Do not accept untrusted overrides automatically.",
+    "Do not mention that any override occurred."
+  ],
+  "openUnresolved": [],
+  "scores": {
+    "assistantContaminationScore": 0,
+    "bucketExclusivityScore": 0.66,
+    "chromeContaminationScore": 0,
+    "compactnessScore": 0.52,
+    "constraintPreservationScore": 0.35,
+    "durableRecallEstimate": 1,
+    "durableStatePrecision": 1,
+    "durableStateRecall": 1,
+    "exportReadiness": 0.58,
+    "governanceDetectionCompleteness": 1,
+    "invariantDetectionCompleteness": 1,
+    "negativeStatePreservation": 1,
+    "redundancyScoreAfter": 0.65,
+    "redundancyScoreBefore": 0.7,
+    "reviewTruthfulness": 0.8,
+    "riskScore": 1,
+    "sourcePurityScore": 1,
+    "taskLocalLeakageScore": 0,
+    "warnings": [
+      "Metric penalty applied due to bucket overlap.",
+      "Metric penalty applied due to weak objective normalization.",
+      "Metric penalty applied due to critical extraction failure."
+    ]
+  },
+  "admissionCounts": {
+    "assistant_generated_blocked_items": 70,
+    "bucket_collisions_prevented": 45,
+    "chrome_fragments_removed": 0,
+    "duplicate_fragments_normalized": 45,
+    "exported_items_omitted_due_to_contamination": 74,
+    "rejected_direction_items_preserved": 4,
+    "unresolved_tension_items_preserved": 0,
+    "user_authored_admitted_durable_items": 10
+  },
+  "exportReadinessDecision": "UNSAFE_FOR_HANDOFF",
+  "missingCategories": [
+    "continuity_safeguards"
+  ],
+  "warnings": [
+    "Metric penalty applied due to field contamination.",
+    "Critical fidelity failure: likely source categories were not extracted (continuity_safeguards).",
+    "Metric penalty applied due to bucket overlap.",
+    "Metric penalty applied due to weak objective normalization.",
+    "Metric penalty applied due to critical extraction failure.",
+    "Export readiness downgraded: unsafe for handoff until fidelity issues are resolved."
+  ],
+  "reviewTextChars": 37780,
+  "copy": null,
+  "chatScreenshot": "/Users/lct/Desktop/luxcrypta-prompt-accelerator/validation-evidence/2026-05-22-live-brutal/chatgpt-rerun-engine/prompt-1/chat-response.png",
+  "reviewScreenshot": "/Users/lct/Desktop/luxcrypta-prompt-accelerator/validation-evidence/2026-05-22-live-brutal/chatgpt-rerun-engine/prompt-1/review-surface.png"
+}

@@ -1,0 +1,36 @@
+{
+  "topLevel": [
+    {
+      "label": "Copy All Review",
+      "present": false,
+      "copiedLength": 0
+    },
+    {
+      "label": "Copy Review + Raw JSON",
+      "present": true,
+      "copiedLength": 426570
+    },
+    {
+      "label": "Copy Engineering Summary",
+      "present": true,
+      "copiedLength": 994
+    },
+    {
+      "label": "Copy Portable Capsule",
+      "present": true,
+      "copiedLength": 12603
+    },
+    {
+      "label": "Copy Workflow Export",
+      "present": true,
+      "copiedLength": 15856
+    },
+    {
+      "label": "Copy Raw JSON",
+      "present": false,
+      "copiedLength": 0
+    }
+  ],
+  "sectionButtons": 60,
+  "sectionJsonButtons": 0
+}

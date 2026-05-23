@@ -30,6 +30,15 @@ export interface ProviderHealth {
   review_open_status?: "not_attempted" | "pending" | "success" | "retry_success" | "failed";
   review_open_error?: string;
   review_open_events?: string[];
+  click_detected?: boolean;
+  navigation_attempted?: boolean;
+  surface_created?: boolean;
+  app_mounted?: boolean;
+  first_content_rendered?: boolean;
+  visible_to_user?: boolean;
+  retry_count?: number;
+  failure_stage?: string;
+  failure_reason?: string;
   dom_mount_status?: "mounted" | "missing" | "stale" | "rebinding";
   duplicate_guard_active: boolean;
   runtime_errors: string[];

@@ -1,0 +1,42 @@
+{
+  "events": [
+    "advanced_click",
+    "review_open_requested",
+    "review_surface_created",
+    "review_open_pending_visible_render",
+    "review_app_mounted",
+    "review_first_content_rendered",
+    "review_visible_to_user"
+  ],
+  "providerHealth": {
+    "app_mounted": true,
+    "click_detected": true,
+    "dom_mount_status": "mounted",
+    "draft_read_success": true,
+    "duplicate_guard_active": true,
+    "first_content_rendered": true,
+    "input_detected": true,
+    "navigation_attempted": true,
+    "provider": "chatgpt",
+    "retry_count": 0,
+    "review_open_attempted": true,
+    "review_open_events": [
+      "advanced_click",
+      "review_open_requested",
+      "review_surface_created",
+      "review_open_pending_visible_render",
+      "review_app_mounted",
+      "review_first_content_rendered",
+      "review_visible_to_user"
+    ],
+    "review_open_status": "success",
+    "runtime_errors": [],
+    "surface_created": true,
+    "surface_detected": true,
+    "toolbar_mounted": true,
+    "visible_to_user": true,
+    "writeback_attempted": false,
+    "writeback_status": "not_attempted",
+    "writeback_success": false
+  }
+}

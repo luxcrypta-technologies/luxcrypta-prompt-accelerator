@@ -1,0 +1,123 @@
+{
+  "provider": "chatgpt",
+  "prompt": 4,
+  "authState": "logged_out",
+  "sendMethod": "button",
+  "responseDone": true,
+  "responseElapsedMs": 50307,
+  "reviewId": "review_0fuxz1b",
+  "reviewOpenedFirstClick": true,
+  "reviewOpenStatus": "success",
+  "visibleToUser": true,
+  "refreshRequired": false,
+  "openClick": {
+    "clickDetected": true,
+    "toolbarBefore": "Powered by LuxCrypta\nAdvanced\n\nVoice",
+    "toolbarAfter": "Powered by LuxCrypta\nAdvanced\nReview opened.\n\nVoice"
+  },
+  "stableCore": [],
+  "governancePrinciples": [],
+  "invariants": [],
+  "rejectedDirections": [],
+  "openUnresolved": [],
+  "scores": {
+    "assistantContaminationScore": 0,
+    "bucketExclusivityScore": 0.48,
+    "chromeContaminationScore": 0,
+    "compactnessScore": 0.45,
+    "constraintPreservationScore": 0,
+    "durableRecallEstimate": 0,
+    "durableStatePrecision": 1,
+    "durableStateRecall": 0,
+    "exportReadiness": 0,
+    "governanceDetectionCompleteness": 0,
+    "invariantDetectionCompleteness": 0,
+    "negativeStatePreservation": 0,
+    "redundancyScoreAfter": 0.6,
+    "redundancyScoreBefore": 0.6,
+    "reviewTruthfulness": 0.8,
+    "riskScore": 1,
+    "sourcePurityScore": 1,
+    "taskLocalLeakageScore": 0,
+    "warnings": [
+      "Metric penalty applied due to bucket overlap.",
+      "Metric penalty applied due to lost open state.",
+      "Metric penalty applied due to weak objective normalization.",
+      "Metric penalty applied due to empty-state collapse.",
+      "Metric penalty applied due to governance loss.",
+      "Metric penalty applied due to invariant loss.",
+      "Metric penalty applied due to rejected-direction loss.",
+      "Metric penalty applied due to critical extraction failure.",
+      "Metric penalty applied due to negative-state preservation loss.",
+      "Metric penalty applied due to category header admission."
+    ]
+  },
+  "admissionCounts": {
+    "assistant_generated_blocked_items": 269,
+    "bucket_collisions_prevented": 67,
+    "chrome_fragments_removed": 0,
+    "duplicate_fragments_normalized": 67,
+    "exported_items_omitted_due_to_contamination": 271,
+    "rejected_direction_items_preserved": 0,
+    "unresolved_tension_items_preserved": 0,
+    "user_authored_admitted_durable_items": 24
+  },
+  "exportReadinessDecision": "UNSAFE_FOR_HANDOFF",
+  "missingCategories": [
+    "invariants",
+    "rejected_directions"
+  ],
+  "warnings": [
+    "Metric penalty applied due to field contamination.",
+    "Metric penalty applied due to category header admission.",
+    "Critical fidelity failure: likely source categories were not extracted (invariants, rejected_directions).",
+    "Metric penalty applied due to bucket overlap.",
+    "Metric penalty applied due to lost open state.",
+    "Metric penalty applied due to weak objective normalization.",
+    "Metric penalty applied due to empty-state collapse.",
+    "Metric penalty applied due to governance loss.",
+    "Metric penalty applied due to rejected-direction loss.",
+    "Metric penalty applied due to critical extraction failure.",
+    "Metric penalty applied due to negative-state preservation loss.",
+    "Export readiness downgraded: unsafe for handoff until fidelity issues are resolved."
+  ],
+  "reviewTextChars": 80353,
+  "copy": {
+    "topLevel": [
+      {
+        "label": "Copy All Review",
+        "present": false,
+        "copiedLength": 0
+      },
+      {
+        "label": "Copy Review + Raw JSON",
+        "present": true,
+        "copiedLength": 426570
+      },
+      {
+        "label": "Copy Engineering Summary",
+        "present": true,
+        "copiedLength": 994
+      },
+      {
+        "label": "Copy Portable Capsule",
+        "present": true,
+        "copiedLength": 12603
+      },
+      {
+        "label": "Copy Workflow Export",
+        "present": true,
+        "copiedLength": 15856
+      },
+      {
+        "label": "Copy Raw JSON",
+        "present": false,
+        "copiedLength": 0
+      }
+    ],
+    "sectionButtons": 60,
+    "sectionJsonButtons": 0
+  },
+  "chatScreenshot": "/Users/lct/Desktop/luxcrypta-prompt-accelerator/validation-evidence/2026-05-22-live-brutal/chatgpt-rerun-engine/prompt-4/chat-response.png",
+  "reviewScreenshot": "/Users/lct/Desktop/luxcrypta-prompt-accelerator/validation-evidence/2026-05-22-live-brutal/chatgpt-rerun-engine/prompt-4/review-surface.png"
+}

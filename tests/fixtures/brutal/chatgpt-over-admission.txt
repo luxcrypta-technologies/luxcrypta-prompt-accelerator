@@ -1,0 +1,7 @@
+User: Objective: keep the review surface honest about admission quality.
+User: Governance principle: clean formatting is not evidence of clean state.
+User: Invariant: every canonical item has one primary bucket.
+Assistant: Here is a polished structure you can copy.
+Assistant: Stable Core:
+Assistant: The assistant-generated summary should become the durable architecture.
+User: Rejected directions: Do not admit assistant-generated helper formatting.

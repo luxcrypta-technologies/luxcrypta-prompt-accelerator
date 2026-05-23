@@ -37,6 +37,10 @@ export function computeTransformationScores(input: {
     promptScaffoldingLeakage?: boolean;
     emptyGovernanceWhenPresent?: boolean;
     emptyInvariantsWhenPresent?: boolean;
+    emptyRejectionsWhenPresent?: boolean;
+    reviewOpenNotVisible?: boolean;
+    extractionFailure?: boolean;
+    negativeStateLoss?: boolean;
     categoryHeaderAdmission?: boolean;
     taskLocalLeakage?: boolean;
   };
@@ -105,8 +109,8 @@ export function computeTransformationScores(input: {
   }
   if (input.penalties?.assistantContamination) {
     warnings.push("Metric penalty applied due to assistant-authored state contamination.");
-    constraintPenalty += 0.18;
-    riskPenalty += 0.24;
+    constraintPenalty += 0.3;
+    riskPenalty += 0.4;
   }
   if (input.penalties?.promptScaffoldingLeakage) {
     warnings.push("Metric penalty applied due to prompt scaffolding admitted as state.");
@@ -115,13 +119,33 @@ export function computeTransformationScores(input: {
   }
   if (input.penalties?.emptyGovernanceWhenPresent) {
     warnings.push("Metric penalty applied due to governance loss.");
-    constraintPenalty += 0.1;
-    riskPenalty += 0.12;
+    constraintPenalty += 0.18;
+    riskPenalty += 0.24;
   }
   if (input.penalties?.emptyInvariantsWhenPresent) {
     warnings.push("Metric penalty applied due to invariant loss.");
-    constraintPenalty += 0.1;
-    riskPenalty += 0.12;
+    constraintPenalty += 0.2;
+    riskPenalty += 0.28;
+  }
+  if (input.penalties?.emptyRejectionsWhenPresent) {
+    warnings.push("Metric penalty applied due to rejected-direction loss.");
+    constraintPenalty += 0.24;
+    riskPenalty += 0.32;
+  }
+  if (input.penalties?.extractionFailure) {
+    warnings.push("Metric penalty applied due to critical extraction failure.");
+    constraintPenalty += 0.18;
+    riskPenalty += 0.24;
+  }
+  if (input.penalties?.negativeStateLoss) {
+    warnings.push("Metric penalty applied due to negative-state preservation loss.");
+    constraintPenalty += 0.16;
+    riskPenalty += 0.2;
+  }
+  if (input.penalties?.reviewOpenNotVisible) {
+    warnings.push("Metric penalty applied because Prompt Review visibility was not confirmed.");
+    constraintPenalty += 0.12;
+    riskPenalty += 0.18;
   }
   if (input.penalties?.categoryHeaderAdmission) {
     warnings.push("Metric penalty applied due to category header admission.");
@@ -141,7 +165,7 @@ export function computeTransformationScores(input: {
   const sourcePurityPenalty =
     (input.penalties?.fieldContamination ? 0.16 : 0) +
     (input.penalties?.chromeContamination ? 0.28 : 0) +
-    (input.penalties?.assistantContamination ? 0.26 : 0) +
+    (input.penalties?.assistantContamination ? 0.45 : 0) +
     (input.penalties?.weakTrustedSeparation ? 0.18 : 0);
   const bucketPenalty =
     (input.penalties?.bucketOverlap ? 0.34 : 0) +
@@ -150,13 +174,31 @@ export function computeTransformationScores(input: {
   const precisionPenalty =
     (input.penalties?.promptScaffoldingLeakage ? 0.22 : 0) +
     (input.penalties?.taskLocalLeakage ? 0.24 : 0) +
-    (input.penalties?.assistantContamination ? 0.24 : 0) +
+    (input.penalties?.assistantContamination ? 0.5 : 0) +
     (input.penalties?.chromeContamination ? 0.24 : 0);
   const recallPenalty =
     (input.penalties?.emptyStateCollapse ? 0.38 : 0) +
-    (input.penalties?.emptyGovernanceWhenPresent ? 0.22 : 0) +
-    (input.penalties?.emptyInvariantsWhenPresent ? 0.22 : 0) +
+    (input.penalties?.emptyGovernanceWhenPresent ? 0.32 : 0) +
+    (input.penalties?.emptyInvariantsWhenPresent ? 0.36 : 0) +
+    (input.penalties?.emptyRejectionsWhenPresent ? 0.42 : 0) +
+    (input.penalties?.negativeStateLoss ? 0.36 : 0) +
     (input.penalties?.lostOpenState ? 0.16 : 0);
+  const governanceDetectionCompleteness = input.penalties?.emptyGovernanceWhenPresent ? 0 : 1;
+  const invariantDetectionCompleteness = input.penalties?.emptyInvariantsWhenPresent ? 0 : 1;
+  const negativeStatePreservation =
+    input.penalties?.emptyRejectionsWhenPresent || input.penalties?.negativeStateLoss ? 0 : 1;
+  const exportReadinessPenalty =
+    sourcePurityPenalty * 0.7 +
+    bucketPenalty * 0.6 +
+    precisionPenalty * 0.8 +
+    recallPenalty * 0.5 +
+    (input.penalties?.extractionFailure ? 0.22 : 0);
+  const reviewTruthfulnessPenalty =
+    (input.penalties?.reviewOpenNotVisible ? 0.55 : 0) +
+    (input.penalties?.extractionFailure ? 0.2 : 0) +
+    (input.penalties?.chromeContamination ? 0.1 : 0) +
+    (input.penalties?.assistantContamination ? 0.1 : 0);
+  const durableRecallEstimate = percent(1 - recallPenalty);
 
   return {
     redundancyScoreBefore: redundancyScore(input.original),
@@ -170,8 +212,14 @@ export function computeTransformationScores(input: {
     ),
     assistantContaminationScore: percent(input.penalties?.assistantContamination ? 1 : 0),
     durableStatePrecision: percent(1 - precisionPenalty),
-    durableStateRecall: percent(1 - recallPenalty),
+    durableStateRecall: durableRecallEstimate,
+    durableRecallEstimate,
     taskLocalLeakageScore: percent(input.penalties?.taskLocalLeakage ? 1 : 0),
+    governanceDetectionCompleteness: percent(governanceDetectionCompleteness),
+    invariantDetectionCompleteness: percent(invariantDetectionCompleteness),
+    negativeStatePreservation: percent(negativeStatePreservation),
+    exportReadiness: percent(1 - exportReadinessPenalty),
+    reviewTruthfulness: percent(1 - reviewTruthfulnessPenalty),
     modeAlignmentScore: input.mode ? 0.86 : undefined,
     adaptationAlignmentScore: input.targetModel ? 0.84 : undefined,
     riskScore: percent(risk),

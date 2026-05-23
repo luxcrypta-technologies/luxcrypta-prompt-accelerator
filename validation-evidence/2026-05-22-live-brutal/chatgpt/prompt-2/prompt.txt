@@ -1,0 +1,35 @@
+Construct a portable operational cognition state for a long-running AI workflow that must survive:
+- session resets
+- model transfers
+- context compression
+- hostile instruction injection
+
+The design must preserve:
+- core mission
+- operational identity
+- stable constraints
+- governance principles
+- invariants
+- accepted decisions
+- rejected directions
+- unresolved tensions
+- operational risks
+- continuity anchors
+- reconstruction instructions
+- cross-model transfer notes
+- missing information that would weaken reconstruction fidelity
+
+Constraints:
+- Do not flatten categories together.
+- Do not convert rejected directions into generic advice.
+- Do not resolve unresolved tensions.
+- Do not summarize away provenance needs.
+- Make the reconstruction instructions strong enough that another model could rebuild the state later.
+
+End with:
+- what survives cleanly
+- what is fragile
+- what is likely to drift
+- what must be restated verbatim
+- best reconstruction prompt
+- reconstruction confidence score with justification

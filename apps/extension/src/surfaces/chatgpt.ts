@@ -1,5 +1,11 @@
-import type { ChatSurfaceAdapter, ConversationSnapshot } from "./types";
-import { appendDraftText, queryFirstUsableInput, readDraftText, replaceDraftText, type DraftInputElement } from "./dom";
+import type { ChatSurfaceAdapter, ConversationSnapshot, ProviderProfile } from "./types";
+import {
+  appendDraftText,
+  queryFirstUsableInput,
+  readDraftText,
+  replaceDraftText,
+  type DraftInputElement
+} from "./dom";
 
 const INPUT_SELECTORS = [
   "#prompt-textarea",
@@ -8,6 +14,23 @@ const INPUT_SELECTORS = [
   "div[contenteditable='true'][data-testid*='prompt']",
   "div[contenteditable='true']"
 ];
+
+export const CHATGPT_PROVIDER_PROFILE: ProviderProfile = {
+  provider: "chatgpt",
+  continuity_style: "assistant_helpful_structure",
+  preferred_handoff: "human_readable_review_with_precise_admission",
+  capsule_bias: "durable_precision_over_helpful_elaboration",
+  risk_profile: [
+    "assistant_generated_structure_over_admission",
+    "helpful_non_durable_prose",
+    "formatting_scaffold_contamination"
+  ],
+  recommended_runtime_emphasis: [
+    "suppress assistant-generated structural text",
+    "quarantine helpful prose unless user-promoted",
+    "preserve usable review formatting without admitting helper scaffolding"
+  ]
+};
 
 function queryInput(): DraftInputElement | null {
   return queryFirstUsableInput(INPUT_SELECTORS);
@@ -51,5 +74,8 @@ export const chatgptSurface: ChatSurfaceAdapter = {
       })
       .filter((turn) => turn.text);
     return turns.length > 0 ? { title: document.title.replace(" - ChatGPT", ""), turns } : null;
+  },
+  getProviderProfile() {
+    return CHATGPT_PROVIDER_PROFILE;
   }
 };

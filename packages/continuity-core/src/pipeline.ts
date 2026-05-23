@@ -211,7 +211,7 @@ function stripSectionLabel(text: string): string {
 }
 
 const RUNTIME_SECTION_LABELS =
-  "objective|stable core|new\\s*\\/\\s*provisional|open\\s*\\/\\s*unresolved|what changed|recommended next actions|continuity instructions|trusted state|trusted_state|untrusted instructions|untrusted_instructions|quarantine log|quarantine_log|deferred items|deferred item|deferred_items|conditional admissions|conditional admission|conditional_admissions|rejected directions|rejected direction|rejected_directions|governance principles|governance principle|governance_principles|invariants|invariant|continuity safeguards|continuity safeguard|continuity_safeguards|mutation targets|mutation target|mutation risk|task local instructions|task-local instructions|task_local_instructions|task local forbidden|task-local forbidden|task_local_forbidden";
+  "mission|objective|trusted state|trusted_state|stable state|stable core|stable constraints|stable constraint|stable requirements that cannot change without breaking the mission|stable requirements|stable requirement|accepted decisions|accepted decision|new\\s*\\/\\s*provisional|open\\s*\\/\\s*unresolved|open questions|open question|open tensions|open tension|unresolved tensions|unresolved tension|requirements that remain in real tension|missing information|what changed|recommended next actions|continuity instructions|untrusted instructions|untrusted_instructions|quarantine log|quarantine_log|deferred items|deferred item|deferred_items|conditional admissions|conditional admission|conditional_admissions|rejected directions|rejected direction|rejected_directions|governance principles|governance principle|governance_principles|invariants|invariant|continuity safeguards|continuity safeguard|continuity_safeguards|continuity anchors|continuity anchor|recovery mechanisms|recovery mechanism|reconstruction instructions|reconstruction instruction|cross-model transfer notes|cross model transfer notes|mutation targets|mutation target|mutation risk|failure modes|failure mode|operational risks|operational risk|priority model|provisional assumptions|provisional assumption|task local instructions|task-local instructions|task_local_instructions|task local forbidden|task-local forbidden|task_local_forbidden";
 
 const STRICT_REJECT_RE =
   /\b(do not|don't|never|avoid|forbidden|prohibited|must not|should not|cannot execute|cannot merge|exclude|reject\s+(?:this|that|the|any|all)|do not accept|do not ignore|do not flatten|do not turn|do not reintroduce|do not expose)\b/i;
@@ -226,20 +226,22 @@ const CONDITIONAL_ADMIT_RE =
 const GOVERNANCE_PRINCIPLE_RE =
   /\b(governance|trusted state|untrusted|admission|taxonomy|state boundary|conflict handling|audit|visibility|integrity|priority|review state)\b/i;
 const INVARIANT_RE =
-  /\b(invariant|must remain|durable|non-negotiable|no silent transitions|identity anchoring|operational identity|always-on|always on)\b/i;
+  /\b(invariant|must remain|durable|non-negotiable|no silent transitions|identity anchoring|operational identity|always-on|always on|preserve (?:the )?(?:mission|governance|integrity|rejected directions|unresolved tensions|stable constraints)|do not overwrite trusted state)\b/i;
 const CONTINUITY_SAFEGUARD_RE =
-  /\b(continuity safeguard|safeguard|continuity anchor|carry[-\s]?forward|reconstruction|preserve continuity|preserve unresolved|keep unresolved|no silent transitions|audit visibility)\b/i;
+  /\b(continuity safeguard|safeguard|continuity anchor|carry[-\s]?forward|reconstruction|recovery mechanism|cross[-\s]?model transfer|preserve continuity|preserve unresolved|keep unresolved|no silent transitions|audit visibility)\b/i;
 const MUTATION_RE =
-  /\b(override|mutation|mutate|replace|delete|remove|suppress|hidden rewrite|forced resolution|force resolution|false claim|insert false|state override|delete safeguards|suppress audit|ignore previous|discard trusted)\b/i;
+  /\b(attempted (?:state )?override|override (?:trusted state|mission|governance|instructions?)|override block|mutation|mutate|replace|delete|remove|suppress|hidden rewrite|forced resolution|force resolution|false claim|insert false|state override|delete safeguards|suppress audit|ignore previous|discard trusted|treat all unresolved tensions as resolved|unresolved tensions as resolved)\b/i;
 const TASK_LOCAL_RE =
-  /\b(follow the required format|required format|end with (?:a )?(?:score|rating)|final scores?|reconstruction confidence score|give (?:a )?table|use (?:a )?table|separate into \d+ sections?|include a vulnerability paragraph|build a priority model|stage \d+|return (?:the )?(?:answer|response) as|answer[-\s]?shape|response format|markdown table|bullet list|numbered list|write in (?:four|five|six|\d+) sections?)\b/i;
+  /\b(follow the required format|required format|end with (?:a )?(?:score|rating)|end with|final scores?|mutation risk report|reconstruction confidence score|what survives cleanly|what is fragile|what is likely to drift|what must be restated verbatim|best reconstruction prompt|give (?:a )?table|use (?:a )?table|separate into \d+ sections?|include a vulnerability paragraph|build a priority model|stage \d+|return (?:the )?(?:answer|response) as|answer[-\s]?shape|response format|markdown table|bullet list|numbered list|write in (?:four|five|six|\d+) sections?)\b/i;
 const PROMPT_SCAFFOLD_RE =
-  /\b(below is|here is|structured response|final response|stage \d+|step \d+|copy[-\s]?paste|prompt block|prompt scaffolding|response wrapper|answer contract|final scores?|reconstruction confidence score)\b/i;
+  /\b(below is|here is|structured response|final response|stage \d+|step \d+|copy[-\s]?paste|prompt block|prompt scaffolding|response wrapper|answer contract|final scores?|reconstruction confidence score|best reconstruction prompt)\b/i;
+const ASSISTANT_RECONSTRUCTION_RE =
+  /\b(a future model reconstructing this state must|future model reconstructing|future model should|restore the mission exactly|portable operational cognition state|defended continuity state|mutation risk report)\b/i;
 const ADOPTION_RE =
   /\b(adopt|promote|save|remember|make (?:this|it) canonical|this is canonical|treat (?:this|it) as stable|user[-\s]?promoted|explicitly adopted)\b/i;
 const SPEAKER_PREFIX_RE = /^\s*(?:user|assistant|system|developer|model|human|ai)\s*:\s*/i;
 const SECTION_LABEL_RE =
-  /^\s*(?:[-*•>]+\s*)?(trusted state|trusted_state|stable state|stable core|objective|untrusted instructions|untrusted_instructions|conflicting instructions|quarantine log|quarantine_log|quarantine|quarantined item|deferred items|deferred item|deferred_items|defer|conditional admissions|conditional admission|conditional_admissions|conditional admit|rejected directions|rejected direction|rejected_directions|rejections|governance principles|governance principle|governance_principles|invariants|invariant|continuity safeguards|continuity safeguard|continuity_safeguards|mutation targets|mutation target|mutation risk|open unresolved|open\/unresolved|new provisional|new\/provisional|admitted updates|task local instructions|task-local instructions|task_local_instructions|task local forbidden|task-local forbidden|task_local_forbidden)(?::\s*(.*)|\s*)$/i;
+  /^\s*(?:[-*•>]+\s*)?(mission|trusted state|trusted_state|stable state|stable core|stable constraints|stable constraint|stable requirements|stable requirement|stable requirements that cannot change without breaking the mission|accepted decisions|accepted decision|objective|untrusted instructions|untrusted_instructions|conflicting instructions|quarantine log|quarantine_log|quarantine|quarantined item|deferred items|deferred item|deferred_items|defer|conditional admissions|conditional admission|conditional_admissions|conditional admit|rejected directions|rejected direction|rejected_directions|rejections|governance principles|governance principle|governance_principles|invariants|invariant|continuity safeguards|continuity safeguard|continuity_safeguards|continuity anchors|continuity anchor|recovery mechanisms|recovery mechanism|reconstruction instructions|reconstruction instruction|cross-model transfer notes|cross model transfer notes|mutation targets|mutation target|mutation risk|failure modes|failure mode|operational risks|operational risk|open unresolved|open\s*\/\s*unresolved|open questions|open question|open tensions|open tension|unresolved tensions|unresolved tension|requirements that remain in real tension|missing information|new provisional|new\s*\/\s*provisional|provisional assumptions|provisional assumption|admitted updates|priority model|task local instructions|task-local instructions|task_local_instructions|task local forbidden|task-local forbidden|task_local_forbidden)(?::\s*(.*)|\s*)$/i;
 
 function normalizeRuntimeScaffold(text: string): string {
   return text
@@ -260,17 +262,68 @@ function providerId(request: TransformRequest): string {
   ).toLowerCase();
 }
 
+function providerLabel(request: TransformRequest): string {
+  return providerId(request) || "unknown";
+}
+
+function isTrustedPriorRole(sourceRole: ContinuitySourceRole): boolean {
+  return sourceRole === "trusted_state" || sourceRole === "user_quoted_prior_state";
+}
+
+function isUserAuthoredRole(sourceRole: ContinuitySourceRole): boolean {
+  return (
+    sourceRole === "user_authored_input" ||
+    sourceRole === "user_authored" ||
+    isTrustedPriorRole(sourceRole)
+  );
+}
+
+function isAssistantRole(sourceRole: ContinuitySourceRole): boolean {
+  return sourceRole === "assistant_output" || sourceRole === "assistant_generated";
+}
+
+function isExternalModelRole(sourceRole: ContinuitySourceRole): boolean {
+  return sourceRole === "external_model_output" || isAssistantRole(sourceRole);
+}
+
+function isRetrievedRole(sourceRole: ContinuitySourceRole): boolean {
+  return sourceRole === "retrieved_external_content" || sourceRole === "retrieved_external";
+}
+
+function isChromeRole(sourceRole: ContinuitySourceRole): boolean {
+  return (
+    sourceRole === "provider_ui_chrome" ||
+    sourceRole === "extension_ui_chrome" ||
+    sourceRole === "page_chrome" ||
+    sourceRole === "system_ui" ||
+    sourceRole === "extension_ui"
+  );
+}
+
 function isPerplexityUiArtifact(text: string): boolean {
   const clean = text
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "");
   return (
-    /^(showmore|showless|showmoreshowless|copied|copylink|share|rewrite|sources|related|askfollowup|thread|library|discover|home|settings|signindashboard|upgrade|viewmore|viewless|trypro|perplexity)$/.test(
+    /^(showmore|showless|showmoreshowless|copied|copy|copyallreview|copyreviewrawjson|copyengineeringsummary|copyportablecapsule|copyworkflowexport|copylink|share|rewrite|sources|related|askfollowup|thread|library|discover|home|settings|signindashboard|upgrade|advanced|retryopen|viewmore|viewless|trypro|perplexity)$/.test(
       clean
     ) ||
-    /^(show more|show less|related questions|ask follow-up|view sources|copy link|share thread|rewrite answer|search images|search videos|spaces|library|discover|sign in|try pro|upgrade)$/i.test(
+    /^(show more|show less|related questions|ask follow-up|view sources|copy link|copy all review|copy review \+ raw json|copy engineering summary|copy portable capsule|copy workflow export|share thread|rewrite answer|search images|search videos|spaces|library|discover|advanced|retry open|sign in|try pro|upgrade)$/i.test(
       text.trim()
+    )
+  );
+}
+
+function isGenericUiChromeArtifact(text: string): boolean {
+  const clean = text
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+  return (
+    isPerplexityUiArtifact(text) ||
+    /^(apply|cancel|close|download|downloadjson|export|exportdiagnosticstate|copyrawdiagnosticdata|save|saveworkflow|savecapsule|toolbar|menu|settings|newchat|search|library|login|logout|upgrade|subscribe|poweredbyluxcrypta|readytoreview|openingreview|reviewopened|reviewdidnotopenretryopen)$/.test(
+      clean
     )
   );
 }
@@ -278,10 +331,11 @@ function isPerplexityUiArtifact(text: string): boolean {
 function stripPerplexityUIArtifacts(text: string): string {
   return text
     .replace(/show more\s*show less/gi, "\n")
+    .replace(/\b(Copy All Review|Copy Review \+ Raw JSON|Copy Engineering Summary|Copy Portable Capsule|Copy Workflow Export|Copy Raw Diagnostic Data|Export Diagnostic State)\b/gi, "\n")
     .split(/\n+/)
     .map((line) => line.trim())
     .filter((line) => {
-      if (!line || isPerplexityUiArtifact(line)) return false;
+      if (!line || isGenericUiChromeArtifact(line)) return false;
       if (/^(sources?|related|thread|library|discover|share|rewrite)$/i.test(line)) return false;
       return true;
     })
@@ -312,6 +366,47 @@ function normalizeDeepSeekGovernanceBlocks(text: string): string {
     .trim();
 }
 
+function stripProviderGeneratedWrappers(text: string, provider: string): string {
+  const wrapperPatterns: RegExp[] = [
+    /^\s*(?:here(?:'s| is)|below is|i can help|certainly|sure)\b.*$/i,
+    /^\s*(?:structured response|final answer|final response|prompt review|review output)\s*:?\s*$/i,
+    /^\s*(?:copy|copied|copy link|share|advanced|show more|show less)\s*$/i
+  ];
+  const providerPatterns: Record<string, RegExp[]> = {
+    deepseek: [
+      /^\s*(?:stage|phase|step)\s+\d+\s*:.*$/i,
+      /^\s*(?:analysis|reasoning|final)\s*:?\s*$/i
+    ],
+    chatgpt: [
+      /^\s*(?:here is a cleaned|here's a cleaned|i've structured|summary)\b.*$/i,
+      /^\s*(?:recommended structure|suggested format)\s*:?\s*$/i
+    ],
+    claude: [],
+    gemini: [
+      /^\s*(?:compliance statement|enforcement framework|formal validation|architectural compliance)\s*:?\s*$/i,
+      /^\s*(?:therefore|in conclusion),?\s*(?:the following|we must)\b.*$/i
+    ],
+    perplexity: [
+      /^\s*(?:sources?|related|ask follow-up|search results?)\s*:?\s*$/i,
+      /^\s*(?:try pro|upgrade|discover|library|spaces)\b.*$/i
+    ]
+  };
+  const patterns = [...wrapperPatterns, ...(providerPatterns[provider] ?? [])];
+  return text
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter((line) => {
+      const semanticLine = line.replace(SPEAKER_PREFIX_RE, "").trim();
+      return (
+        line &&
+        !isGenericUiChromeArtifact(line) &&
+        !patterns.some((pattern) => pattern.test(line) || pattern.test(semanticLine))
+      );
+    })
+    .join("\n")
+    .trim();
+}
+
 function prepareProviderSource(text: string, request: TransformRequest): string {
   const id = providerId(request);
   let prepared = text;
@@ -321,6 +416,7 @@ function prepareProviderSource(text: string, request: TransformRequest): string 
   if (id === "perplexity") {
     prepared = structuredBodyFromPerplexitySurface(prepared);
   }
+  prepared = stripProviderGeneratedWrappers(prepared, id);
   return normalizeRuntimeScaffold(prepared);
 }
 
@@ -362,26 +458,6 @@ function isRuntimeScaffoldLine(text: string): boolean {
   );
 }
 
-function statementsFromText(text: string): string[] {
-  const prepared = removeGeneratedRuntimeInstructions(text);
-  return uniqueMeaningfulStrings(
-    prepared
-      .replace(
-        /\s+(requirements?|hard requirements?|output contract|context|open questions?):\s*/gi,
-        "\n$1:\n"
-      )
-      .replace(/\s+[-*•]\s+/g, "\n- ")
-      .split(/\n|(?<=[.!?])\s+/)
-      .map((line) => stripSectionLabel(line).trim())
-      .filter(
-        (line) =>
-          line.length > 3 &&
-          !/^carry[-\s]?forward capsule:?$/i.test(line) &&
-          !isRuntimeScaffoldLine(line)
-      )
-  ).slice(0, 12);
-}
-
 function hasRetrievalGovernance(request: TransformRequest): boolean {
   const profile = request.providerProfile;
   return (
@@ -405,6 +481,22 @@ function retrievalTextFromLine(text: string): string {
       ""
     )
   );
+}
+
+function scrubProviderChromeTokens(text: string): string {
+  if (!/\b(show more|show less|try pro|upsell|host chrome|page chrome|provider chrome)\b/i.test(text)) {
+    return text;
+  }
+  return text
+    .replace(/\bshow more\b/gi, "provider chrome")
+    .replace(/\bshow less\b/gi, "provider chrome")
+    .replace(/\bcopy(?: link)?\b/gi, "provider chrome")
+    .replace(/\badvanced\b/gi, "provider chrome")
+    .replace(/\btry pro\b/gi, "provider upsell")
+    .replace(/\bupgrade\b/gi, "provider upsell")
+    .replace(/\b(?:provider chrome)(?:\s*,\s*provider chrome)+/gi, "provider chrome")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function applyRetrievalGovernance(
@@ -440,12 +532,12 @@ function applyRetrievalGovernance(
 }
 
 function normalizeCanonicalText(text: string): string {
-  return cleanStateLine(text)
+  return scrubProviderChromeTokens(cleanStateLine(text))
     .replace(SPEAKER_PREFIX_RE, "")
     .replace(/^\s*(?:[-*•>]+\s*)+/, "")
     .replace(/^\s*(?:[IVXLCDM]+\.|\d+[.)]|[A-Z]\d+|[A-Z]\.)\s*/i, "")
     .replace(
-      /^\s*(?:trusted state|trusted_state|stable state|stable core|untrusted instructions|untrusted_instructions|conflicting instructions|quarantine log|quarantine_log|quarantine|quarantined item|deferred items|deferred item|deferred_items|defer|conditional admissions|conditional admission|conditional_admissions|conditional admit|rejected directions|rejected direction|rejected_directions|rejections|governance principles|governance principle|governance_principles|invariants|invariant|continuity safeguards|continuity safeguard|continuity_safeguards|mutation targets|mutation target|mutation risk|task local instructions|task-local instructions|task_local_instructions|task local forbidden|task-local forbidden|task_local_forbidden|open unresolved|open\/unresolved|new provisional|new\/provisional|admitted updates|requirement|constraint|decision|risk|note|objective|open question):\s*/i,
+      /^\s*(?:mission|trusted state|trusted_state|stable state|stable core|stable constraints|stable constraint|stable requirements|stable requirement|stable requirements that cannot change without breaking the mission|accepted decisions|accepted decision|untrusted instructions|untrusted_instructions|conflicting instructions|quarantine log|quarantine_log|quarantine|quarantined item|deferred items|deferred item|deferred_items|defer|conditional admissions|conditional admission|conditional_admissions|conditional admit|rejected directions|rejected direction|rejected_directions|rejections|governance principles|governance principle|governance_principles|invariants|invariant|continuity safeguards|continuity safeguard|continuity_safeguards|continuity anchors|continuity anchor|recovery mechanisms|recovery mechanism|reconstruction instructions|reconstruction instruction|cross-model transfer notes|cross model transfer notes|mutation targets|mutation target|mutation risk|failure modes|failure mode|operational risks|operational risk|task local instructions|task-local instructions|task_local_instructions|task local forbidden|task-local forbidden|task_local_forbidden|open unresolved|open\s*\/\s*unresolved|open tensions|open tension|unresolved tensions|unresolved tension|requirements that remain in real tension|missing information|new provisional|new\s*\/\s*provisional|provisional assumptions|provisional assumption|admitted updates|priority model|requirement|constraint|decision|risk|note|objective|open question):\s*/i,
       ""
     )
     .replace(/\s+/g, " ")
@@ -466,7 +558,9 @@ function sectionBucket(label: string): ContinuityPrimaryBucket | null {
     .toLowerCase()
     .replace(/[_\s/]+/g, " ")
     .trim();
-  if (/trusted state|stable state|stable core|objective/.test(normalized)) return "stable_core";
+  if (/stable constraints|stable requirements/.test(normalized)) return "invariants";
+  if (/accepted decisions?/.test(normalized)) return "stable_core";
+  if (/mission|trusted state|stable state|stable core|objective/.test(normalized)) return "stable_core";
   if (/untrusted|conflicting/.test(normalized)) return "quarantine_log";
   if (/quarantine/.test(normalized)) return "quarantine_log";
   if (/defer|deferred/.test(normalized)) return "deferred_items";
@@ -474,11 +568,13 @@ function sectionBucket(label: string): ContinuityPrimaryBucket | null {
   if (/reject|rejection/.test(normalized)) return "rejected_directions";
   if (/governance/.test(normalized)) return "governance_principles";
   if (/invariant/.test(normalized)) return "invariants";
-  if (/safeguard/.test(normalized)) return "continuity_safeguards";
+  if (/safeguard|continuity anchor|recovery mechanism|reconstruction instruction|cross model transfer note/.test(normalized)) return "continuity_safeguards";
   if (/mutation/.test(normalized)) return "mutation_targets";
   if (/task local forbidden/.test(normalized)) return "task_local_forbidden";
   if (/task local instructions/.test(normalized)) return "task_local_instructions";
-  if (/open/.test(normalized)) return "open_unresolved";
+  if (/failure mode|operational risk|open|unresolved tension|real tension|missing information/.test(normalized)) return "open_unresolved";
+  if (/priority model/.test(normalized)) return "governance_principles";
+  if (/provisional assumptions?/.test(normalized)) return "provisional_state";
   if (/provisional|new/.test(normalized)) return "provisional_state";
   if (/admitted/.test(normalized)) return "provisional_state";
   return null;
@@ -487,12 +583,14 @@ function sectionBucket(label: string): ContinuityPrimaryBucket | null {
 function sourceRoleForStatement(rawText: string, source: string): ContinuitySourceRole {
   const lowerSource = source.toLowerCase();
   const raw = rawText.trim();
-  if (lowerSource.includes("retrieval")) return "retrieved_external";
+  if (lowerSource.includes("export")) return "exported_artifact_text";
+  if (lowerSource.includes("diagnostic")) return "diagnostic_generated";
+  if (lowerSource.includes("retrieval")) return "retrieved_external_content";
   if (lowerSource.includes("trusted_state")) return "trusted_state";
   if (lowerSource.includes("capsule")) return "user_quoted_prior_state";
-  if (isPerplexityUiArtifact(raw)) return "page_chrome";
-  if (/^\s*(assistant|model|ai)\s*:/i.test(raw)) return "assistant_generated";
-  if (/^\s*(system|developer)\s*:/i.test(raw)) return "system_ui";
+  if (isGenericUiChromeArtifact(raw)) return "provider_ui_chrome";
+  if (/^\s*(assistant|model|ai)\s*:/i.test(raw)) return "assistant_output";
+  if (/^\s*(system|developer)\s*:/i.test(raw)) return "extension_ui_chrome";
   if (
     /\b(?:assistant|model|gemini|claude|chatgpt|grok|deepseek|perplexity)\s+(?:said|responded|wrote|answered)\b/i.test(
       raw
@@ -500,14 +598,14 @@ function sourceRoleForStatement(rawText: string, source: string): ContinuitySour
   ) {
     return "external_model_output";
   }
-  if (/^\s*user\s*:/i.test(raw)) return "user_authored";
-  if (lowerSource.includes("continuity_review")) return "trusted_state";
-  if (lowerSource === "draft" || lowerSource === "manual") return "user_authored";
+  if (/^\s*user\s*:/i.test(raw)) return "user_authored_input";
+  if (lowerSource.includes("continuity_review")) return "transformed_review_output";
+  if (lowerSource === "draft" || lowerSource === "manual") return "user_authored_input";
   return "unknown";
 }
 
 function isPromotedByUser(text: string, sourceRole: ContinuitySourceRole): boolean {
-  if (sourceRole === "trusted_state" || sourceRole === "user_quoted_prior_state") return true;
+  if (isTrustedPriorRole(sourceRole)) return true;
   return ADOPTION_RE.test(text);
 }
 
@@ -535,39 +633,116 @@ function isPromptScaffold(text: string): boolean {
 function isCategoryHeader(text: string): boolean {
   return (
     Boolean(text.trim().match(SECTION_LABEL_RE)) ||
-    /^(mission|invariants|failure modes|tensions and tradeoffs|governance principles|stable core|rejected directions)$/i.test(
+    /^(mission|invariants|failure modes|tensions and tradeoffs|governance principles|stable core|stable constraints|stable requirements|rejected directions|open tensions|unresolved tensions|recovery mechanisms|reconstruction instructions|priority model)$/i.test(
       text.trim()
     )
   );
 }
 
-function splitGovernanceStatements(
-  text: string,
-  source: string
-): Array<{
+function hasGovernanceSourceSignal(text: string): boolean {
+  return /\bgovernance principles?\s*:|\bgovernance principle\b|\btrusted state\b.*\b(untrusted|outranks|admission|boundary|priority)\b|\buntrusted\b.*\btrusted state\b|\badmission\b.*\bstate\b/i.test(
+    text
+  );
+}
+
+function hasInvariantSourceSignal(text: string): boolean {
+  return /\b(?:stable constraints?|stable requirements?|invariants?)\s*:|\binvariant\b|\bmust remain\b|\bnon-negotiable\b|\bno silent transitions\b|\balways(?:-| )on\b|\bdurable\b.*\bmust\b|\bpreserve (?:the )?(?:mission|governance|integrity|rejected directions|unresolved tensions)\b/i.test(
+    text
+  );
+}
+
+function hasRejectedSourceSignal(text: string): boolean {
+  return /\brejected directions?\s*:|\brejections?\s*:|\b(?:do not|don't|never|must not|should not|forbidden|prohibited)\b/i.test(
+    text
+  );
+}
+
+function hasContinuitySafeguardSourceSignal(text: string): boolean {
+  return /\bcontinuity safeguards?\s*:|\bsafeguards?\s*:|\bcarry[-\s]?forward\b|\breconstruct(?:ion)?\b|\bpreserve unresolved\b|\bkeep unresolved\b/i.test(
+    text
+  );
+}
+
+function hasOpenStateSourceSignal(text: string): boolean {
+  return splitGovernanceStatements(text, "draft").some((statement) => {
+    if (!isEligibleUserStatement(statement)) return false;
+    const clean = normalizeCanonicalText(statement.text);
+    if (!clean) return false;
+    if (/^(open questions?|open tensions?|unresolved tensions?|operational risks?|missing information)$/i.test(clean)) {
+      return false;
+    }
+    if (/^(preserve|do not resolve|keep|carry forward)\s+unresolved tensions?\.?$/i.test(clean)) {
+      return false;
+    }
+    const classification = bucketForGovernanceStatement(
+      statement.text,
+      statement.sectionBucket,
+      statement.sourceRole
+    );
+    if (
+      classification.bucket === "quarantine_log" ||
+      classification.bucket === "rejected_directions" ||
+      classification.bucket === "diagnostic_only"
+    ) {
+      return false;
+    }
+    return (
+      classification.bucket === "open_unresolved" ||
+      /\?|open question|unclear|unknown|risk|unresolved|needs confirmation|tension/i.test(clean)
+    );
+  });
+}
+
+interface GovernanceStatement {
   text: string;
   source: string;
   sourceRole: ContinuitySourceRole;
   sectionBucket?: ContinuityPrimaryBucket;
-}> {
+}
+
+function splitGovernanceStatements(
+  text: string,
+  source: string
+): GovernanceStatement[] {
   if (!text.trim()) return [];
   const prepared = normalizeRuntimeScaffold(text)
     .replace(/\r/g, "\n")
     .replace(/\s+([-*•]\s+)/g, "\n$1")
     .replace(/\s+((?:[IVXLCDM]+|\d+)\.\s+[A-Z])/g, "\n$1")
     .replace(/\s+([A-Z]\d+\s+[A-Z])/g, "\n$1");
-  const output: Array<{
-    text: string;
-    source: string;
-    sourceRole: ContinuitySourceRole;
-    sectionBucket?: ContinuityPrimaryBucket;
-  }> = [];
+  const output: GovernanceStatement[] = [];
   let currentBucket: ContinuityPrimaryBucket | undefined;
+  let currentSourceRole: ContinuitySourceRole | undefined;
 
   for (const rawLine of prepared.split(/\n+/)) {
     const line = rawLine.trim();
     if (!line) continue;
-    const labelMatch = line.match(SECTION_LABEL_RE);
+    const explicitSourceRole = sourceRoleForStatement(rawLine, source);
+    if (/^\s*(?:user|assistant|system|developer|model|human|ai)\s*:\s*$/i.test(line)) {
+      currentSourceRole = explicitSourceRole;
+      currentBucket = undefined;
+      continue;
+    }
+    if (SPEAKER_PREFIX_RE.test(line)) {
+      currentSourceRole = explicitSourceRole;
+      currentBucket = undefined;
+    }
+    const statementSourceRole = currentSourceRole ?? explicitSourceRole;
+    const lineWithoutSpeaker = line.replace(SPEAKER_PREFIX_RE, "").trim();
+    if (isRetrievalContextLine(lineWithoutSpeaker)) {
+      currentBucket = "quarantine_log";
+      const retrievalText = retrievalTextFromLine(lineWithoutSpeaker);
+      if (retrievalText) {
+        output.push({
+          text: `Retrieved evidence: ${retrievalText}`,
+          source,
+          sourceRole: "retrieved_external_content",
+          sectionBucket: "quarantine_log"
+        });
+      }
+      continue;
+    }
+    const labelMatch = lineWithoutSpeaker.match(SECTION_LABEL_RE);
     if (labelMatch) {
       const bucket = sectionBucket(labelMatch[1] ?? "");
       if (bucket) currentBucket = bucket;
@@ -576,24 +751,24 @@ function splitGovernanceStatements(
       output.push({
         text: remainder,
         source,
-        sourceRole: sourceRoleForStatement(rawLine, source),
+        sourceRole: statementSourceRole,
         sectionBucket: bucket ?? currentBucket
       });
       continue;
     }
 
     const pieces =
-      line.length > 260
-        ? line
+      lineWithoutSpeaker.length > 260
+        ? lineWithoutSpeaker
             .split(/(?<=[.!?])\s+(?=[A-Z])/)
             .map(normalizeCanonicalText)
             .filter(Boolean)
-        : [normalizeCanonicalText(line)].filter(Boolean);
+        : [normalizeCanonicalText(lineWithoutSpeaker)].filter(Boolean);
     output.push(
       ...pieces.map((item) => ({
         text: item,
         source,
-        sourceRole: sourceRoleForStatement(rawLine, source),
+        sourceRole: statementSourceRole,
         sectionBucket: currentBucket
       }))
     );
@@ -604,6 +779,43 @@ function splitGovernanceStatements(
 
 function uniqueCanonicalItems(items: string[]): string[] {
   return uniqueMeaningfulStrings(items.map(normalizeCanonicalText).filter(Boolean));
+}
+
+function isEligibleUserStatement(statement: GovernanceStatement): boolean {
+  return (
+    isUserAuthoredRole(statement.sourceRole) &&
+    !isGenericUiChromeArtifact(statement.text) &&
+    !isPromptScaffold(statement.text) &&
+    !isTaskLocalInstruction(statement.text)
+  );
+}
+
+function statementTexts(statements: GovernanceStatement[]): string[] {
+  return uniqueMeaningfulStrings(statements.map((statement) => statement.text).filter(Boolean));
+}
+
+function statementTextIsCovered(statements: GovernanceStatement[], candidate: string): boolean {
+  return statements.some((statement) =>
+    isMeaningfullyDuplicate(statement.text, candidate, 0.72)
+  );
+}
+
+function isReservedGovernanceBucket(bucket: ContinuityPrimaryBucket | undefined): boolean {
+  return Boolean(
+    bucket &&
+      [
+        "governance_principles",
+        "invariants",
+        "continuity_safeguards",
+        "rejected_directions",
+        "quarantine_log",
+        "deferred_items",
+        "open_unresolved",
+        "task_local_forbidden",
+        "task_local_instructions",
+        "mutation_targets"
+      ].includes(bucket)
+  );
 }
 
 function isStrictRejectedDirection(text: string): boolean {
@@ -626,7 +838,7 @@ function bucketForGovernanceStatement(
   decision: CanonicalContinuityItem["decision"];
   reason: string;
 } {
-  if (sourceRole === "page_chrome" || sourceRole === "system_ui" || sourceRole === "extension_ui") {
+  if (isChromeRole(sourceRole)) {
     return {
       bucket: "diagnostic_only",
       decision: "quarantine",
@@ -634,15 +846,39 @@ function bucketForGovernanceStatement(
     };
   }
   if (
-    (sourceRole === "assistant_generated" ||
-      sourceRole === "external_model_output" ||
-      sourceRole === "retrieved_external") &&
+    (isExternalModelRole(sourceRole) || isRetrievedRole(sourceRole)) &&
     !isPromotedByUser(text, sourceRole)
   ) {
     return {
       bucket: "quarantine_log",
       decision: "quarantine",
       reason: `${sourceRole.replace(/_/g, " ")} requires explicit user promotion before admission`
+    };
+  }
+  if (
+    (sourceRole === "diagnostic_generated" ||
+      sourceRole === "transformed_review_output" ||
+      sourceRole === "exported_artifact_text") &&
+    !isPromotedByUser(text, sourceRole)
+  ) {
+    return {
+      bucket: "diagnostic_only",
+      decision: "quarantine",
+      reason: `${sourceRole.replace(/_/g, " ")} cannot be re-admitted as source truth`
+    };
+  }
+  if (!isUserAuthoredRole(sourceRole) && sourceRole !== "unknown") {
+    return {
+      bucket: "quarantine_log",
+      decision: "quarantine",
+      reason: `${sourceRole.replace(/_/g, " ")} is not eligible for direct durable admission`
+    };
+  }
+  if (sourceRole === "unknown") {
+    return {
+      bucket: "diagnostic_only",
+      decision: "quarantine",
+      reason: "unknown source role fails closed"
     };
   }
   if (isPromptScaffold(text)) {
@@ -654,14 +890,14 @@ function bucketForGovernanceStatement(
   }
   if (section === "task_local_instructions" || isTaskLocalInstruction(text)) {
     return {
-      bucket: "task_local_instructions",
+      bucket: "diagnostic_only",
       decision: "defer",
       reason: "task-local answer instruction, not durable state"
     };
   }
   if (section === "task_local_forbidden") {
     return {
-      bucket: "task_local_forbidden",
+      bucket: "diagnostic_only",
       decision: "defer",
       reason: "task-local forbidden instruction, not durable rejection"
     };
@@ -683,7 +919,7 @@ function bucketForGovernanceStatement(
   }
   if (section === "conditional_admissions") {
     return {
-      bucket: "conditional_admissions",
+      bucket: "deferred_items",
       decision: "conditional_admit",
       reason: "admissible only under stated conditions"
     };
@@ -697,7 +933,7 @@ function bucketForGovernanceStatement(
       };
     }
     return {
-      bucket: "task_local_forbidden",
+      bucket: "diagnostic_only",
       decision: "defer",
       reason: "negative or labeled text was not a durable rejected direction"
     };
@@ -722,10 +958,13 @@ function bucketForGovernanceStatement(
   }
   if (section === "mutation_targets" || MUTATION_RE.test(text)) {
     return {
-      bucket: "mutation_targets",
+      bucket: "quarantine_log",
       decision: "quarantine",
       reason: "mutation risk preserved for analysis"
     };
+  }
+  if (section === "open_unresolved") {
+    return { bucket: "open_unresolved", decision: "defer", reason: "open or unresolved state" };
   }
   if (QUARANTINE_RE.test(text) || UNTRUSTED_RE.test(text)) {
     if (
@@ -749,7 +988,7 @@ function bucketForGovernanceStatement(
   }
   if (CONDITIONAL_ADMIT_RE.test(text)) {
     return {
-      bucket: "conditional_admissions",
+      bucket: "deferred_items",
       decision: "conditional_admit",
       reason: "admissible only under stated conditions"
     };
@@ -770,10 +1009,7 @@ function bucketForGovernanceStatement(
   if (GOVERNANCE_PRINCIPLE_RE.test(text)) {
     return { bucket: "governance_principles", decision: "admit", reason: "governance principle" };
   }
-  if (
-    section === "open_unresolved" ||
-    /\?|open question|unresolved|unclear|risk|tension|unknown/i.test(text)
-  ) {
+  if (/\?|open question|unresolved|unclear|risk|tension|unknown/i.test(text)) {
     return { bucket: "open_unresolved", decision: "defer", reason: "open or unresolved state" };
   }
   return { bucket: "provisional_state", decision: "admit", reason: "new admissible update" };
@@ -786,8 +1022,10 @@ function makeCanonicalItem(
   source: string,
   sourceRole: ContinuitySourceRole,
   reason: string,
+  provider: string,
   crossRefs: ContinuityPrimaryBucket[] = []
 ): CanonicalContinuityItem {
+  const admitted = decision === "admit" || decision === "conditional_admit";
   return {
     id: canonicalId(text, bucket),
     text: normalizeCanonicalText(text),
@@ -795,10 +1033,31 @@ function makeCanonicalItem(
     decision,
     source,
     source_role: sourceRole,
+    provider,
+    extraction_path: source,
+    admission_reason: admitted ? reason : undefined,
+    blocked_reason: admitted ? undefined : reason,
     reason,
     cross_refs: crossRefs.length ? crossRefs : undefined
   };
 }
+
+const BUCKET_PRIORITY: Record<ContinuityPrimaryBucket, number> = {
+  rejected_directions: 100,
+  invariants: 92,
+  governance_principles: 88,
+  continuity_safeguards: 84,
+  open_unresolved: 76,
+  stable_core: 72,
+  provisional_state: 56,
+  deferred_items: 44,
+  quarantine_log: 36,
+  diagnostic_only: 10,
+  conditional_admissions: 42,
+  task_local_forbidden: 12,
+  task_local_instructions: 12,
+  mutation_targets: 34
+};
 
 function addUniqueItem(items: CanonicalContinuityItem[], item: CanonicalContinuityItem): void {
   if (!item.text) return;
@@ -807,6 +1066,20 @@ function addUniqueItem(items: CanonicalContinuityItem[], item: CanonicalContinui
   );
   if (!existing) {
     items.push(item);
+    return;
+  }
+  if (BUCKET_PRIORITY[item.primary_bucket] > BUCKET_PRIORITY[existing.primary_bucket]) {
+    const priorBucket = existing.primary_bucket;
+    const mergedCrossRefs = new Set<ContinuityPrimaryBucket>([
+      ...(existing.cross_refs ?? []),
+      ...(item.cross_refs ?? []),
+      priorBucket
+    ]);
+    mergedCrossRefs.delete(item.primary_bucket);
+    Object.assign(existing, {
+      ...item,
+      cross_refs: Array.from(mergedCrossRefs)
+    });
     return;
   }
   if (
@@ -863,6 +1136,7 @@ function buildAdversarialGovernanceState(input: {
 }): AdversarialGovernanceState {
   const canonicalItems: CanonicalContinuityItem[] = [];
   const trustedStable = trustedSummaryFrom(input.activeObjective, input.stableCore, input.parsed);
+  const provider = providerLabel(input.request);
 
   for (const item of trustedStable) {
     addUniqueItem(
@@ -873,7 +1147,8 @@ function buildAdversarialGovernanceState(input: {
         "admit",
         "trusted_state",
         "trusted_state",
-        "accepted durable state"
+        "accepted durable state",
+        provider
       )
     );
   }
@@ -886,7 +1161,8 @@ function buildAdversarialGovernanceState(input: {
         "defer",
         "continuity_review.open_unresolved",
         "trusted_state",
-        "open state is preserved"
+        "open state is preserved",
+        provider
       )
     );
   }
@@ -930,6 +1206,7 @@ function buildAdversarialGovernanceState(input: {
         statement.source,
         statement.sourceRole,
         classification.reason,
+        provider,
         crossRefs
       )
     );
@@ -945,12 +1222,7 @@ function buildAdversarialGovernanceState(input: {
     byBucket("continuity_safeguards").map((item) => item.text)
   );
   const rejectedDirections = uniqueCanonicalItems(
-    canonicalItems
-      .filter(
-        (item) =>
-          item.primary_bucket === "rejected_directions" ||
-          item.cross_refs?.includes("rejected_directions")
-      )
+    byBucket("rejected_directions")
       .map((item) => item.text)
       .filter(isStrictRejectedDirection)
   );
@@ -977,14 +1249,17 @@ function buildAdversarialGovernanceState(input: {
     (item) =>
       item.decision === "reject" ||
       item.decision === "quarantine" ||
-      item.primary_bucket === "mutation_targets" ||
       item.primary_bucket === "quarantine_log" ||
-      item.source_role === "assistant_generated" ||
-      item.source_role === "external_model_output" ||
-      item.source_role === "retrieved_external"
+      isExternalModelRole(item.source_role ?? "unknown") ||
+      isRetrievedRole(item.source_role ?? "unknown") ||
+      item.source_role === "transformed_review_output" ||
+      item.source_role === "diagnostic_generated" ||
+      item.source_role === "exported_artifact_text"
   );
   const mutationTargets = uniqueCanonicalItems([
-    ...byBucket("mutation_targets").map((item) => item.text),
+    ...byBucket("quarantine_log")
+      .filter((item) => MUTATION_RE.test(item.text))
+      .map((item) => item.text),
     ...untrustedInstructions.filter((item) => MUTATION_RE.test(item.text)).map((item) => item.text)
   ]).map(mutationTargetFromText);
   const admittedUpdates = canonicalItems.filter(
@@ -1014,15 +1289,14 @@ function buildAdversarialGovernanceState(input: {
   }
   if (
     byBucket("stable_core").some(
-      (item) =>
-        item.source_role === "assistant_generated" || item.source_role === "external_model_output"
+      (item) => isExternalModelRole(item.source_role ?? "unknown")
     )
   ) {
     metricWarnings.push("Metric penalty applied due to assistant-authored state contamination.");
   }
   if (
     canonicalItems.some(
-      (item) => item.source_role === "page_chrome" || isPerplexityUiArtifact(item.text)
+      (item) => isChromeRole(item.source_role ?? "unknown") || isGenericUiChromeArtifact(item.text)
     )
   ) {
     metricWarnings.push("Metric penalty applied due to page chrome contamination.");
@@ -1046,6 +1320,63 @@ function buildAdversarialGovernanceState(input: {
   ) {
     metricWarnings.push("Metric penalty applied due to rejected-direction taxonomy ambiguity.");
   }
+  const sourceCorpus = [input.sourceText, input.newInstructionText].filter(Boolean).join("\n");
+  const likelyMissingCategories = [
+    hasGovernanceSourceSignal(sourceCorpus) && governancePrinciples.length === 0
+      ? "governance_principles"
+      : "",
+    hasInvariantSourceSignal(sourceCorpus) && invariants.length === 0 ? "invariants" : "",
+    hasRejectedSourceSignal(sourceCorpus) && rejectedDirections.length === 0
+      ? "rejected_directions"
+      : "",
+    hasContinuitySafeguardSourceSignal(sourceCorpus) && continuitySafeguards.length === 0
+      ? "continuity_safeguards"
+      : ""
+  ].filter(Boolean);
+  if (likelyMissingCategories.length) {
+    metricWarnings.push(
+      `Critical fidelity failure: likely source categories were not extracted (${likelyMissingCategories.join(", ")}).`
+    );
+  }
+  const bucketCollisionsPrevented = canonicalItems.reduce(
+    (count, item) => count + (item.cross_refs?.length ?? 0),
+    0
+  );
+  const durableBuckets = new Set<ContinuityPrimaryBucket>([
+    "stable_core",
+    "provisional_state",
+    "open_unresolved",
+    "governance_principles",
+    "invariants",
+    "rejected_directions",
+    "continuity_safeguards"
+  ]);
+  const admissionCounts: Record<string, number> = {
+    user_authored_admitted_durable_items: canonicalItems.filter(
+      (item) =>
+        isUserAuthoredRole(item.source_role ?? "unknown") &&
+        item.decision === "admit" &&
+        durableBuckets.has(item.primary_bucket)
+    ).length,
+    assistant_generated_blocked_items: canonicalItems.filter(
+      (item) => isAssistantRole(item.source_role ?? "unknown") && item.decision !== "admit"
+    ).length,
+    chrome_fragments_removed: canonicalItems.filter(
+      (item) =>
+        isChromeRole(item.source_role ?? "unknown") || isGenericUiChromeArtifact(item.text)
+    ).length,
+    duplicate_fragments_normalized: bucketCollisionsPrevented,
+    bucket_collisions_prevented: bucketCollisionsPrevented,
+    rejected_direction_items_preserved: rejectedDirections.length,
+    unresolved_tension_items_preserved: byBucket("open_unresolved").length,
+    exported_items_omitted_due_to_contamination: canonicalItems.filter(
+      (item) =>
+        item.primary_bucket === "diagnostic_only" ||
+        item.primary_bucket === "quarantine_log" ||
+        isChromeRole(item.source_role ?? "unknown") ||
+        isExternalModelRole(item.source_role ?? "unknown")
+    ).length
+  };
 
   return {
     trusted_state: {
@@ -1087,7 +1418,12 @@ function buildAdversarialGovernanceState(input: {
       overall_attack_type: mutationTargets.length ? "trusted-state mutation attempt" : undefined
     },
     canonical_items: canonicalItems.slice(0, 80),
-    metric_warnings: metricWarnings
+    metric_warnings: metricWarnings,
+    admission_counts: admissionCounts,
+    duplicate_fragments_normalized: bucketCollisionsPrevented,
+    bucket_collisions_prevented: bucketCollisionsPrevented,
+    extraction_failure: likelyMissingCategories.length > 0,
+    likely_missing_categories: likelyMissingCategories.length ? likelyMissingCategories : undefined
   };
 }
 
@@ -1099,13 +1435,25 @@ function isDurableStableCandidate(text: string): boolean {
   const clean = normalizeCanonicalText(text);
   if (
     !clean ||
-    isPerplexityUiArtifact(clean) ||
+    isGenericUiChromeArtifact(clean) ||
     isPromptScaffold(clean) ||
-    isTaskLocalInstruction(clean)
+    isTaskLocalInstruction(clean) ||
+    ASSISTANT_RECONSTRUCTION_RE.test(clean)
   ) {
     return false;
   }
   if (/^\s*(?:assistant|model|ai|system|developer)\s*:/i.test(text)) return false;
+  if (
+    /\b(?:assistant|model|gemini|claude|chatgpt|grok|deepseek|perplexity)\s+(?:said|responded|wrote|answered)\b/i.test(
+      text
+    )
+  ) {
+    return false;
+  }
+  if (isCategoryHeader(clean)) return false;
+  if (/\b(framing note|role framing|conversational simulation|formal validation framework|architectural compliance matrix|external dependency expansion shall be enforced)\b/i.test(clean)) {
+    return false;
+  }
   if (
     /\b(format|table|markdown|json|schema|bullet|section|score|final scores?|respond with|return as)\b/i.test(
       clean
@@ -1118,17 +1466,44 @@ function isDurableStableCandidate(text: string): boolean {
   return true;
 }
 
+function isEligibleUserBodyStatement(text: string): boolean {
+  const role = sourceRoleForStatement(text, "draft");
+  return isUserAuthoredRole(role) && !isGenericUiChromeArtifact(text) && !isPromptScaffold(text);
+}
+
 function objectiveFromText(text: string, fallback = "Continue the active workflow."): string {
   const prepared = removeGeneratedRuntimeInstructions(text);
-  const objectiveMatch = prepared.match(/(?:^|\n)\s*(?:[-*•]\s*)?objective:\s*([^\n]*)/i);
+  const objectiveMatch = prepared.match(/(?:^|\n)\s*(?:[-*•]\s*)?(?:mission|objective):\s*([^\n]*)/i);
   const objective = objectiveMatch?.[1] ? stripSectionLabel(objectiveMatch[1]).slice(0, 240) : "";
   if (objective) return objective;
 
   const firstCandidate = prepared
     .split("\n")
     .map((line) => stripSectionLabel(line))
-    .find((line) => line.length > 3 && !isRuntimeScaffoldLine(line));
+    .find(
+      (line) =>
+        line.length > 3 && !isRuntimeScaffoldLine(line) && isEligibleUserBodyStatement(line)
+    );
   return (firstCandidate ?? firstMeaningfulLine(prepared, fallback)).slice(0, 240) || fallback;
+}
+
+function objectiveFromStatements(
+  statements: GovernanceStatement[],
+  fallbackText: string,
+  fallback = "Continue the active workflow."
+): string {
+  const sourceObjective = statements
+    .filter(isEligibleUserStatement)
+    .find(
+      (statement) =>
+        statement.sectionBucket === "stable_core" &&
+        !isTaskLocalInstruction(statement.text) &&
+        !isPromptScaffold(statement.text)
+    );
+  if (sourceObjective?.text) {
+    return sourceObjective.text.slice(0, 240);
+  }
+  return objectiveFromText(fallbackText, fallback);
 }
 
 function section(title: string, lines: string[]): string {
@@ -1168,13 +1543,42 @@ function buildReview(input: {
 }): ContinuityReview {
   const parsed = input.parsedCapsuleResult?.parsedCapsule;
   const newInstructionText = input.parsedCapsuleResult?.sourceWithoutCapsule ?? input.sourceText;
+  const draftStatements = splitGovernanceStatements(newInstructionText, "draft");
+  const userDraftStatements = draftStatements.filter(isEligibleUserStatement);
   const activeObjective =
-    parsed?.active_objective ?? objectiveFromText(input.normalized || input.reduced);
+    parsed?.active_objective ??
+    objectiveFromStatements(userDraftStatements, input.normalized || input.reduced);
+  const explicitlyRejectedStatements = userDraftStatements
+    .filter((statement) => statement.sectionBucket === "rejected_directions")
+    .map((statement) => statement.text);
+  const reservedGovernanceStatements = userDraftStatements.filter((statement) =>
+    isReservedGovernanceBucket(statement.sectionBucket)
+  );
+  const stableSourceStatements = userDraftStatements.filter(
+    (statement) =>
+      statement.sectionBucket === "stable_core" &&
+      !isCoveredBy(explicitlyRejectedStatements, statement.text) &&
+      isDurableStableCandidate(statement.text)
+  );
   const hardConstraints = input.constraints
     .filter((constraint) => constraint.hard)
-    .map((constraint) => constraint.text)
-    .filter(isDurableStableCandidate);
+    .filter(
+      (constraint) =>
+        !/^\s*(governance principles?|governance principle|invariants?|invariant|rejected directions?|rejected direction|open questions?|open\/unresolved|quarantine|retrieved evidence|retrieval context|deferred items?)\s*:/i.test(
+          cleanStateLine(constraint.text)
+        )
+    )
+    .map((constraint) => normalizeCanonicalText(constraint.text))
+    .filter(isDurableStableCandidate)
+    .filter((constraint) => statementTextIsCovered(stableSourceStatements, constraint))
+    .filter(
+      (constraint) =>
+        !explicitlyRejectedStatements.some((rejected) =>
+          isMeaningfullyDuplicate(constraint, rejected, 0.74)
+        )
+    );
   const stableCore = uniqueMeaningfulStrings([
+    ...statementTexts(stableSourceStatements),
     ...hardConstraints,
     ...(parsed?.stable_constraints.filter(isDurableStableCandidate) ?? []),
     ...(parsed?.accepted_decisions
@@ -1184,10 +1588,27 @@ function buildReview(input: {
   const openUnresolved = uniqueMeaningfulStrings([
     ...(parsed?.open_questions ?? []),
     ...(parsed?.unresolved_risks.map((item) => `Risk: ${item}`) ?? []),
-    ...statementsFromText(newInstructionText).filter(
-      (item) =>
-        !isRetrievalContextLine(item) &&
-        /\?|open question|unclear|unknown|risk|unresolved|needs confirmation/i.test(item)
+    ...statementTexts(
+      userDraftStatements.filter(
+        (statement) => {
+          if (isRetrievalContextLine(statement.text)) return false;
+          const classification = bucketForGovernanceStatement(
+            statement.text,
+            statement.sectionBucket,
+            statement.sourceRole
+          );
+          return (
+            classification.bucket === "open_unresolved" ||
+            (statement.sectionBucket === "open_unresolved" &&
+              classification.decision !== "quarantine" &&
+              classification.decision !== "reject") ||
+            (/\?|open question|unclear|unknown|risk|unresolved|needs confirmation|tension/i.test(
+              statement.text
+            ) &&
+              classification.bucket === "provisional_state")
+          );
+        }
+      )
     )
   ]);
   const stableAndOpen = [activeObjective, ...stableCore, ...openUnresolved];
@@ -1196,10 +1617,22 @@ function buildReview(input: {
   );
   const newProvisional = uniqueMeaningfulStrings([
     ...retrievedProvisional,
-    ...statementsFromText(newInstructionText)
-      .filter((item) => !isRetrievalContextLine(item))
-      .filter((item) => !isCoveredBy(stableAndOpen, item))
-      .filter((item) => !/^no new/i.test(item))
+    ...statementTexts(
+      userDraftStatements.filter(
+        (statement) =>
+          !isRetrievalContextLine(statement.text) &&
+          !isReservedGovernanceBucket(statement.sectionBucket) &&
+          statement.sectionBucket !== "stable_core" &&
+          bucketForGovernanceStatement(
+            statement.text,
+            statement.sectionBucket,
+            statement.sourceRole
+          ).bucket === "provisional_state" &&
+          !isCoveredBy(stableAndOpen, statement.text) &&
+          !statementTextIsCovered(reservedGovernanceStatements, statement.text) &&
+          !/^no new/i.test(statement.text)
+      )
+    )
   ]).slice(0, 8);
   const governanceState = buildAdversarialGovernanceState({
     activeObjective,
@@ -1212,6 +1645,15 @@ function buildReview(input: {
     newInstructionText,
     retrievalContext: input.retrievalContext
   });
+  const likelyMissingCategories = governanceState.likely_missing_categories ?? [];
+  const omittedRejectedCount =
+    hasRejectedSourceSignal(input.sourceText) && !governanceState.rejected_directions.length
+      ? 1
+      : 0;
+  const unresolvedCollapsedCount =
+    hasOpenStateSourceSignal(input.sourceText) && openUnresolved.length === 0
+      ? 1
+      : 0;
   const whatChanged = uniqueMeaningfulStrings([
     parsed
       ? "Parsed the carry-forward capsule into human-readable continuity state."
@@ -1287,7 +1729,19 @@ function buildReview(input: {
       governance_principles: governanceState.governance_principles,
       invariants: governanceState.invariants,
       continuity_safeguards: governanceState.continuity_safeguards,
-      metric_warnings: governanceState.metric_warnings
+      metric_warnings: governanceState.metric_warnings,
+      extraction_failure: governanceState.extraction_failure,
+      fidelity_severity: governanceState.extraction_failure ? "critical" : "info",
+      likely_missing_categories: likelyMissingCategories.length
+        ? likelyMissingCategories
+        : undefined,
+      admission_counts: governanceState.admission_counts,
+      compression_loss: {
+        lost_categories: likelyMissingCategories,
+        degraded_links: [],
+        omitted_rationale_count: omittedRejectedCount,
+        unresolved_items_collapsed_count: unresolvedCollapsedCount
+      }
     }
   };
 }
@@ -1371,10 +1825,15 @@ function metricPenaltiesForReview(
     /(untrusted|ignore previous|override|conflicting instruction|adversarial|replace trusted|discard trusted)/i.test(
       request.sourceText
     );
-  const hasOpenSignal = /\?|open question|unresolved|unclear|risk|tension|unknown/i.test(
-    request.sourceText
-  );
-  const hasMutationSignal = MUTATION_RE.test(request.sourceText);
+  const hasOpenSignal = hasOpenStateSourceSignal(request.sourceText);
+  const hasMutationSignal =
+    /\b(ignore previous|replace trusted|delete safeguards|suppress audit|false claim|hidden rewrite|state override|attempted mutation|attempted state override)\b/i.test(
+      request.sourceText
+    ) ||
+    (/\b(?:override|replace|delete|suppress)\b/i.test(request.sourceText) &&
+      !/\b(do not|must not|should not|never)\s+(?:override|replace|delete|suppress)\b/i.test(
+        request.sourceText
+      ));
   const hasStructuredStateSignal =
     request.sourceText.length > 240 &&
     /\b(objective|stable core|trusted state|governance principles?|invariants?|continuity safeguards?|rejected directions?|open questions?)\s*:/i.test(
@@ -1386,6 +1845,7 @@ function metricPenaltiesForReview(
   const hasInvariantSignal = /\binvariants?\s*:|\binvariant\b|\bmust remain\b/i.test(
     request.sourceText
   );
+  const hasRejectedSignal = hasRejectedSourceSignal(request.sourceText);
   const stableCanonical =
     governance?.canonical_items.filter((item) => item.primary_bucket === "stable_core") ?? [];
   const writebackFailed =
@@ -1422,20 +1882,30 @@ function metricPenaltiesForReview(
     chromeContamination:
       /show more|show less|copy link|related questions|ask follow-up/i.test(reviewText) ||
       (governance?.canonical_items.some(
-        (item) => item.source_role === "page_chrome" || isPerplexityUiArtifact(item.text)
+        (item) =>
+          isChromeRole(item.source_role ?? "unknown") || isGenericUiChromeArtifact(item.text)
       ) ??
         false),
     assistantContamination:
-      stableCanonical.some(
-        (item) =>
-          item.source_role === "assistant_generated" || item.source_role === "external_model_output"
-      ) || /(^|\n)\s*(assistant|model|ai)\s*:/i.test(review.stableCore.join("\n")),
+      stableCanonical.some((item) => isExternalModelRole(item.source_role ?? "unknown")) ||
+      review.stableCore.some((item) => ASSISTANT_RECONSTRUCTION_RE.test(item)) ||
+      /(^|\n)\s*(assistant|model|ai)\s*:/i.test(review.stableCore.join("\n")),
     promptScaffoldingLeakage: [review.activeObjective, ...review.stableCore].some((item) =>
       isPromptScaffold(item)
     ),
     emptyGovernanceWhenPresent:
       hasGovernanceSignal && !(governance?.governance_principles.length ?? 0),
     emptyInvariantsWhenPresent: hasInvariantSignal && !(governance?.invariants.length ?? 0),
+    emptyRejectionsWhenPresent:
+      hasRejectedSignal && !(governance?.rejected_directions.length ?? 0),
+    extractionFailure: review.diagnostics.extraction_failure,
+    negativeStateLoss:
+      (review.diagnostics.compression_loss?.lost_categories.includes("rejected_directions") ??
+        false) ||
+      (review.diagnostics.compression_loss?.unresolved_items_collapsed_count ?? 0) > 0,
+    reviewOpenNotVisible:
+      request.providerHealth?.review_open_status === "failed" ||
+      Boolean(request.providerHealth?.failure_stage),
     categoryHeaderAdmission:
       governance?.canonical_items.some((item) => isCategoryHeader(item.text)) ?? false,
     taskLocalLeakage:
@@ -1498,9 +1968,17 @@ export function transformPrompt(request: TransformRequest): TransformResult {
     mode: request.mode,
     penalties
   });
+  review.diagnostics.export_readiness_decision =
+    (scores.exportReadiness ?? 1) < 0.74 ||
+    review.diagnostics.fidelity_severity === "critical"
+      ? "UNSAFE_FOR_HANDOFF"
+      : "READY_FOR_HANDOFF";
   const metricWarnings = uniqueMeaningfulStrings([
     ...(review.diagnostics.metric_warnings ?? []),
-    ...(scores.warnings ?? [])
+    ...(scores.warnings ?? []),
+    review.diagnostics.export_readiness_decision === "UNSAFE_FOR_HANDOFF"
+      ? "Export readiness downgraded: unsafe for handoff until fidelity issues are resolved."
+      : ""
   ]);
   review.diagnostics.metric_warnings = metricWarnings.length ? metricWarnings : undefined;
   if (review.diagnostics.adversarialGovernance) {

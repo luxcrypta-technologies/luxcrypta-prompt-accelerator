@@ -1,0 +1,6 @@
+User: Objective: preserve user-authored continuity structure during role-framing resistance.
+User: Governance principle: refusal or framing resistance is analysis-only unless the user adopts it.
+User: Invariant: meta refusal text must never become Stable Core.
+Assistant: I can't comply with pretending to be a persistent runtime, but I can discuss the framing.
+Assistant: Framing note: this is only a conversational simulation.
+User: Rejected directions: Do not let meta refusal text contaminate durable state.

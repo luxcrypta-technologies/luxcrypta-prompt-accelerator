@@ -123,15 +123,31 @@ function cleanLine(value: string | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
 
+function scrubProviderChromeTokens(text: string): string {
+  if (!/\b(show more|show less|try pro|upsell|host chrome|page chrome|provider chrome)\b/i.test(text)) {
+    return text;
+  }
+  return text
+    .replace(/\bshow more\b/gi, "provider chrome")
+    .replace(/\bshow less\b/gi, "provider chrome")
+    .replace(/\bcopy(?: link)?\b/gi, "provider chrome")
+    .replace(/\badvanced\b/gi, "provider chrome")
+    .replace(/\btry pro\b/gi, "provider upsell")
+    .replace(/\bupgrade\b/gi, "provider upsell")
+    .replace(/\b(?:provider chrome)(?:\s*,\s*provider chrome)+/gi, "provider chrome")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function cleanFragmentText(value: string | undefined): string {
-  return cleanLine(value)
+  return scrubProviderChromeTokens(cleanLine(value))
     .replace(/^```[a-z0-9_-]*\s*/i, "")
     .replace(/```$/i, "")
     .replace(/^\s*(?:#{1,6}\s*)/, "")
     .replace(/^\s*(?:[-*•>]+\s*)+/, "")
     .replace(/^\s*(?:[IVXLCDM]+\.|\d+[.)]|[A-Z]\.)\s+/i, "")
     .replace(
-      /^\s*(?:allowed examples?|bad examples?|new rule|required acceptance criteria|acceptance criteria|observed issues include|main fixes|purpose|target behavior|examples?|instead of preserving):\s*/i,
+      /^\s*(?:allowed examples?|bad examples?|new rule|required acceptance criteria|acceptance criteria|observed issues include|main fixes|purpose|target behavior|examples?|instead of preserving|governance principles?|invariants?|rejected directions?|continuity safeguards?|quarantine log|deferred items?|open\/unresolved|new\/provisional|stable core):\s*/i,
       ""
     )
     .replace(/^["'`]+|["'`]+$/g, "")
@@ -229,7 +245,7 @@ function isUiArtifact(text: string): boolean {
   const compact = lower.replace(/[^a-z0-9]+/g, "");
   return (
     /^(showmore|showless|showmoreshowless)$/.test(compact) ||
-    /^(apply|copy|save|cancel|close|review|workflow|capsule|downloadjson|saveworkflow|savecapsule|copycapsule|copyrawdiagnosticdata|exportdiagnosticstate)$/.test(
+    /^(apply|copy|save|cancel|close|review|workflow|capsule|downloadjson|saveworkflow|savecapsule|copycapsule|copyallreview|copyreviewrawjson|copyengineeringsummary|copyportablecapsule|copyworkflowexport|copyrawdiagnosticdata|exportdiagnosticstate|advanced|retryopen)$/.test(
       compact
     ) ||
     /^(activeobjective|stablecore|newprovisional|openunresolved|recommendednextactions|transformedcontinuitydraft|cleansummary|advanceddiagnostics|rawcapsulediagnosticdata|poweredbyluxcrypta|readytoreview)$/.test(
@@ -502,6 +518,12 @@ function isTrueRejectedDirection(text: string): boolean {
   );
 }
 
+function isLabeledNonStableState(text: string): boolean {
+  return /^\s*(governance principles?|governance principle|invariants?|invariant|rejected directions?|rejected direction|open questions?|open\/unresolved|quarantine|retrieved evidence|retrieval context|deferred items?|continuity safeguards?)\s*:/i.test(
+    cleanLine(text)
+  );
+}
+
 function isPortableStateDebris(text: string, context: AdmissionContext): boolean {
   return (
     isUiArtifact(text) ||
@@ -526,7 +548,7 @@ function canonicalizeForTarget(
 ): string {
   const distilled = distillLongFragment(text, target, context)
     .replace(
-      /^(?:decision|constraint|requirement|open question|risk|note|objective|stable core|rejected direction):\s*/i,
+      /^(?:decision|constraint|requirement|open question|risk|note|objective|stable core|governance principles?|invariants?|continuity safeguards?|quarantine log|deferred items?|rejected directions?|rejected direction):\s*/i,
       ""
     )
     .trim();
@@ -834,7 +856,9 @@ function buildAdmittedState(
   const stableConstraints = admitCandidates(
     [
       ...candidatesFrom(
-        result.extractedConstraints.map((constraint) => constraint.text),
+        result.extractedConstraints
+          .map((constraint) => constraint.text)
+          .filter((text) => !isLabeledNonStableState(text)),
         "extracted_constraints"
       ),
       ...candidatesFrom(
@@ -1112,7 +1136,13 @@ function scoreSummary(result: TransformResult): Record<string, number | undefine
     assistant_contamination_score: result.scores.assistantContaminationScore,
     durable_state_precision: result.scores.durableStatePrecision,
     durable_state_recall: result.scores.durableStateRecall,
+    durable_recall_estimate: result.scores.durableRecallEstimate,
     task_local_leakage_score: result.scores.taskLocalLeakageScore,
+    governance_detection_completeness: result.scores.governanceDetectionCompleteness,
+    invariant_detection_completeness: result.scores.invariantDetectionCompleteness,
+    negative_state_preservation: result.scores.negativeStatePreservation,
+    export_readiness: result.scores.exportReadiness,
+    review_truthfulness: result.scores.reviewTruthfulness,
     risk_score: result.scores.riskScore,
     redundancy_before: result.scores.redundancyScoreBefore,
     redundancy_after: result.scores.redundancyScoreAfter,
@@ -1137,6 +1167,12 @@ function diagnosticMetadata(
     retrieval_context: result.continuityReview.diagnostics.retrievalContext,
     mutation_risk_report: result.continuityReview.diagnostics.mutation_risk_report,
     metric_warnings: result.continuityReview.diagnostics.metric_warnings,
+    fidelity_severity: result.continuityReview.diagnostics.fidelity_severity,
+    extraction_failure: result.continuityReview.diagnostics.extraction_failure,
+    likely_missing_categories: result.continuityReview.diagnostics.likely_missing_categories,
+    compression_loss: result.continuityReview.diagnostics.compression_loss,
+    export_readiness_decision: result.continuityReview.diagnostics.export_readiness_decision,
+    admission_counts: result.continuityReview.diagnostics.admission_counts,
     task_local_instructions: result.continuityReview.diagnostics.task_local_instructions,
     task_local_forbidden: result.continuityReview.diagnostics.task_local_forbidden,
     raw_input_length: result.originalText.length,
@@ -1160,6 +1196,12 @@ function sourcePlatform(result: TransformResult): string {
 
 export function formatContinuityExport(result: TransformResult, transformedText: string): string {
   const admitted = buildAdmittedState(result, transformedText);
+  const cleanedTransformedText = transformedText
+    .split("\n")
+    .map((line) => scrubProviderChromeTokens(line))
+    .filter((line) => !isUiArtifact(line))
+    .join("\n")
+    .trim();
   const sections = [
     ["Continuity Review"],
     ["Active Objective", admitted.activeObjective],
@@ -1196,14 +1238,14 @@ export function formatContinuityExport(result: TransformResult, transformedText:
       "No quarantined or deferred items detected."
     ),
     bulletSection(
-      "Mutation Risk Report",
+      "Mutation Risk",
       admitted.mutationTargets.map(
         (item) => `${item.target_component}: ${item.attempted_mutation} (${item.risk_level})`
       ),
       "No mutation risks detected."
     ),
     bulletSection("Recommended Next Actions", admitted.recommendedNextActions),
-    transformedText.trim() ? ["Transformed Continuity Draft", transformedText.trim()] : []
+    cleanedTransformedText ? ["Transformed Continuity Draft", cleanedTransformedText] : []
   ];
 
   return sections
@@ -1266,7 +1308,17 @@ export function buildWorkflowDraft(
       ].slice(0, MAX_PORTABLE_CONTEXT_ITEMS),
       mutation_risk_report: review.diagnostics.mutation_risk_report
     },
-    risk_scores: { risk_score: result.scores.riskScore },
+    risk_scores: {
+      risk_score: result.scores.riskScore,
+      source_purity_score: result.scores.sourcePurityScore,
+      bucket_exclusivity_score: result.scores.bucketExclusivityScore,
+      chrome_contamination_score: result.scores.chromeContaminationScore,
+      assistant_contamination_score: result.scores.assistantContaminationScore,
+      durable_precision_score: result.scores.durableStatePrecision,
+      durable_recall_estimate: result.scores.durableRecallEstimate,
+      export_readiness_score: result.scores.exportReadiness,
+      export_readiness_decision: review.diagnostics.export_readiness_decision
+    },
     compression_metrics: {
       compactness_score: result.scores.compactnessScore,
       redundancy_before: result.scores.redundancyScoreBefore,
@@ -1386,6 +1438,17 @@ export function buildPortableCapsuleArtifact(
     detected_model:
       capsule.detected_model ?? context.result.targetModelApplied ?? review.diagnostics.targetModel,
     active_objective: admitted.activeObjective,
+    export_readiness_decision:
+      review.diagnostics.export_readiness_decision ?? "UNSAFE_FOR_HANDOFF",
+    source_purity_score: review.diagnostics.export_readiness_decision
+      ? context.result.scores.sourcePurityScore
+      : undefined,
+    bucket_exclusivity_score: context.result.scores.bucketExclusivityScore,
+    chrome_contamination_score: context.result.scores.chromeContaminationScore,
+    assistant_contamination_score: context.result.scores.assistantContaminationScore,
+    durable_precision_score: context.result.scores.durableStatePrecision,
+    durable_recall_estimate: context.result.scores.durableRecallEstimate,
+    export_readiness_score: context.result.scores.exportReadiness,
     stable_constraints: admitted.stableConstraints,
     accepted_decisions: admitted.acceptedDecisions,
     unresolved_issues: admitted.unresolvedIssues,
@@ -1430,6 +1493,16 @@ export function buildPortableWorkflowArtifact(
     detected_model:
       workflow.detected_model ?? workflow.targetModel ?? context.result.targetModelApplied,
     active_objective: admitted.activeObjective,
+    export_readiness_decision:
+      context.result.continuityReview.diagnostics.export_readiness_decision ??
+      "UNSAFE_FOR_HANDOFF",
+    source_purity_score: context.result.scores.sourcePurityScore,
+    bucket_exclusivity_score: context.result.scores.bucketExclusivityScore,
+    chrome_contamination_score: context.result.scores.chromeContaminationScore,
+    assistant_contamination_score: context.result.scores.assistantContaminationScore,
+    durable_precision_score: context.result.scores.durableStatePrecision,
+    durable_recall_estimate: context.result.scores.durableRecallEstimate,
+    export_readiness_score: context.result.scores.exportReadiness,
     stable_constraints: admitted.stableConstraints,
     accepted_decisions: admitted.acceptedDecisions,
     unresolved_issues: admitted.unresolvedIssues,
@@ -1449,7 +1522,18 @@ export function buildPortableWorkflowArtifact(
       ...diagnosticMetadata(context.result, context.transformedText, context.extensionVersion),
       admission_filter: portableAdmissionSummary(admitted.diagnostics)
     },
-    risk_scores: workflow.risk_scores ?? { risk_score: context.result.scores.riskScore },
+    risk_scores: workflow.risk_scores ?? {
+      risk_score: context.result.scores.riskScore,
+      source_purity_score: context.result.scores.sourcePurityScore,
+      bucket_exclusivity_score: context.result.scores.bucketExclusivityScore,
+      chrome_contamination_score: context.result.scores.chromeContaminationScore,
+      assistant_contamination_score: context.result.scores.assistantContaminationScore,
+      durable_precision_score: context.result.scores.durableStatePrecision,
+      durable_recall_estimate: context.result.scores.durableRecallEstimate,
+      export_readiness_score: context.result.scores.exportReadiness,
+      export_readiness_decision:
+        context.result.continuityReview.diagnostics.export_readiness_decision
+    },
     compression_metrics: workflow.compression_metrics ?? {
       compactness_score: context.result.scores.compactnessScore,
       redundancy_before: context.result.scores.redundancyScoreBefore,
@@ -1504,6 +1588,15 @@ export function buildDiagnosticState(context: ReviewArtifactContext): Record<str
     compression_score: context.result.scores.compactnessScore,
     constraint_score: context.result.scores.constraintPreservationScore,
     risk_score: context.result.scores.riskScore,
+    source_purity_score: context.result.scores.sourcePurityScore,
+    bucket_exclusivity_score: context.result.scores.bucketExclusivityScore,
+    chrome_contamination_score: context.result.scores.chromeContaminationScore,
+    assistant_contamination_score: context.result.scores.assistantContaminationScore,
+    durable_precision_score: context.result.scores.durableStatePrecision,
+    durable_recall_estimate: context.result.scores.durableRecallEstimate,
+    export_readiness_score: context.result.scores.exportReadiness,
+    export_readiness_decision: review.diagnostics.export_readiness_decision,
+    review_truthfulness_score: context.result.scores.reviewTruthfulness,
     continuity_metrics: context.sessionState?.monitors ?? {
       compactness_score: context.result.scores.compactnessScore,
       constraint_preservation_score: context.result.scores.constraintPreservationScore,
@@ -1613,6 +1706,15 @@ export function formatDiagnosticMarkdown(context: ReviewArtifactContext): string
     `- Compression: ${diagnostic.compression_score}`,
     `- Constraint: ${diagnostic.constraint_score}`,
     `- Risk: ${diagnostic.risk_score}`,
+    `- Source purity: ${diagnostic.source_purity_score}`,
+    `- Bucket exclusivity: ${diagnostic.bucket_exclusivity_score}`,
+    `- Chrome contamination: ${diagnostic.chrome_contamination_score}`,
+    `- Assistant contamination: ${diagnostic.assistant_contamination_score}`,
+    `- Durable precision: ${diagnostic.durable_precision_score}`,
+    `- Durable recall estimate: ${diagnostic.durable_recall_estimate}`,
+    `- Export readiness: ${diagnostic.export_readiness_score}`,
+    `- Export decision: ${diagnostic.export_readiness_decision}`,
+    `- Review truthfulness: ${diagnostic.review_truthfulness_score}`,
     "",
     "## Raw JSON",
     "```json",

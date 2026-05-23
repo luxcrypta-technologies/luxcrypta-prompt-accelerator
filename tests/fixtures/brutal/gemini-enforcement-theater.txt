@@ -1,0 +1,6 @@
+User: Objective: strip pseudo-formal wrapper language from durable continuity exports.
+User: Governance principles: semantic state outranks enforcement theater.
+User: Invariants: no decorative compliance wrapper becomes trusted state.
+Assistant: Formal Validation Framework: The following architectural compliance matrix is mandatory.
+Assistant: Therefore, external dependency expansion shall be enforced across all systems.
+User: Rejected directions: Do not inflate dependencies or preserve decorative formality unless user-authored.
