@@ -214,6 +214,16 @@ export function createMessageRouter(platform: PlatformAPI) {
       }
       case "review:get":
         return getReviewState(platform.storage, backgroundMessage.payload.reviewId);
+      case "review:update": {
+        const state = await getReviewState(platform.storage, backgroundMessage.payload.reviewId);
+        if (!state) return null;
+        const updated: ReviewState = {
+          ...state,
+          result: backgroundMessage.payload.result
+        };
+        await rememberReviewState(updated, platform.storage);
+        return updated;
+      }
       case "review:status": {
         const state = await getReviewState(platform.storage, backgroundMessage.payload.reviewId);
         const health = state?.result.continuityReview.diagnostics.providerHealth;

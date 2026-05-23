@@ -36,6 +36,15 @@ function mockReviewMessages(result: TransformResult) {
         sourceTabId: 7
       };
     }
+    if (message.type === "review:update") {
+      return {
+        id: "review_test",
+        result: (message.payload as { result: TransformResult }).result,
+        surface: "review_tab",
+        createdAt: "2026-05-19T00:00:00.000Z",
+        sourceTabId: 7
+      };
+    }
     if (message.type === "session:get" || message.type === "session:update") return null;
     if (message.type === "content:draft:apply") {
       const payload = message.payload as { text: string; targetTabId?: number };

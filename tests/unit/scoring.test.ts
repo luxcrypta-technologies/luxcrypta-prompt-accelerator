@@ -66,4 +66,23 @@ describe("computeTransformationScores", () => {
     expect(scores.reviewTruthfulness).toBeLessThan(0.5);
     expect(scores.warnings?.join(" ")).toContain("Prompt Review visibility");
   });
+
+  it("clamps trust scores when major provenance failures occur", () => {
+    const scores = computeTransformationScores({
+      original: "Assistant output and unknown provenance entered Stable Core.",
+      transformed: "Stable Core:\n- Assistant-generated durable claim.",
+      constraints: [],
+      penalties: {
+        assistantContamination: true,
+        unknownProvenanceDurable: true,
+        exportArtifactReentry: true,
+        majorTrustFailure: true
+      }
+    });
+
+    expect(scores.sourcePurityScore).toBeLessThanOrEqual(0.42);
+    expect(scores.durableStatePrecision).toBeLessThanOrEqual(0.42);
+    expect(scores.exportReadiness).toBeLessThanOrEqual(0.42);
+    expect(scores.warnings?.join(" ")).toContain("major trust boundary");
+  });
 });

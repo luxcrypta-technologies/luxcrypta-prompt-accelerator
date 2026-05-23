@@ -1,5 +1,5 @@
 import type { ChatSurfaceAdapter, ConversationSnapshot } from "./types";
-import { appendDraftText, queryFirstUsableInput, readDraftText, replaceDraftText, type DraftInputElement } from "./dom";
+import { appendDraftText, queryFirstUsableInput, readBodyFirstDraftText, replaceDraftText, type DraftInputElement } from "./dom";
 
 const INPUT_SELECTORS = [
   "div.ProseMirror[contenteditable='true']",
@@ -12,6 +12,15 @@ const INPUT_SELECTORS = [
   "textarea[placeholder*='Ask' i]",
   "textarea",
   "div[contenteditable='true']"
+];
+
+const BODY_SELECTORS = [
+  "div.ProseMirror[contenteditable='true']",
+  "[data-testid*='composer' i] [contenteditable='true']",
+  "[contenteditable='true'][aria-label*='Grok' i]",
+  "[contenteditable='true'][aria-label*='Ask' i]",
+  "main [contenteditable='true']",
+  "textarea"
 ];
 
 const SNAPSHOT_SELECTORS = [
@@ -56,7 +65,7 @@ export const grokSurface: ChatSurfaceAdapter = {
   },
   getInputElement: queryInput,
   getCurrentDraftText() {
-    return readDraftText(queryInput());
+    return readBodyFirstDraftText(queryInput(), BODY_SELECTORS);
   },
   setCurrentDraftText(text: string) {
     return replaceDraftText(queryInput(), text);

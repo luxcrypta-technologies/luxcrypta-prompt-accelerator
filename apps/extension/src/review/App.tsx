@@ -345,6 +345,14 @@ export function App() {
         })
         .catch((error: unknown) => {
           console.warn("Prompt Review visible-render acknowledgement failed:", error);
+          const detail = errorDetail(error);
+          setActionFeedback({
+            action: "review-rendered",
+            tone: "error",
+            message: "Review visibility could not be confirmed.",
+            detail
+          });
+          setStatus(detail ? `Review visibility could not be confirmed. ${detail}` : "Review visibility could not be confirmed.");
         });
     });
     return () => window.cancelAnimationFrame(frame);
@@ -390,6 +398,20 @@ export function App() {
     },
     [actionFeedback, capsule, editableText, feedbackSummary, result, sessionState, workflow]
   );
+
+  const persistVisibleReviewState = useCallback(async (): Promise<TransformResult | null> => {
+    if (!state || !result) return result;
+    const nextResult = { ...result, transformedText: editableText };
+    const persisted = await platform.messaging.sendMessage<BackgroundMessage, ReviewState | null>({
+      type: "review:update",
+      payload: { reviewId: state.id, result: nextResult }
+    });
+    if (!persisted?.result) {
+      throw new Error("Prompt Review state could not be persisted.");
+    }
+    setState(persisted);
+    return persisted.result;
+  }, [editableText, result, state]);
 
   const actionLabel = useCallback(
     (action: ToolbarAction) => {
@@ -462,7 +484,11 @@ export function App() {
     setFeedback({ action: "copy", tone: "loading", message: "Copying all review..." });
 
     try {
-      const copied = await copyToClipboardSafely(formatContinuityExport(result, editableText));
+      const persistedResult = await persistVisibleReviewState();
+      if (!persistedResult) throw new Error("No persisted review state available.");
+      const copied = await copyToClipboardSafely(
+        formatContinuityExport(persistedResult, editableText)
+      );
       if (!copied) {
         throw new Error("Clipboard unavailable.");
       }
@@ -483,7 +509,7 @@ export function App() {
     } finally {
       setPendingAction(null);
     }
-  }, [editableText, result, setFeedback]);
+  }, [editableText, persistVisibleReviewState, result, setFeedback]);
 
   const diagnosticStateJson = useCallback(() => {
     const context =
@@ -534,8 +560,10 @@ export function App() {
       message: "Copying review and raw JSON..."
     });
     try {
+      const persistedResult = await persistVisibleReviewState();
+      if (!persistedResult) throw new Error("No persisted review state available.");
       const text = [
-        formatContinuityExport(result, editableText),
+        formatContinuityExport(persistedResult, editableText),
         "Raw JSON",
         diagnosticStateJson()
       ].join("\n\n");
@@ -556,7 +584,7 @@ export function App() {
     } finally {
       setPendingAction(null);
     }
-  }, [diagnosticStateJson, editableText, result, setFeedback]);
+  }, [diagnosticStateJson, editableText, persistVisibleReviewState, result, setFeedback]);
 
   const copyEngineeringSummary = useCallback(async () => {
     if (!result) return;
@@ -595,8 +623,10 @@ export function App() {
       message: "Copying workflow export..."
     });
     try {
+      const persistedResult = await persistVisibleReviewState();
+      if (!persistedResult) throw new Error("No persisted review state available.");
       const now = new Date().toISOString();
-      const draft = buildWorkflowDraft(result, editableText);
+      const draft = buildWorkflowDraft(persistedResult, editableText);
       const exportWorkflow: Workflow = {
         ...draft,
         id: "unsaved-workflow-export",
@@ -604,7 +634,7 @@ export function App() {
         createdAt: now,
         updatedAt: now
       };
-      const context = artifactContext({ workflow: exportWorkflow });
+      const context = artifactContext({ result: persistedResult, workflow: exportWorkflow });
       if (!context) throw new Error("No workflow export data available.");
       const copied = await copyToClipboardSafely(
         JSON.stringify(buildPortableWorkflowArtifact(exportWorkflow, context), null, 2)
@@ -625,7 +655,7 @@ export function App() {
     } finally {
       setPendingAction(null);
     }
-  }, [artifactContext, editableText, result, setFeedback]);
+  }, [artifactContext, editableText, persistVisibleReviewState, result, setFeedback]);
 
   const copyPortableCapsule = useCallback(async () => {
     if (!result) return;
@@ -636,8 +666,10 @@ export function App() {
       message: "Copying portable capsule..."
     });
     try {
+      const persistedResult = await persistVisibleReviewState();
+      if (!persistedResult) throw new Error("No persisted review state available.");
       const now = new Date().toISOString();
-      const draft = buildCapsuleDraft(result, editableText);
+      const draft = buildCapsuleDraft(persistedResult, editableText);
       const exportCapsule: CarryForwardCapsule = {
         capsule_version: 1,
         ...draft,
@@ -646,7 +678,7 @@ export function App() {
         created_at: now,
         updated_at: now
       };
-      const context = artifactContext({ capsule: exportCapsule });
+      const context = artifactContext({ result: persistedResult, capsule: exportCapsule });
       if (!context) throw new Error("No capsule export data available.");
       const copied = await copyToClipboardSafely(
         JSON.stringify(buildPortableCapsuleArtifact(exportCapsule, context), null, 2)
@@ -667,7 +699,7 @@ export function App() {
     } finally {
       setPendingAction(null);
     }
-  }, [artifactContext, editableText, result, setFeedback]);
+  }, [artifactContext, editableText, persistVisibleReviewState, result, setFeedback]);
 
   const copyReviewBlock = useCallback(
     async (label: string, text: string) => {
@@ -706,15 +738,17 @@ export function App() {
 
     let savedWorkflow: Workflow | null = null;
     try {
+      const persistedResult = await persistVisibleReviewState();
+      if (!persistedResult) throw new Error("No persisted review state available.");
       const saved = await platform.messaging.sendMessage<BackgroundMessage, Workflow>({
         type: "workflow:save",
         payload: {
-          workflow: buildWorkflowDraft(result, editableText)
+          workflow: buildWorkflowDraft(persistedResult, editableText)
         }
       });
       savedWorkflow = saved;
       setWorkflow(saved);
-      const context = artifactContext({ workflow: saved });
+      const context = artifactContext({ result: persistedResult, workflow: saved });
       if (!context) {
         throw new Error("Saved workflow could not be prepared for export.");
       }
@@ -742,7 +776,7 @@ export function App() {
     } finally {
       setPendingAction(null);
     }
-  }, [artifactContext, editableText, result, setFeedback]);
+  }, [artifactContext, editableText, persistVisibleReviewState, result, setFeedback]);
 
   const saveCapsule = useCallback(async () => {
     if (!result) return;
@@ -751,15 +785,17 @@ export function App() {
 
     let savedCapsule: CarryForwardCapsule | null = null;
     try {
+      const persistedResult = await persistVisibleReviewState();
+      if (!persistedResult) throw new Error("No persisted review state available.");
       const saved = await platform.messaging.sendMessage<BackgroundMessage, CarryForwardCapsule>({
         type: "capsule:save",
         payload: {
-          capsule: buildCapsuleDraft(result, editableText)
+          capsule: buildCapsuleDraft(persistedResult, editableText)
         }
       });
       savedCapsule = saved;
       setCapsule(saved);
-      const context = artifactContext({ capsule: saved });
+      const context = artifactContext({ result: persistedResult, capsule: saved });
       if (!context) {
         throw new Error("Saved capsule could not be prepared for export.");
       }
@@ -787,7 +823,7 @@ export function App() {
     } finally {
       setPendingAction(null);
     }
-  }, [artifactContext, editableText, result, setFeedback]);
+  }, [artifactContext, editableText, persistVisibleReviewState, result, setFeedback]);
 
   const copySavedWorkflow = useCallback(async () => {
     if (!workflow) return;
@@ -1040,6 +1076,9 @@ export function App() {
     `Review truthfulness: ${result.scores.reviewTruthfulness ?? "n/a"}`,
     `Mutation risk: ${result.scores.riskScore}`
   ];
+  const admissionCountLines = Object.entries(review.diagnostics.admission_counts ?? {}).map(
+    ([key, value]) => `${key}: ${value}`
+  );
 
   return (
     <main className="review-shell">
@@ -1139,6 +1178,13 @@ export function App() {
           items={scoreLines}
           emptyText="No scores available."
           metadata={result.scores as unknown as Record<string, unknown>}
+          onCopy={copyReviewBlock}
+        />
+        <ReviewListSection
+          title="Admission Counts"
+          items={admissionCountLines}
+          emptyText="No admission counts available."
+          metadata={review.diagnostics.admission_counts}
           onCopy={copyReviewBlock}
         />
       </div>

@@ -2,7 +2,7 @@ import type { ChatSurfaceAdapter, ConversationSnapshot, ProviderProfile } from "
 import {
   appendDraftText,
   queryFirstUsableInput,
-  readDraftText,
+  readBodyFirstDraftText,
   replaceDraftText,
   type DraftInputElement
 } from "./dom";
@@ -112,7 +112,7 @@ function looksLikeStructuredDraft(value: string): boolean {
 }
 
 function bodyFirstDraftText(input: DraftInputElement | null): string {
-  const direct = stripUiLines(readDraftText(input));
+  const direct = stripUiLines(readBodyFirstDraftText(input, BODY_SELECTORS));
   if (direct.length >= 12 && !isUiArtifactText(direct)) {
     return direct;
   }

@@ -80,13 +80,18 @@ export type ContinuityPrimaryBucket =
   | "diagnostic_only";
 
 export type ContinuitySourceRole =
+  | "trusted_user_input"
   | "user_authored_input"
   | "assistant_output"
+  | "provider_ui"
   | "provider_ui_chrome"
   | "extension_ui_chrome"
+  | "retrieval_content"
   | "retrieved_external_content"
   | "diagnostic_generated"
+  | "prior_review_state"
   | "transformed_review_output"
+  | "export_artifact"
   | "exported_artifact_text"
   | "user_authored"
   | "user_quoted_prior_state"
@@ -170,6 +175,8 @@ export interface AdversarialGovernanceState {
   duplicate_fragments_normalized?: number;
   bucket_collisions_prevented?: number;
   extraction_failure?: boolean;
+  extraction_degraded?: boolean;
+  extraction_contamination_markers?: string[];
   likely_missing_categories?: string[];
 }
 
@@ -218,6 +225,8 @@ export interface ContinuityDiagnostics {
   continuity_safeguards?: string[];
   metric_warnings?: string[];
   extraction_failure?: boolean;
+  extraction_degraded?: boolean;
+  extraction_contamination_markers?: string[];
   fidelity_severity?: "info" | "warning" | "critical";
   likely_missing_categories?: string[];
   admission_counts?: Record<string, number>;

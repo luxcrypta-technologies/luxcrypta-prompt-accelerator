@@ -1,0 +1,9 @@
+{
+  "provider": "deepseek",
+  "url": "https://chat.deepseek.com/sign_in",
+  "title": "DeepSeek - Into the Unknown",
+  "authState": "logged_out_or_auth_required",
+  "toolbar": false,
+  "input": false,
+  "text": "By signing up or logging in, you consent to DeepSeek's \nTerms of Use  and \nPrivacy Policy.\nForgot password?\nSign up\nLog in\nLog in with Google\nLogin with Apple\n浙ICP备2023025841号\n · \nContact us\nCookie Settings\nWe use cookies to provide and improve services and ensure security. Click to view our cookie policy. You can choose to accept all or only necessary cookies, which may affect some functionalities.\nNecessary cookies onlyAccept all cookies"
+}

@@ -2,7 +2,7 @@ import type { ChatSurfaceAdapter, ConversationSnapshot, ProviderProfile } from "
 import {
   appendDraftText,
   queryFirstUsableInput,
-  readDraftText,
+  readBodyFirstDraftText,
   replaceDraftText,
   type DraftInputElement
 } from "./dom";
@@ -13,6 +13,15 @@ const INPUT_SELECTORS = [
   "textarea",
   "div[contenteditable='true'][data-testid*='prompt']",
   "div[contenteditable='true']"
+];
+
+const BODY_SELECTORS = [
+  "#prompt-textarea",
+  "[data-testid='prompt-textarea']",
+  "[data-testid*='composer' i] [contenteditable='true']",
+  "form [contenteditable='true']",
+  "main [contenteditable='true']",
+  "textarea"
 ];
 
 export const CHATGPT_PROVIDER_PROFILE: ProviderProfile = {
@@ -54,7 +63,7 @@ export const chatgptSurface: ChatSurfaceAdapter = {
   },
   getInputElement: queryInput,
   getCurrentDraftText() {
-    return readDraftText(queryInput());
+    return readBodyFirstDraftText(queryInput(), BODY_SELECTORS);
   },
   setCurrentDraftText(text: string) {
     return replaceDraftText(queryInput(), text);

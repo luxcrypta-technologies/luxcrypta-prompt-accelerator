@@ -153,4 +153,30 @@ describe("Prompt Review open truth model", () => {
       visible_to_user: false
     });
   });
+
+  it("persists visible review edits before copy/export can read them later", async () => {
+    const storage = new MemoryStorage();
+    const route = createMessageRouter(platform(undefined, storage));
+    const opened = (await route({
+      type: "review:open",
+      payload: { result: result() }
+    })) as { reviewId: string };
+    const updatedResult = {
+      ...result(),
+      transformedText: "Objective: persisted edited review payload."
+    };
+
+    await route({
+      type: "review:update",
+      payload: { reviewId: opened.reviewId, result: updatedResult }
+    });
+
+    const restartedRoute = createMessageRouter(platform(undefined, storage));
+    const recovered = (await restartedRoute({
+      type: "review:get",
+      payload: { reviewId: opened.reviewId }
+    })) as { result?: ReturnType<typeof result> } | null;
+
+    expect(recovered?.result?.transformedText).toBe("Objective: persisted edited review payload.");
+  });
 });

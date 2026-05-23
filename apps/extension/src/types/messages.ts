@@ -69,6 +69,7 @@ export type BackgroundMessage =
   | { type: "diagnostics:get" }
   | { type: "review:open"; payload: { result: TransformResult } }
   | { type: "review:get"; payload: { reviewId?: string } }
+  | { type: "review:update"; payload: { reviewId: string; result: TransformResult } }
   | { type: "review:status"; payload: { reviewId: string } }
   | { type: "review:rendered"; payload: { reviewId: string } };
 

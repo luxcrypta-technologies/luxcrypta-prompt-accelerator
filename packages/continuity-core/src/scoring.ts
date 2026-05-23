@@ -40,9 +40,13 @@ export function computeTransformationScores(input: {
     emptyRejectionsWhenPresent?: boolean;
     reviewOpenNotVisible?: boolean;
     extractionFailure?: boolean;
+    extractionDegraded?: boolean;
     negativeStateLoss?: boolean;
     categoryHeaderAdmission?: boolean;
     taskLocalLeakage?: boolean;
+    unknownProvenanceDurable?: boolean;
+    exportArtifactReentry?: boolean;
+    majorTrustFailure?: boolean;
   };
 }): TransformationScores {
   const lowerTransformed = input.transformed.toLowerCase();
@@ -137,6 +141,11 @@ export function computeTransformationScores(input: {
     constraintPenalty += 0.18;
     riskPenalty += 0.24;
   }
+  if (input.penalties?.extractionDegraded) {
+    warnings.push("Metric penalty applied due to degraded source extraction.");
+    constraintPenalty += 0.08;
+    riskPenalty += 0.12;
+  }
   if (input.penalties?.negativeStateLoss) {
     warnings.push("Metric penalty applied due to negative-state preservation loss.");
     constraintPenalty += 0.16;
@@ -159,6 +168,21 @@ export function computeTransformationScores(input: {
     constraintPenalty += 0.12;
     riskPenalty += 0.14;
   }
+  if (input.penalties?.unknownProvenanceDurable) {
+    warnings.push("Metric penalty applied due to unknown provenance entering durable state.");
+    constraintPenalty += 0.3;
+    riskPenalty += 0.42;
+  }
+  if (input.penalties?.exportArtifactReentry) {
+    warnings.push("Metric penalty applied due to review/export artifact re-entry risk.");
+    constraintPenalty += 0.22;
+    riskPenalty += 0.3;
+  }
+  if (input.penalties?.majorTrustFailure) {
+    warnings.push("Metric penalty applied due to major trust boundary failure.");
+    constraintPenalty += 0.18;
+    riskPenalty += 0.28;
+  }
 
   const constraintScore = Math.max(0, baseConstraintScore - constraintPenalty);
   const risk = 1 - constraintScore + (input.transformed.length === 0 ? 0.5 : 0) + riskPenalty;
@@ -166,7 +190,10 @@ export function computeTransformationScores(input: {
     (input.penalties?.fieldContamination ? 0.16 : 0) +
     (input.penalties?.chromeContamination ? 0.28 : 0) +
     (input.penalties?.assistantContamination ? 0.45 : 0) +
-    (input.penalties?.weakTrustedSeparation ? 0.18 : 0);
+    (input.penalties?.weakTrustedSeparation ? 0.18 : 0) +
+    (input.penalties?.unknownProvenanceDurable ? 0.5 : 0) +
+    (input.penalties?.exportArtifactReentry ? 0.34 : 0) +
+    (input.penalties?.extractionDegraded ? 0.12 : 0);
   const bucketPenalty =
     (input.penalties?.bucketOverlap ? 0.34 : 0) +
     (input.penalties?.rejectedDirectionAmbiguity ? 0.24 : 0) +
@@ -175,7 +202,9 @@ export function computeTransformationScores(input: {
     (input.penalties?.promptScaffoldingLeakage ? 0.22 : 0) +
     (input.penalties?.taskLocalLeakage ? 0.24 : 0) +
     (input.penalties?.assistantContamination ? 0.5 : 0) +
-    (input.penalties?.chromeContamination ? 0.24 : 0);
+    (input.penalties?.chromeContamination ? 0.24 : 0) +
+    (input.penalties?.unknownProvenanceDurable ? 0.5 : 0) +
+    (input.penalties?.exportArtifactReentry ? 0.3 : 0);
   const recallPenalty =
     (input.penalties?.emptyStateCollapse ? 0.38 : 0) +
     (input.penalties?.emptyGovernanceWhenPresent ? 0.32 : 0) +
@@ -192,33 +221,47 @@ export function computeTransformationScores(input: {
     bucketPenalty * 0.6 +
     precisionPenalty * 0.8 +
     recallPenalty * 0.5 +
-    (input.penalties?.extractionFailure ? 0.22 : 0);
+    (input.penalties?.extractionFailure ? 0.22 : 0) +
+    (input.penalties?.extractionDegraded ? 0.1 : 0) +
+    (input.penalties?.majorTrustFailure ? 0.18 : 0);
   const reviewTruthfulnessPenalty =
     (input.penalties?.reviewOpenNotVisible ? 0.55 : 0) +
     (input.penalties?.extractionFailure ? 0.2 : 0) +
     (input.penalties?.chromeContamination ? 0.1 : 0) +
     (input.penalties?.assistantContamination ? 0.1 : 0);
   const durableRecallEstimate = percent(1 - recallPenalty);
+  const sourcePurityScore = percent(1 - sourcePurityPenalty);
+  const durablePrecisionScore = percent(1 - precisionPenalty);
+  const exportReadinessScore = percent(1 - exportReadinessPenalty);
+  const trustClamp = input.penalties?.majorTrustFailure
+    ? 0.42
+    : input.penalties?.unknownProvenanceDurable || input.penalties?.assistantContamination
+      ? 0.55
+      : undefined;
 
   return {
     redundancyScoreBefore: redundancyScore(input.original),
     redundancyScoreAfter: redundancyScore(input.transformed),
     compactnessScore: percent(compactness),
     constraintPreservationScore: percent(constraintScore),
-    sourcePurityScore: percent(1 - sourcePurityPenalty),
+    sourcePurityScore: trustClamp ? Math.min(sourcePurityScore, trustClamp) : sourcePurityScore,
     bucketExclusivityScore: percent(1 - bucketPenalty),
     chromeContaminationScore: percent(
       input.penalties?.chromeContamination ? 1 : input.penalties?.fieldContamination ? 0.45 : 0
     ),
     assistantContaminationScore: percent(input.penalties?.assistantContamination ? 1 : 0),
-    durableStatePrecision: percent(1 - precisionPenalty),
+    durableStatePrecision: trustClamp
+      ? Math.min(durablePrecisionScore, trustClamp)
+      : durablePrecisionScore,
     durableStateRecall: durableRecallEstimate,
     durableRecallEstimate,
     taskLocalLeakageScore: percent(input.penalties?.taskLocalLeakage ? 1 : 0),
     governanceDetectionCompleteness: percent(governanceDetectionCompleteness),
     invariantDetectionCompleteness: percent(invariantDetectionCompleteness),
     negativeStatePreservation: percent(negativeStatePreservation),
-    exportReadiness: percent(1 - exportReadinessPenalty),
+    exportReadiness: trustClamp
+      ? Math.min(exportReadinessScore, trustClamp)
+      : exportReadinessScore,
     reviewTruthfulness: percent(1 - reviewTruthfulnessPenalty),
     modeAlignmentScore: input.mode ? 0.86 : undefined,
     adaptationAlignmentScore: input.targetModel ? 0.84 : undefined,

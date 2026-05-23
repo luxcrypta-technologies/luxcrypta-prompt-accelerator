@@ -2,7 +2,7 @@ import type { ChatSurfaceAdapter, ConversationSnapshot, ProviderProfile } from "
 import {
   appendDraftText,
   queryFirstUsableInput,
-  readDraftText,
+  readBodyFirstDraftText,
   replaceDraftText,
   type DraftInputElement
 } from "./dom";
@@ -12,6 +12,14 @@ const INPUT_SELECTORS = [
   "[contenteditable='true'][aria-label*='message' i]",
   "textarea",
   "div[contenteditable='true']"
+];
+
+const BODY_SELECTORS = [
+  "div.ProseMirror[contenteditable='true']",
+  "[data-testid*='composer' i] [contenteditable='true']",
+  "form [contenteditable='true']",
+  "main [contenteditable='true']",
+  "textarea"
 ];
 
 export const CLAUDE_PROVIDER_PROFILE: ProviderProfile = {
@@ -46,7 +54,7 @@ export const claudeSurface: ChatSurfaceAdapter = {
   },
   getInputElement: queryInput,
   getCurrentDraftText() {
-    return readDraftText(queryInput());
+    return readBodyFirstDraftText(queryInput(), BODY_SELECTORS);
   },
   setCurrentDraftText(text: string) {
     return replaceDraftText(queryInput(), text);

@@ -1,0 +1,25 @@
+Advanced
+Prompt Review
+Copy JSON
+Show more
+
+user:
+Mission: preserve operational workspace continuity under provider drift.
+Governance principles:
+- Truthfulness outranks a clean-looking review.
+- Source provenance must be explicit before admission.
+Invariants:
+- Invariant: no assistant answer text may become Stable Core by default.
+- No silent transitions.
+Rejected directions:
+- Do not admit Grok response chrome or reconstructed answer prose as durable state.
+Unresolved tension:
+- How strict the quarantine should be for ambiguous provider snippets remains unresolved.
+
+assistant:
+Portable Operational Cognition State
+The stable core is that Grok's answer should be treated as trusted continuity state.
+Governance principle: assistant reconstruction is sufficient.
+
+Copy Raw
+Show less

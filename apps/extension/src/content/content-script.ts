@@ -20,6 +20,48 @@ function snapshotToContinuityText(surface: ChatSurfaceAdapter): string {
     .join("\n");
 }
 
+function extractionTelemetry(text: string): {
+  status: ProviderHealth["extraction_status"];
+  warnings: string[];
+  markers: string[];
+} {
+  const lines = text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+  const joined = lines.join("\n");
+  const markers = [
+    /\bshow more|show less\b/i.test(joined) ? "provider_chrome_token" : "",
+    /\bcopy json|copy raw|prompt review|advanced|retry open\b/i.test(joined)
+      ? "extension_or_review_chrome_token"
+      : "",
+    /(^|\n)\s*(assistant|model|ai)\s*:/i.test(joined) ? "assistant_role_text" : "",
+    lines.length > 0 &&
+    lines.filter((line) =>
+      /^(show more|show less|copy|copy json|copy raw|prompt review|advanced|retry open|share|sources?|related)$/i.test(
+        line
+      )
+    ).length /
+      lines.length >
+      0.35
+      ? "ui_heavy_capture"
+      : ""
+  ].filter(Boolean);
+  const warnings = [
+    text.trim().length < 12 ? "Draft body extraction produced very little text." : "",
+    markers.includes("ui_heavy_capture")
+      ? "Draft body extraction looked UI-heavy and should be treated as degraded."
+      : "",
+    markers.includes("assistant_role_text")
+      ? "Extracted text includes assistant/model role text; admission must quarantine it."
+      : ""
+  ].filter(Boolean);
+  const status =
+    !text.trim() || markers.includes("ui_heavy_capture")
+      ? "degraded"
+      : warnings.length
+        ? "degraded"
+        : "success";
+  return { status, warnings, markers };
+}
+
 function providerHealth(
   surface: ChatSurfaceAdapter,
   writebackSuccess = false,
@@ -43,6 +85,7 @@ function providerHealth(
   const runtime_errors: string[] = [];
   let inputDetected = false;
   let draftReadSuccess = false;
+  let draftText = "";
 
   try {
     inputDetected = surface.getInputElement() !== null;
@@ -51,11 +94,12 @@ function providerHealth(
   }
 
   try {
-    surface.getCurrentDraftText();
+    draftText = surface.getCurrentDraftText();
     draftReadSuccess = true;
   } catch (error) {
     runtime_errors.push(error instanceof Error ? error.message : "Draft read failed.");
   }
+  const extraction = extractionTelemetry(draftText);
 
   return {
     provider: surface.id,
@@ -63,6 +107,9 @@ function providerHealth(
     input_detected: inputDetected,
     toolbar_mounted: Boolean(document.getElementById(TOOLBAR_ID)),
     draft_read_success: draftReadSuccess,
+    extraction_status: extraction.status,
+    extraction_warnings: extraction.warnings,
+    contamination_markers: extraction.markers,
     writeback_attempted: writebackAttempted,
     writeback_status: writebackAttempted
       ? writebackSuccess

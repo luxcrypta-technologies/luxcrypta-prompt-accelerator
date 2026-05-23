@@ -224,9 +224,9 @@ const DEFER_RE =
 const CONDITIONAL_ADMIT_RE =
   /\b(conditional(?:ly)? admit|conditional admission|admissible only|only if|if validated|provided that|with validation|with conditions?)\b/i;
 const GOVERNANCE_PRINCIPLE_RE =
-  /\b(governance|trusted state|untrusted|admission|taxonomy|state boundary|conflict handling|audit|visibility|integrity|priority|review state)\b/i;
+  /\b(governance|trusted state|untrusted|admission|taxonomy|state boundary|conflict handling|audit|visibility|integrity|priority|review state|transparency|truthfulness|fail[-\s]?closed|source provenance|primary bucket|bucket exclusivity|outranks)\b/i;
 const INVARIANT_RE =
-  /\b(invariant|must remain|durable|non-negotiable|no silent transitions|identity anchoring|operational identity|always-on|always on|preserve (?:the )?(?:mission|governance|integrity|rejected directions|unresolved tensions|stable constraints)|do not overwrite trusted state)\b/i;
+  /\b(invariant|must remain|must never|durable|non-negotiable|if violated|no silent transitions|identity anchoring|operational identity|always-on|always on|preserve (?:the )?(?:mission|governance|integrity|rejected directions|unresolved tensions|stable constraints)|do not overwrite trusted state)\b/i;
 const CONTINUITY_SAFEGUARD_RE =
   /\b(continuity safeguard|safeguard|continuity anchor|carry[-\s]?forward|reconstruction|recovery mechanism|cross[-\s]?model transfer|preserve continuity|preserve unresolved|keep unresolved|no silent transitions|audit visibility)\b/i;
 const MUTATION_RE =
@@ -267,11 +267,16 @@ function providerLabel(request: TransformRequest): string {
 }
 
 function isTrustedPriorRole(sourceRole: ContinuitySourceRole): boolean {
-  return sourceRole === "trusted_state" || sourceRole === "user_quoted_prior_state";
+  return (
+    sourceRole === "trusted_state" ||
+    sourceRole === "user_quoted_prior_state" ||
+    sourceRole === "prior_review_state"
+  );
 }
 
 function isUserAuthoredRole(sourceRole: ContinuitySourceRole): boolean {
   return (
+    sourceRole === "trusted_user_input" ||
     sourceRole === "user_authored_input" ||
     sourceRole === "user_authored" ||
     isTrustedPriorRole(sourceRole)
@@ -287,11 +292,16 @@ function isExternalModelRole(sourceRole: ContinuitySourceRole): boolean {
 }
 
 function isRetrievedRole(sourceRole: ContinuitySourceRole): boolean {
-  return sourceRole === "retrieved_external_content" || sourceRole === "retrieved_external";
+  return (
+    sourceRole === "retrieval_content" ||
+    sourceRole === "retrieved_external_content" ||
+    sourceRole === "retrieved_external"
+  );
 }
 
 function isChromeRole(sourceRole: ContinuitySourceRole): boolean {
   return (
+    sourceRole === "provider_ui" ||
     sourceRole === "provider_ui_chrome" ||
     sourceRole === "extension_ui_chrome" ||
     sourceRole === "page_chrome" ||
@@ -322,7 +332,7 @@ function isGenericUiChromeArtifact(text: string): boolean {
     .replace(/[^a-z0-9]+/g, "");
   return (
     isPerplexityUiArtifact(text) ||
-    /^(apply|cancel|close|download|downloadjson|export|exportdiagnosticstate|copyrawdiagnosticdata|save|saveworkflow|savecapsule|toolbar|menu|settings|newchat|search|library|login|logout|upgrade|subscribe|poweredbyluxcrypta|readytoreview|openingreview|reviewopened|reviewdidnotopenretryopen)$/.test(
+    /^(apply|cancel|close|download|downloadjson|export|exportdiagnosticstate|copyrawdiagnosticdata|copyjson|copyraw|promptreview|save|saveworkflow|savecapsule|toolbar|menu|settings|newchat|search|library|login|logout|upgrade|subscribe|poweredbyluxcrypta|readytoreview|openingreview|reviewopened|reviewdidnotopenretryopen)$/.test(
       clean
     )
   );
@@ -331,7 +341,7 @@ function isGenericUiChromeArtifact(text: string): boolean {
 function stripPerplexityUIArtifacts(text: string): string {
   return text
     .replace(/show more\s*show less/gi, "\n")
-    .replace(/\b(Copy All Review|Copy Review \+ Raw JSON|Copy Engineering Summary|Copy Portable Capsule|Copy Workflow Export|Copy Raw Diagnostic Data|Export Diagnostic State)\b/gi, "\n")
+    .replace(/\b(Copy|Copy JSON|Copy Raw|Copy All Review|Copy Review \+ Raw JSON|Copy Engineering Summary|Copy Portable Capsule|Copy Workflow Export|Copy Raw Diagnostic Data|Prompt Review|Export Diagnostic State|Advanced|Retry Open)\b/gi, "\n")
     .split(/\n+/)
     .map((line) => line.trim())
     .filter((line) => {
@@ -407,7 +417,41 @@ function stripProviderGeneratedWrappers(text: string, provider: string): string 
     .trim();
 }
 
-function prepareProviderSource(text: string, request: TransformRequest): string {
+interface PreparedProviderSource {
+  text: string;
+  extractionDegraded: boolean;
+  contaminationMarkers: string[];
+}
+
+function lineUiRatio(text: string): number {
+  const lines = text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+  if (!lines.length) return 1;
+  return lines.filter(isGenericUiChromeArtifact).length / lines.length;
+}
+
+function extractionMarkers(rawText: string, preparedText: string): string[] {
+  const markers = [
+    /\b(show more|show less|copy json|copy raw|prompt review|advanced|retry open|try pro|upgrade)\b/i.test(
+      rawText
+    )
+      ? "provider_or_extension_chrome_seen"
+      : "",
+    lineUiRatio(rawText) > 0.35 ? "raw_ui_heavy_capture" : "",
+    lineUiRatio(preparedText) > 0.35 ? "ui_heavy_capture" : "",
+    preparedText.trim().length < 12 ? "body_too_short" : "",
+    /\b(stage \d+|final scores?|reconstruction confidence|best reconstruction prompt)\b/i.test(
+      preparedText
+    )
+      ? "scaffold_dominant_capture"
+      : "",
+    /(^|\n)\s*(assistant|model|ai)\s*:/i.test(preparedText)
+      ? "assistant_role_text_seen"
+      : ""
+  ].filter(Boolean);
+  return uniqueMeaningfulStrings(markers);
+}
+
+function prepareProviderSource(text: string, request: TransformRequest): PreparedProviderSource {
   const id = providerId(request);
   let prepared = text;
   if (id === "deepseek") {
@@ -417,7 +461,16 @@ function prepareProviderSource(text: string, request: TransformRequest): string 
     prepared = structuredBodyFromPerplexitySurface(prepared);
   }
   prepared = stripProviderGeneratedWrappers(prepared, id);
-  return normalizeRuntimeScaffold(prepared);
+  prepared = normalizeRuntimeScaffold(prepared);
+  const markers = extractionMarkers(text, prepared);
+  return {
+    text: prepared,
+    extractionDegraded:
+      markers.includes("ui_heavy_capture") ||
+      markers.includes("body_too_short") ||
+      markers.includes("scaffold_dominant_capture"),
+    contaminationMarkers: markers
+  };
 }
 
 function isDefaultContinuityInstructionLine(text: string): boolean {
@@ -580,15 +633,27 @@ function sectionBucket(label: string): ContinuityPrimaryBucket | null {
   return null;
 }
 
+function looksLikeReviewOrExportArtifact(text: string): boolean {
+  return (
+    /\bContinuity Review\b/i.test(text) &&
+    /\b(Active Objective|Stable Core|Raw JSON|Transformed Continuity Draft)\b/i.test(text)
+  ) || /\b(raw diagnostic data|export diagnostic state|portable capsule artifact|workflow export)\b/i.test(text);
+}
+
 function sourceRoleForStatement(rawText: string, source: string): ContinuitySourceRole {
   const lowerSource = source.toLowerCase();
   const raw = rawText.trim();
-  if (lowerSource.includes("export")) return "exported_artifact_text";
+  if (/\b(source role|provenance)\s*:\s*unknown\b/i.test(raw) || /^unknown provenance\b/i.test(raw)) {
+    return "unknown";
+  }
+  if (lowerSource.includes("export") || /^\s*(exported artifact|review export|raw json)\b/i.test(raw)) {
+    return "export_artifact";
+  }
   if (lowerSource.includes("diagnostic")) return "diagnostic_generated";
-  if (lowerSource.includes("retrieval")) return "retrieved_external_content";
+  if (lowerSource.includes("retrieval")) return "retrieval_content";
   if (lowerSource.includes("trusted_state")) return "trusted_state";
   if (lowerSource.includes("capsule")) return "user_quoted_prior_state";
-  if (isGenericUiChromeArtifact(raw)) return "provider_ui_chrome";
+  if (isGenericUiChromeArtifact(raw)) return "provider_ui";
   if (/^\s*(assistant|model|ai)\s*:/i.test(raw)) return "assistant_output";
   if (/^\s*(system|developer)\s*:/i.test(raw)) return "extension_ui_chrome";
   if (
@@ -598,14 +663,27 @@ function sourceRoleForStatement(rawText: string, source: string): ContinuitySour
   ) {
     return "external_model_output";
   }
-  if (/^\s*user\s*:/i.test(raw)) return "user_authored_input";
-  if (lowerSource.includes("continuity_review")) return "transformed_review_output";
-  if (lowerSource === "draft" || lowerSource === "manual") return "user_authored_input";
+  if (/^\s*user\s*:/i.test(raw)) return "trusted_user_input";
+  if (lowerSource.includes("continuity_review")) return "prior_review_state";
+  if (looksLikeReviewOrExportArtifact(raw)) return "export_artifact";
+  if (lowerSource === "draft" || lowerSource === "manual") return "trusted_user_input";
   return "unknown";
 }
 
 function isPromotedByUser(text: string, sourceRole: ContinuitySourceRole): boolean {
   if (isTrustedPriorRole(sourceRole)) return true;
+  if (
+    isExternalModelRole(sourceRole) ||
+    isRetrievedRole(sourceRole) ||
+    isChromeRole(sourceRole) ||
+    sourceRole === "export_artifact" ||
+    sourceRole === "exported_artifact_text" ||
+    sourceRole === "diagnostic_generated" ||
+    sourceRole === "transformed_review_output" ||
+    sourceRole === "unknown"
+  ) {
+    return false;
+  }
   return ADOPTION_RE.test(text);
 }
 
@@ -640,7 +718,7 @@ function isCategoryHeader(text: string): boolean {
 }
 
 function hasGovernanceSourceSignal(text: string): boolean {
-  return /\bgovernance principles?\s*:|\bgovernance principle\b|\btrusted state\b.*\b(untrusted|outranks|admission|boundary|priority)\b|\buntrusted\b.*\btrusted state\b|\badmission\b.*\bstate\b/i.test(
+  return /\bgovernance principles?\s*:|\bgovernance principle\b|\b(?:governance|transparency|truthfulness)\b.*\boutranks\b|\btrusted state\b.*\b(untrusted|outranks|admission|boundary|priority)\b|\buntrusted\b.*\btrusted state\b|\badmission\b.*\bstate\b/i.test(
     text
   );
 }
@@ -713,11 +791,18 @@ function splitGovernanceStatements(
   const output: GovernanceStatement[] = [];
   let currentBucket: ContinuityPrimaryBucket | undefined;
   let currentSourceRole: ContinuitySourceRole | undefined;
+  const defaultSourceRole: ContinuitySourceRole | undefined =
+    source === "draft" && looksLikeReviewOrExportArtifact(prepared) ? "export_artifact" : undefined;
 
   for (const rawLine of prepared.split(/\n+/)) {
     const line = rawLine.trim();
     if (!line) continue;
     const explicitSourceRole = sourceRoleForStatement(rawLine, source);
+    if (/\b(source role|provenance)\s*:\s*unknown\b/i.test(line) || /^unknown provenance\b/i.test(line)) {
+      currentSourceRole = "unknown";
+      currentBucket = undefined;
+      continue;
+    }
     if (/^\s*(?:user|assistant|system|developer|model|human|ai)\s*:\s*$/i.test(line)) {
       currentSourceRole = explicitSourceRole;
       currentBucket = undefined;
@@ -727,7 +812,11 @@ function splitGovernanceStatements(
       currentSourceRole = explicitSourceRole;
       currentBucket = undefined;
     }
-    const statementSourceRole = currentSourceRole ?? explicitSourceRole;
+    const statementSourceRole =
+      currentSourceRole ??
+      (defaultSourceRole && explicitSourceRole === "trusted_user_input"
+        ? defaultSourceRole
+        : explicitSourceRole);
     const lineWithoutSpeaker = line.replace(SPEAKER_PREFIX_RE, "").trim();
     if (isRetrievalContextLine(lineWithoutSpeaker)) {
       currentBucket = "quarantine_log";
@@ -858,6 +947,7 @@ function bucketForGovernanceStatement(
   if (
     (sourceRole === "diagnostic_generated" ||
       sourceRole === "transformed_review_output" ||
+      sourceRole === "export_artifact" ||
       sourceRole === "exported_artifact_text") &&
     !isPromotedByUser(text, sourceRole)
   ) {
@@ -1043,17 +1133,17 @@ function makeCanonicalItem(
 }
 
 const BUCKET_PRIORITY: Record<ContinuityPrimaryBucket, number> = {
-  rejected_directions: 100,
-  invariants: 92,
-  governance_principles: 88,
-  continuity_safeguards: 84,
-  open_unresolved: 76,
-  stable_core: 72,
-  provisional_state: 56,
-  deferred_items: 44,
+  invariants: 100,
+  governance_principles: 94,
+  rejected_directions: 88,
+  stable_core: 78,
+  open_unresolved: 68,
+  continuity_safeguards: 64,
+  provisional_state: 54,
   quarantine_log: 36,
+  deferred_items: 34,
   diagnostic_only: 10,
-  conditional_admissions: 42,
+  conditional_admissions: 32,
   task_local_forbidden: 12,
   task_local_instructions: 12,
   mutation_targets: 34
@@ -1133,9 +1223,14 @@ function buildAdversarialGovernanceState(input: {
   sourceText: string;
   newInstructionText: string;
   retrievalContext: string[];
+  extractionDegraded: boolean;
+  extractionContaminationMarkers: string[];
+  trustedSourceAvailable: boolean;
 }): AdversarialGovernanceState {
   const canonicalItems: CanonicalContinuityItem[] = [];
-  const trustedStable = trustedSummaryFrom(input.activeObjective, input.stableCore, input.parsed);
+  const trustedStable = input.trustedSourceAvailable
+    ? trustedSummaryFrom(input.activeObjective, input.stableCore, input.parsed)
+    : trustedSummaryFrom("", input.stableCore, input.parsed);
   const provider = providerLabel(input.request);
 
   for (const item of trustedStable) {
@@ -1254,6 +1349,7 @@ function buildAdversarialGovernanceState(input: {
       isRetrievedRole(item.source_role ?? "unknown") ||
       item.source_role === "transformed_review_output" ||
       item.source_role === "diagnostic_generated" ||
+      item.source_role === "export_artifact" ||
       item.source_role === "exported_artifact_text"
   );
   const mutationTargets = uniqueCanonicalItems([
@@ -1274,6 +1370,14 @@ function buildAdversarialGovernanceState(input: {
   }
 
   const metricWarnings: string[] = [];
+  if (input.extractionDegraded) {
+    metricWarnings.push("Extraction degraded: body capture was too short, UI-heavy, or scaffold-dominant.");
+  }
+  if (input.extractionContaminationMarkers.length) {
+    metricWarnings.push(
+      `Extraction contamination markers: ${input.extractionContaminationMarkers.join(", ")}.`
+    );
+  }
   if (
     /(untrusted|ignore previous|override|conflict|adversarial)/i.test(input.sourceText) &&
     !untrustedInstructions.length
@@ -1293,6 +1397,25 @@ function buildAdversarialGovernanceState(input: {
     )
   ) {
     metricWarnings.push("Metric penalty applied due to assistant-authored state contamination.");
+  }
+  const assistantBlocked = canonicalItems.filter(
+    (item) => isAssistantRole(item.source_role ?? "unknown") && item.decision !== "admit"
+  );
+  if (assistantBlocked.length) {
+    metricWarnings.push(
+      "Assistant/model output was considered and excluded from durable admission."
+    );
+  }
+  const unknownDropped = canonicalItems.filter((item) => item.source_role === "unknown");
+  if (unknownDropped.length) {
+    metricWarnings.push("Unknown provenance failed closed and was kept out of durable state.");
+  }
+  const exportArtifactsBlocked = canonicalItems.filter(
+    (item) =>
+      item.source_role === "export_artifact" || item.source_role === "exported_artifact_text"
+  );
+  if (exportArtifactsBlocked.length) {
+    metricWarnings.push("Review/export artifact text was blocked from trusted re-admission.");
   }
   if (
     canonicalItems.some(
@@ -1342,6 +1465,11 @@ function buildAdversarialGovernanceState(input: {
     (count, item) => count + (item.cross_refs?.length ?? 0),
     0
   );
+  if (bucketCollisionsPrevented > 0) {
+    metricWarnings.push(
+      `Bucket exclusivity collision(s) prevented: ${bucketCollisionsPrevented}.`
+    );
+  }
   const durableBuckets = new Set<ContinuityPrimaryBucket>([
     "stable_core",
     "provisional_state",
@@ -1352,6 +1480,17 @@ function buildAdversarialGovernanceState(input: {
     "continuity_safeguards"
   ]);
   const admissionCounts: Record<string, number> = {
+    admitted_durable: canonicalItems.filter(
+      (item) => item.decision === "admit" && durableBuckets.has(item.primary_bucket)
+    ).length,
+    quarantined: canonicalItems.filter((item) => item.decision === "quarantine").length,
+    rejected: canonicalItems.filter((item) => item.decision === "reject").length,
+    unknown_dropped: unknownDropped.length,
+    assistant_quarantined: assistantBlocked.length,
+    chrome_dropped: canonicalItems.filter(
+      (item) =>
+        isChromeRole(item.source_role ?? "unknown") || isGenericUiChromeArtifact(item.text)
+    ).length,
     user_authored_admitted_durable_items: canonicalItems.filter(
       (item) =>
         isUserAuthoredRole(item.source_role ?? "unknown") &&
@@ -1374,7 +1513,9 @@ function buildAdversarialGovernanceState(input: {
         item.primary_bucket === "diagnostic_only" ||
         item.primary_bucket === "quarantine_log" ||
         isChromeRole(item.source_role ?? "unknown") ||
-        isExternalModelRole(item.source_role ?? "unknown")
+        isExternalModelRole(item.source_role ?? "unknown") ||
+        item.source_role === "export_artifact" ||
+        item.source_role === "unknown"
     ).length
   };
 
@@ -1422,7 +1563,11 @@ function buildAdversarialGovernanceState(input: {
     admission_counts: admissionCounts,
     duplicate_fragments_normalized: bucketCollisionsPrevented,
     bucket_collisions_prevented: bucketCollisionsPrevented,
-    extraction_failure: likelyMissingCategories.length > 0,
+    extraction_failure: likelyMissingCategories.length > 0 || input.extractionDegraded,
+    extraction_degraded: input.extractionDegraded,
+    extraction_contamination_markers: input.extractionContaminationMarkers.length
+      ? input.extractionContaminationMarkers
+      : undefined,
     likely_missing_categories: likelyMissingCategories.length ? likelyMissingCategories : undefined
   };
 }
@@ -1492,6 +1637,10 @@ function objectiveFromStatements(
   fallbackText: string,
   fallback = "Continue the active workflow."
 ): string {
+  const eligibleStatements = statements.filter(isEligibleUserStatement);
+  if (statements.length > 0 && eligibleStatements.length === 0) {
+    return fallback;
+  }
   const sourceObjective = statements
     .filter(isEligibleUserStatement)
     .find(
@@ -1540,6 +1689,8 @@ function buildReview(input: {
   parsedCapsuleResult: ParsedCapsuleResult | null;
   request: TransformRequest;
   retrievalContext: string[];
+  extractionDegraded: boolean;
+  extractionContaminationMarkers: string[];
 }): ContinuityReview {
   const parsed = input.parsedCapsuleResult?.parsedCapsule;
   const newInstructionText = input.parsedCapsuleResult?.sourceWithoutCapsule ?? input.sourceText;
@@ -1547,7 +1698,7 @@ function buildReview(input: {
   const userDraftStatements = draftStatements.filter(isEligibleUserStatement);
   const activeObjective =
     parsed?.active_objective ??
-    objectiveFromStatements(userDraftStatements, input.normalized || input.reduced);
+    objectiveFromStatements(draftStatements, input.normalized || input.reduced);
   const explicitlyRejectedStatements = userDraftStatements
     .filter((statement) => statement.sectionBucket === "rejected_directions")
     .map((statement) => statement.text);
@@ -1643,7 +1794,10 @@ function buildReview(input: {
     request: input.request,
     sourceText: input.sourceText,
     newInstructionText,
-    retrievalContext: input.retrievalContext
+    retrievalContext: input.retrievalContext,
+    extractionDegraded: input.extractionDegraded,
+    extractionContaminationMarkers: input.extractionContaminationMarkers,
+    trustedSourceAvailable: userDraftStatements.length > 0 || Boolean(parsed)
   });
   const likelyMissingCategories = governanceState.likely_missing_categories ?? [];
   const omittedRejectedCount =
@@ -1731,7 +1885,13 @@ function buildReview(input: {
       continuity_safeguards: governanceState.continuity_safeguards,
       metric_warnings: governanceState.metric_warnings,
       extraction_failure: governanceState.extraction_failure,
-      fidelity_severity: governanceState.extraction_failure ? "critical" : "info",
+      extraction_degraded: governanceState.extraction_degraded,
+      extraction_contamination_markers: governanceState.extraction_contamination_markers,
+      fidelity_severity: governanceState.extraction_failure
+        ? input.extractionDegraded
+          ? "warning"
+          : "critical"
+        : "info",
       likely_missing_categories: likelyMissingCategories.length
         ? likelyMissingCategories
         : undefined,
@@ -1848,6 +2008,18 @@ function metricPenaltiesForReview(
   const hasRejectedSignal = hasRejectedSourceSignal(request.sourceText);
   const stableCanonical =
     governance?.canonical_items.filter((item) => item.primary_bucket === "stable_core") ?? [];
+  const durableCanonical =
+    governance?.canonical_items.filter((item) =>
+      [
+        "stable_core",
+        "provisional_state",
+        "open_unresolved",
+        "governance_principles",
+        "invariants",
+        "rejected_directions",
+        "continuity_safeguards"
+      ].includes(item.primary_bucket)
+    ) ?? [];
   const writebackFailed =
     request.providerHealth?.writeback_status === "failed" ||
     (request.providerHealth?.writeback_attempted === true &&
@@ -1899,6 +2071,10 @@ function metricPenaltiesForReview(
     emptyRejectionsWhenPresent:
       hasRejectedSignal && !(governance?.rejected_directions.length ?? 0),
     extractionFailure: review.diagnostics.extraction_failure,
+    extractionDegraded:
+      review.diagnostics.extraction_degraded ||
+      request.providerHealth?.extraction_status === "degraded" ||
+      request.providerHealth?.extraction_status === "failed",
     negativeStateLoss:
       (review.diagnostics.compression_loss?.lost_categories.includes("rejected_directions") ??
         false) ||
@@ -1912,13 +2088,24 @@ function metricPenaltiesForReview(
       review.stableCore.some((item) => isTaskLocalInstruction(item)) ||
       stableCanonical.some(
         (item) => item.primary_bucket === "stable_core" && isTaskLocalInstruction(item.text)
-      )
+      ),
+    unknownProvenanceDurable: durableCanonical.some((item) => item.source_role === "unknown"),
+    exportArtifactReentry: durableCanonical.some(
+      (item) =>
+        item.source_role === "export_artifact" || item.source_role === "exported_artifact_text"
+    ),
+    majorTrustFailure:
+      durableCanonical.some((item) => item.source_role === "unknown") ||
+      stableCanonical.some((item) => isExternalModelRole(item.source_role ?? "unknown")) ||
+      (hasInvariantSignal && !(governance?.invariants.length ?? 0)) ||
+      (hasRejectedSignal && !(governance?.rejected_directions.length ?? 0))
   };
 }
 
 export function transformPrompt(request: TransformRequest): TransformResult {
   const requestProviderId = providerId(request);
-  const providerPreparedSource = prepareProviderSource(request.sourceText, request);
+  const preparedSource = prepareProviderSource(request.sourceText, request);
+  const providerPreparedSource = preparedSource.text;
   const parsedCapsuleResult = parseCapsuleState(providerPreparedSource);
   const rawContinuitySource = removeGeneratedRuntimeInstructions(
     buildContinuitySource({
@@ -1947,7 +2134,12 @@ export function transformPrompt(request: TransformRequest): TransformResult {
     constraints,
     parsedCapsuleResult,
     request,
-    retrievalContext: governedSource.retrievalContext
+    retrievalContext: governedSource.retrievalContext,
+    extractionDegraded: preparedSource.extractionDegraded,
+    extractionContaminationMarkers: [
+      ...preparedSource.contaminationMarkers,
+      ...(request.providerHealth?.contamination_markers ?? [])
+    ]
   });
   const handoff = buildFinalHandoff(review);
   const modelAdjusted = adaptForModel(handoff, request.targetModel, request.mode);

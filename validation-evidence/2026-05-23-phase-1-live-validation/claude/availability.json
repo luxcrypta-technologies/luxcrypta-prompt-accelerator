@@ -1,0 +1,9 @@
+{
+  "provider": "claude",
+  "url": "https://claude.ai/new",
+  "title": "Just a moment...",
+  "authState": "unknown_or_anonymous",
+  "toolbar": false,
+  "input": false,
+  "text": "claude.ai\nPerforming security verification\n\nThis website uses a security service to protect against malicious bots. This page is displayed while the website verifies you are not a bot.\n\nRay ID: a0037869b908d811\nPerformance and Security by Cloudflare\nPrivacy"
+}

@@ -1,0 +1,9 @@
+{
+  "provider": "perplexity",
+  "url": "https://www.perplexity.ai/",
+  "title": "Just a moment...",
+  "authState": "unknown_or_anonymous",
+  "toolbar": false,
+  "input": false,
+  "text": "www.perplexity.ai\nPerforming security verification\n\nThis website uses a security service to protect against malicious bots. This page is displayed while the website verifies you are not a bot.\n\nRay ID: a00379077cfe18f0\nPerformance and Security by Cloudflare\nPrivacy"
+}

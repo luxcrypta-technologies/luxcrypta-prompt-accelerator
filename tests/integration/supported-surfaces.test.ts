@@ -195,6 +195,32 @@ describe("supported surfaces", () => {
     );
   });
 
+  it.each(providerFixtures)(
+    "$label reads the real draft body before provider chrome",
+    ({ label, url }) => {
+      const input =
+        label === "Gemini"
+          ? `<rich-textarea><div contenteditable="true" aria-label="Enter a prompt here">Objective: preserve user-authored body.\nInvariant: no chrome survives.</div></rich-textarea>`
+          : label === "ChatGPT" || label === "Claude" || label === "Grok"
+            ? `<div class="ProseMirror" id="${label === "ChatGPT" ? "prompt-textarea" : ""}" contenteditable="true" aria-label="Ask ${label}">Objective: preserve user-authored body.\nInvariant: no chrome survives.</div>`
+            : `<textarea aria-label="Ask ${label}">Objective: preserve user-authored body.\nInvariant: no chrome survives.</textarea>`;
+      document.body.innerHTML = `
+        <main>
+          <nav>Prompt Review Copy JSON Show more</nav>
+          <article data-testid="assistant-message">Assistant answer chrome should not become draft.</article>
+          <form data-testid="composer">${input}</form>
+          <footer>Copy Raw Advanced Try Pro</footer>
+        </main>
+      `;
+      const surface = CHAT_SURFACES.find((candidate) => candidate.matches(url));
+      const draft = surface?.getCurrentDraftText() ?? "";
+
+      expect(draft).toContain("Objective: preserve user-authored body.");
+      expect(draft).toContain("Invariant: no chrome survives.");
+      expect(draft).not.toMatch(/Show more|Copy JSON|Prompt Review|Assistant answer chrome/i);
+    }
+  );
+
   it("exposes DeepSeek structured reasoning provider profile", () => {
     const surface = CHAT_SURFACES.find((candidate) => candidate.id === "deepseek");
 

@@ -2,7 +2,7 @@ import type { ChatSurfaceAdapter, ConversationSnapshot, ProviderProfile } from "
 import {
   appendDraftText,
   queryFirstUsableInput,
-  readDraftText,
+  readBodyFirstDraftText,
   replaceDraftText,
   type DraftInputElement
 } from "./dom";
@@ -22,6 +22,17 @@ const INPUT_SELECTORS = [
   "[contenteditable='true'][aria-label*='ask' i]",
   "[contenteditable='true'][aria-label*='deepseek' i]",
   "div.ProseMirror[contenteditable='true']",
+  "textarea"
+];
+
+const BODY_SELECTORS = [
+  "[data-testid*='chat' i] textarea",
+  "[data-testid*='input' i] textarea",
+  "[data-testid*='composer' i] textarea",
+  "[contenteditable='true'][role='textbox']",
+  "div.ProseMirror[contenteditable='true']",
+  "main textarea",
+  "main [contenteditable='true']",
   "textarea"
 ];
 
@@ -106,7 +117,7 @@ export const deepseekSurface: ChatSurfaceAdapter = {
   },
   getInputElement: queryInput,
   getCurrentDraftText() {
-    return readDraftText(queryInput());
+    return readBodyFirstDraftText(queryInput(), BODY_SELECTORS);
   },
   setCurrentDraftText(text: string) {
     return replaceDraftText(queryInput(), text);

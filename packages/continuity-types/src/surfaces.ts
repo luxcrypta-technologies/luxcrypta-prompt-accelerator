@@ -23,6 +23,9 @@ export interface ProviderHealth {
   input_detected: boolean;
   toolbar_mounted: boolean;
   draft_read_success: boolean;
+  extraction_status?: "success" | "degraded" | "failed";
+  extraction_warnings?: string[];
+  contamination_markers?: string[];
   writeback_attempted?: boolean;
   writeback_status?: "not_attempted" | "success" | "failed";
   writeback_success: boolean;
