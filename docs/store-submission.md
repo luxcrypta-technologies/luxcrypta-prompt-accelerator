@@ -1,6 +1,6 @@
 # Store Submission
 
-This document is the upload handoff for LuxCrypta Prompt Accelerator `2.3.0`.
+This document is the upload handoff for LuxCrypta Prompt Accelerator `2.3.1`.
 
 ## Public Links
 
@@ -192,4 +192,4 @@ Recommended screenshots:
 5. Use deferred/manual Chrome publishing if available so both stores can be coordinated.
 6. Track review status and patch only store-reported blockers.
 7. After approval, install from live store listings and run production smoke.
-8. Tag the approved release as `v2.3.0`.
+8. Tag the approved release as `v2.3.1`.

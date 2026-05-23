@@ -164,7 +164,7 @@ Also make Copy export clean and human-readable.`
       result: governed,
       transformedText: governed.transformedText,
       sessionState: null,
-      extensionVersion: "2.3.0",
+      extensionVersion: "2.3.1",
       currentUrl: "chrome-extension://review.html",
       workflow,
       capsule
