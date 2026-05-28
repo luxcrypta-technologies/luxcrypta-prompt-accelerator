@@ -23,6 +23,19 @@ function controller(activeSurface: ChatSurfaceAdapter | null, onAdvanced = vi.fn
   });
 }
 
+function surfaceFor(id: string, selector: string): ChatSurfaceAdapter {
+  return {
+    id,
+    label: id,
+    matches: () => true,
+    isReady: () => document.querySelector(selector) !== null,
+    getInputElement: () => document.querySelector(selector),
+    getCurrentDraftText: () => "",
+    setCurrentDraftText: () => true,
+    insertText: () => true
+  };
+}
+
 describe("toolbar mount controller", () => {
   function stubRect(element: Element, rect: Partial<DOMRect>) {
     element.getBoundingClientRect = () =>
@@ -112,5 +125,36 @@ describe("toolbar mount controller", () => {
     expect(root?.style.bottom).toBe("");
     expect(root?.parentElement).toBe(input.parentElement);
     expect(root?.nextElementSibling).toBe(input);
+  });
+
+  it("rebinds an existing toolbar when the active provider root changes", () => {
+    document.body.innerHTML = `
+      <main>
+        <section id="chatgpt-root"><div data-chatgpt-input></div></section>
+        <section id="claude-root"><div data-claude-input></div></section>
+      </main>
+    `;
+    let activeSurface = surfaceFor("chatgpt", "[data-chatgpt-input]");
+    const onAdvanced = vi.fn();
+    const mount = createToolbarMountController({
+      getSurface: () => activeSurface,
+      onAdvanced,
+      observeDom: () => () => undefined
+    });
+
+    mount.ensureToolbarMounted();
+    const toolbar = document.getElementById(TOOLBAR_ID);
+    const button = toolbar?.querySelector("button");
+    if (!toolbar || !button) throw new Error("Toolbar fixture missing.");
+    button.onclick = null;
+    toolbar.dataset.listenerBound = "true";
+    activeSurface = surfaceFor("claude", "[data-claude-input]");
+
+    mount.ensureToolbarMounted();
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(document.getElementById(TOOLBAR_ROOT_ID)?.dataset.surface).toBe("claude");
+    expect(document.getElementById(TOOLBAR_ROOT_ID)?.parentElement?.id).toBe("claude-root");
+    expect(onAdvanced).toHaveBeenCalledWith(activeSurface);
   });
 });

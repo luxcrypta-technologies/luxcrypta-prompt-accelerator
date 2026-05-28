@@ -45,6 +45,15 @@ function mockReviewMessages(result: TransformResult) {
         sourceTabId: 7
       };
     }
+    if (message.type === "review:rendered") {
+      return {
+        reviewId: "review_test",
+        visibleToUser: true,
+        openStatus: "open_success",
+        providerHealth: result.continuityReview.diagnostics.providerHealth,
+        result
+      };
+    }
     if (message.type === "session:get" || message.type === "session:update") return null;
     if (message.type === "content:draft:apply") {
       const payload = message.payload as { text: string; targetTabId?: number };
@@ -195,5 +204,50 @@ describe("review window toolbar actions", () => {
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
       expect.stringContaining("\"title\": \"Active Objective\"")
     );
+  });
+
+  it("executes review and artifact copy actions even when handoff readiness is unsafe", async () => {
+    const base = reviewResult();
+    const result: TransformResult = {
+      ...base,
+      continuityReview: {
+        ...base.continuityReview,
+        diagnostics: {
+          ...base.continuityReview.diagnostics,
+          export_readiness_decision: "UNSAFE_FOR_HANDOFF" as const,
+          readiness_blockers: ["review-open was not visibly confirmed"],
+          providerHealth: {
+            provider: "chatgpt",
+            surface_detected: true,
+            input_detected: true,
+            toolbar_mounted: true,
+            draft_read_success: true,
+            writeback_success: false,
+            review_open_attempted: true,
+            review_open_status: "surface_created" as const,
+            visible_to_user: false,
+            duplicate_guard_active: true,
+            runtime_errors: []
+          }
+        }
+      }
+    };
+    mockReviewMessages(result);
+    render(React.createElement(App));
+
+    const actions = [
+      { name: "Copy", success: "Copied continuity review" },
+      { name: "Copy Review + Raw JSON", success: "Copied review and raw JSON" },
+      { name: "Copy Engineering Summary", success: "Copied engineering summary" },
+      { name: "Copy Portable Capsule", success: "Copied portable capsule" },
+      { name: "Copy Workflow Export", success: "Copied workflow export" }
+    ];
+
+    for (const action of actions) {
+      fireEvent.click(await screen.findByRole("button", { name: action.name }));
+      await waitFor(() => expect(screen.getAllByText(action.success).length).toBeGreaterThan(0));
+    }
+
+    expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(actions.length);
   });
 });

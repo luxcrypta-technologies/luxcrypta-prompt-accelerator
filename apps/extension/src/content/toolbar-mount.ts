@@ -204,12 +204,11 @@ export function createToolbarMountController(
   function ensureToolbarMounted(): void {
     removeDuplicateToolbars();
     if (isToolbarPresent()) {
-      const root = getOrCreateLuxcryptaRoot(readySurface(deps.getSurface()));
-      const toolbar = document.getElementById(TOOLBAR_ID);
-      if (root && toolbar && toolbar.parentElement !== root) {
-        root.append(toolbar);
+      if (readySurface(deps.getSurface())) {
+        mountToolbar();
+      } else {
+        positionToolbar();
       }
-      positionToolbar();
       return;
     }
     mountToolbar();

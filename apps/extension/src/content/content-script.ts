@@ -213,9 +213,10 @@ async function openAdvancedReviewOnce(surface: ChatSurfaceAdapter, retry = false
   if (!visible) {
     advancedEvent(surface, "review_visible_timeout", {
       reviewId: response.reviewId,
-      reason: "first_content_not_confirmed"
+      reason: "first_content_not_confirmed",
+      openPathContinued: true
     });
-    throw new Error("Prompt Review surface opened, but visible content was not confirmed.");
+    return;
   }
   advancedEvent(surface, retry ? "fallback_retry_success" : "review_open_success", {
     reviewId: response.reviewId

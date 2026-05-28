@@ -322,6 +322,7 @@ export function App() {
   const [sessionState, setSessionState] = useState<SessionGovernanceState | null>(null);
   const [pendingAction, setPendingAction] = useState<ReviewAction | null>(null);
   const [actionFeedback, setActionFeedback] = useState<ToolbarFeedback | null>(null);
+  const [renderedAckReviewId, setRenderedAckReviewId] = useState<string | null>(null);
 
   const loadSessionState = useCallback(async () => {
     const next = await platform.messaging.sendMessage<
@@ -352,7 +353,8 @@ export function App() {
   }, [loadSessionState]);
 
   useEffect(() => {
-    if (!state?.id || !state.result) return;
+    if (!state?.id || !state.result || renderedAckReviewId === state.id) return;
+    const reviewId = state.id;
     const frame = window.requestAnimationFrame(() => {
       void platform.messaging
         .sendMessage<
@@ -364,12 +366,13 @@ export function App() {
           } | null
         >({
           type: "review:rendered",
-          payload: { reviewId: state.id }
+          payload: { reviewId }
         })
         .then((ack) => {
+          setRenderedAckReviewId(reviewId);
           if (!ack?.providerHealth) return;
           setState((current) => {
-            if (!current || current.id !== state.id) return current;
+            if (!current || current.id !== reviewId) return current;
             if (ack.result) {
               return {
                 ...current,
@@ -404,7 +407,7 @@ export function App() {
         });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [state?.id, state?.result]);
+  }, [renderedAckReviewId, state?.id, state?.result]);
 
   const result: TransformResult | null = state?.result ?? null;
   const sourcePreviewText = result?.continuityReview.diagnostics.rawCapsule
@@ -534,7 +537,6 @@ export function App() {
     try {
       const persistedResult = await persistVisibleReviewState();
       if (!persistedResult) throw new Error("No persisted review state available.");
-      assertSafeForHandoff(persistedResult);
       const copied = await copyToClipboardSafely(
         formatContinuityExport(persistedResult, editableText)
       );
@@ -611,7 +613,6 @@ export function App() {
     try {
       const persistedResult = await persistVisibleReviewState();
       if (!persistedResult) throw new Error("No persisted review state available.");
-      assertSafeForHandoff(persistedResult);
       const text = [
         formatContinuityExport(persistedResult, editableText),
         "Raw JSON",
@@ -675,7 +676,6 @@ export function App() {
     try {
       const persistedResult = await persistVisibleReviewState();
       if (!persistedResult) throw new Error("No persisted review state available.");
-      assertSafeForHandoff(persistedResult);
       const now = new Date().toISOString();
       const draft = buildWorkflowDraft(persistedResult, editableText);
       const exportWorkflow: Workflow = {
@@ -719,7 +719,6 @@ export function App() {
     try {
       const persistedResult = await persistVisibleReviewState();
       if (!persistedResult) throw new Error("No persisted review state available.");
-      assertSafeForHandoff(persistedResult);
       const now = new Date().toISOString();
       const draft = buildCapsuleDraft(persistedResult, editableText);
       const exportCapsule: CarryForwardCapsule = {

@@ -20,32 +20,21 @@ export const chromiumReviewSurface: PlatformReviewSurface = {
   },
 
   async openReviewSurface(reviewId?: string): Promise<void> {
+    const path = reviewPath(reviewId);
     const preferred = this.getPreferredSurface();
     if (preferred === "side_panel" && chrome.sidePanel?.open) {
       const tabId = await getActiveTabId();
       if (tabId !== null) {
         try {
+          await chrome.sidePanel.setOptions?.({ tabId, path, enabled: true });
           await chrome.sidePanel.open({ tabId });
           return;
-        } catch (error) {
-          if (!isSidePanelUserGestureError(error)) {
-            throw error;
-          }
+        } catch {
           // Prompt actions often transform locally before opening review, which can outlive
-          // Chrome's user-gesture window. Keep the review flow usable with a tab fallback.
+          // Chrome's user-gesture window. A tab fallback also avoids stale side-panel mounts.
         }
       }
     }
-    await chrome.tabs.create({ url: chrome.runtime.getURL(reviewPath(reviewId)) });
+    await chrome.tabs.create({ url: chrome.runtime.getURL(path) });
   }
 };
-
-function isSidePanelUserGestureError(error: unknown): boolean {
-  const message =
-    error instanceof Error
-      ? error.message
-      : typeof error === "object" && error && "message" in error
-        ? String((error as { message?: unknown }).message)
-        : String(error);
-  return message.includes("sidePanel.open") && message.includes("user gesture");
-}
