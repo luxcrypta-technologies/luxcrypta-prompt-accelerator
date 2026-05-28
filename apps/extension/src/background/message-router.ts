@@ -1,4 +1,5 @@
 import { REVIEW_STATE_LIMIT } from "@/app/config";
+import { getBuildProvenance } from "@/app/build-info";
 import { readConversationSnapshot, readCurrentDraft, applyPrompt } from "./commands";
 import { executeContinueSession } from "@/domain/actions/continue-session";
 import { executeExportBundle, executeImportBundle } from "@/domain/actions/export-bundle";
@@ -15,7 +16,7 @@ import { CapsuleService } from "@/domain/services/capsule-service";
 import { HistoryService } from "@/domain/services/history-service";
 import { PreferenceService } from "@/domain/services/preference-service";
 import { SessionGovernanceService } from "@/domain/services/session-governance-service";
-import { reviewStateKey, STORAGE_PREFIXES } from "@/storage/keys";
+import { CURRENT_SESSION_KEY, reviewStateKey, STORAGE_PREFIXES } from "@/storage/keys";
 import type {
   BackgroundMessage,
   BackgroundMessageResult,
@@ -24,6 +25,7 @@ import type {
   ReviewState
 } from "@/types/messages";
 import type { PlatformAPI, PlatformStorage } from "@/types/platform";
+import type { SessionGovernanceState } from "@/types/governance";
 import { createDatedId } from "@/utils/ids";
 import { nowIso } from "@/utils/time";
 
@@ -94,6 +96,47 @@ function markReviewOpenFailure(state: ReviewState, stage: string, reason: string
   health.visible_to_user = false;
   health.persisted = true;
   appendReviewOpenEvent(state, `review_open_failed:${stage}`);
+}
+
+function attachRuntimeDiagnostics(
+  state: ReviewState,
+  sessionState: SessionGovernanceState | null,
+  sourceTabId?: number | null
+): void {
+  const diagnostics = state.result.continuityReview.diagnostics;
+  const health = diagnostics.providerHealth;
+  const routeKey = `${sourceTabId ?? state.sourceTabId ?? "unknown"}:${state.id}`;
+  const buildProvenance = getBuildProvenance(
+    health?.build_provenance?.extension_version
+  );
+  diagnostics.build_provenance = buildProvenance;
+  if (health) {
+    health.route_key = routeKey;
+    health.session_key = sessionState?.id;
+    health.persisted_session_state_present = Boolean(sessionState);
+    health.session_state_source = sessionState ? "persisted_local_state" : "built_fresh_in_session";
+    health.build_provenance = buildProvenance;
+    diagnostics.runtime_snapshot = {
+      provider_name: health.provider,
+      active_url: health.active_url,
+      active_domain: health.active_domain,
+      toolbar_mount_state: {
+        toolbar_mounted: health.toolbar_mounted,
+        toolbar_root_mounted: health.toolbar_root_mounted,
+        toolbar_root_surface: health.toolbar_root_surface,
+        dom_mount_status: health.dom_mount_status,
+        current_provider_bound: health.toolbar_current_provider_bound
+      },
+      provider_root_selector_used: health.provider_root_selector_used,
+      provider_root_present: health.provider_root_present,
+      authored_body_target_present: health.authored_body_target_present,
+      route_key: routeKey,
+      session_key: sessionState?.id,
+      persisted_session_state_present: Boolean(sessionState),
+      session_state_source: health.session_state_source,
+      build_provenance: buildProvenance
+    };
+  }
 }
 
 function refreshReviewReadinessAfterOpen(state: ReviewState): void {
@@ -189,6 +232,9 @@ export function createMessageRouter(platform: PlatformAPI) {
         const createdAt = nowIso();
         const surface = platform.reviewSurface.getPreferredSurface();
         const sourceTabId = await platform.tabs.getActiveTabId();
+        const currentSession = await platform.storage.get<SessionGovernanceState>(
+          CURRENT_SESSION_KEY
+        );
         const result = backgroundMessage.payload.result;
         if (result.continuityReview.diagnostics.providerHealth) {
           result.continuityReview.diagnostics.providerHealth.review_open_attempted = true;
@@ -212,6 +258,7 @@ export function createMessageRouter(platform: PlatformAPI) {
           createdAt,
           sourceTabId: sourceTabId ?? undefined
         };
+        attachRuntimeDiagnostics(state, currentSession, sourceTabId);
         await rememberReviewState(state, platform.storage);
         try {
           await platform.reviewSurface.openReviewSurface(state.id);
@@ -238,6 +285,7 @@ export function createMessageRouter(platform: PlatformAPI) {
             "review_open_pending_visible_render"
           ];
         }
+        attachRuntimeDiagnostics(state, currentSession, sourceTabId);
         await rememberReviewState(state, platform.storage);
         return {
           reviewId: state.id,
@@ -296,6 +344,10 @@ export function createMessageRouter(platform: PlatformAPI) {
           ];
         }
         refreshReviewReadinessAfterOpen(state);
+        const currentSession = await platform.storage.get<SessionGovernanceState>(
+          CURRENT_SESSION_KEY
+        );
+        attachRuntimeDiagnostics(state, currentSession, state.sourceTabId);
         await rememberReviewState(state, platform.storage);
         return {
           reviewId: state.id,

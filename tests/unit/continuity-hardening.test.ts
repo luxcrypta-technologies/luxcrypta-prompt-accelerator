@@ -260,7 +260,7 @@ Construct a portable operational cognition state for a long-running AI workflow 
     expect(itemTexts.some((item) => /^governance principles$/i.test(item))).toBe(false);
   });
 
-  it("keeps one primary bucket per normalized canonical item and records collisions as cross refs", () => {
+  it("keeps one primary bucket per normalized canonical item and suppresses secondary bucket refs", () => {
     const result = transformPrompt({
       sourceText:
         "Objective: preserve continuity. Governance principles: No silent transitions. Invariants: No silent transitions. Rejected directions: Do not silently resolve unresolved questions.",
@@ -276,7 +276,150 @@ Construct a portable operational cognition state for a long-running AI workflow 
       expect(prior === undefined || prior === item.primary_bucket).toBe(true);
       primaryByText.set(key, item.primary_bucket);
     }
-    expect(result.scores.bucketExclusivityScore).toBeGreaterThanOrEqual(0.66);
+    expect(items.some((item) => item.cross_refs?.length)).toBe(false);
+    expect(
+      result.continuityReview.diagnostics.adversarialGovernance?.secondary_bucket_suppressed_count
+    ).toBeGreaterThan(0);
+    expect(result.scores.bucketExclusivityScore).toBeGreaterThanOrEqual(0.85);
+  });
+
+  it("allows a clean structured handoff to pass without a bucket exclusivity blocker", () => {
+    const result = transformPrompt({
+      sourceText: [
+        "Objective: Continue hardening the continuity runtime for clean safe handoff.",
+        "Stable constraints:",
+        "- Durable fragments must have one primary bucket.",
+        "Governance principles:",
+        "- Governance outranks convenience.",
+        "- Source provenance must stay visible.",
+        "Invariants:",
+        "- No silent transitions.",
+        "- Durable state must remain user-authored.",
+        "Accepted decisions:",
+        "- Keep provider routing unchanged.",
+        "Rejected directions:",
+        "- Do not weaken blocker logic.",
+        "- Do not use prompt shell headings as state.",
+        "Open / Unresolved:",
+        "- Whether live persistence needs a separate pass remains unresolved.",
+        "Continuity safeguards:",
+        "- Preserve rejected directions across handoff.",
+        "- Keep unresolved issues visible."
+      ].join("\n"),
+      sourceSurface: "chatgpt",
+      providerProfile: profile("chatgpt")
+    });
+    const governance = result.continuityReview.diagnostics.adversarialGovernance;
+
+    expect(result.continuityReview.diagnostics.export_readiness_decision).toBe(
+      "SAFE_FOR_HANDOFF"
+    );
+    expect(result.continuityReview.diagnostics.readiness_blockers ?? []).not.toContain(
+      "bucket exclusivity is below the handoff threshold"
+    );
+    expect(governance?.canonical_items.some((item) => item.cross_refs?.length)).toBe(false);
+    expect(governance?.cross_ref_count).toBe(0);
+    expect(governance?.exclusive_bucket_violation_count).toBe(0);
+    expect(governance?.category_header_blocked_count).toBeGreaterThan(0);
+    expect(governance?.governance_principles.join(" ")).toContain("Governance outranks");
+    expect(governance?.invariants.join(" ")).toContain("No silent transitions");
+    expect(governance?.rejected_directions.join(" ")).toContain("Do not weaken blocker logic");
+    expect(result.continuityReview.openUnresolved.join(" ")).toContain("remains unresolved");
+    expect(governance?.continuity_safeguards.join(" ")).toContain(
+      "Preserve rejected directions"
+    );
+  });
+
+  it("blocks header-only and prompt-shell fragments from durable admission", () => {
+    const result = transformPrompt({
+      sourceText: [
+        "Objective: Keep a real durable objective alive.",
+        "Governance principles:",
+        "Invariants:",
+        "Rejected directions:",
+        "At the end provide What Changed, Bad Before, Corrected After, Files Changed, Validation, and Live Status.",
+        "Governance principles:",
+        "- Truthfulness outranks clean-looking output.",
+        "Invariants:",
+        "- No silent transitions."
+      ].join("\n"),
+      sourceSurface: "chatgpt",
+      providerProfile: profile("chatgpt")
+    });
+    const governance = result.continuityReview.diagnostics.adversarialGovernance;
+    const durable = durableText(result);
+
+    expect(durable).not.toMatch(/At the end provide|Bad Before|Corrected After|Files Changed/i);
+    expect(governance?.category_header_blocked_count).toBeGreaterThanOrEqual(2);
+    expect(governance?.prompt_shell_blocked_count).toBeGreaterThan(0);
+  });
+
+  it("blocks role labels, category labels, and response-format instructions from durable state", () => {
+    const result = transformPrompt({
+      sourceText: [
+        "user",
+        "user:",
+        "Active objective",
+        "Stable constraints",
+        "Return exactly these four labeled sections.",
+        "Do not turn this into a paragraph.",
+        "Governance principles:",
+        "- Truthfulness outranks smooth output."
+      ].join("\n"),
+      sourceSurface: "chatgpt",
+      providerProfile: profile("chatgpt")
+    });
+    const durable = durableText(result);
+
+    expect(durable).not.toMatch(/^user:?$/im);
+    expect(durable).not.toMatch(/Active objective|Stable constraints/i);
+    expect(durable).not.toMatch(/Return exactly these four labeled sections/i);
+    expect(durable).not.toMatch(/Do not turn this into a paragraph/i);
+  });
+
+  it("fails closed with invalid_objective for role-only and shell-derived objectives", () => {
+    for (const sourceText of [
+      "user",
+      "user:",
+      "Objective: Return exactly these four labeled sections.",
+      "Objective: Active objective"
+    ]) {
+      const result = transformPrompt({
+        sourceText,
+        sourceSurface: "chatgpt",
+        providerProfile: profile("chatgpt")
+      });
+
+      expect(result.continuityReview.activeObjective).toBe("invalid_objective");
+      expect(result.continuityReview.diagnostics.export_readiness_decision).toBe(
+        "UNSAFE_FOR_HANDOFF"
+      );
+      expect(result.continuityReview.diagnostics.readiness_blockers).toContain(
+        "invalid_objective"
+      );
+      expect(result.continuityReview.diagnostics.missing_state_summary).toContain(
+        "invalid_objective"
+      );
+    }
+  });
+
+  it("quarantines ambiguous multi-bucket fragments instead of cross-linking them", () => {
+    const result = transformPrompt({
+      sourceText:
+        "Governance principles, invariants, continuity safeguards, and open unresolved issues should all be copied across categories as one durable fragment.",
+      sourceSurface: "chatgpt",
+      providerProfile: profile("chatgpt")
+    });
+    const governance = result.continuityReview.diagnostics.adversarialGovernance;
+
+    expect(governance?.ambiguous_quarantined_count).toBeGreaterThan(0);
+    expect(governance?.quarantine_log.join(" ")).toContain("copied across categories");
+    expect(
+      governance?.canonical_items.some(
+        (item) => item.primary_bucket !== "quarantine_log" && item.text.includes("copied across")
+      )
+    ).toBe(false);
+    expect(governance?.canonical_items.some((item) => item.cross_refs?.length)).toBe(false);
   });
 
   it("fails closed when provenance is explicitly unknown", () => {

@@ -177,6 +177,9 @@ export function createToolbarMountController(
         if (!activeSurface) {
           throw new Error("No ready provider surface detected.");
         }
+        if (document.getElementById(TOOLBAR_ROOT_ID)?.dataset.surface !== activeSurface.id) {
+          mountToolbar();
+        }
         await deps.onAdvanced(activeSurface);
       }
     };

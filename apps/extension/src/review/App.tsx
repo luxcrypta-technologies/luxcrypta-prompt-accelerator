@@ -23,6 +23,7 @@ import {
   artifactFilename,
   buildCapsuleDraft,
   buildDiagnosticState,
+  buildFinalArtifactTruth,
   buildPortableCapsuleArtifact,
   buildPortableWorkflowArtifact,
   buildWorkflowDraft,
@@ -168,16 +169,26 @@ function stableJsonPayload(
   };
 }
 
-function handoffBlockers(result: TransformResult): string[] {
-  const blockers = result.continuityReview.diagnostics.readiness_blockers ?? [];
-  if (result.continuityReview.diagnostics.export_readiness_decision === "UNSAFE_FOR_HANDOFF") {
-    return blockers.length ? blockers : ["handoff readiness is unsafe"];
+function handoffBlockers(
+  result: TransformResult,
+  transformedText: string,
+  sessionState: SessionGovernanceState | null
+): string[] {
+  const truth = buildFinalArtifactTruth({ result, transformedText, sessionState });
+  if (truth.final_artifact_readiness_decision === "UNSAFE_FOR_HANDOFF") {
+    return truth.final_artifact_blockers.length
+      ? truth.final_artifact_blockers
+      : ["handoff readiness is unsafe"];
   }
   return [];
 }
 
-function assertSafeForHandoff(result: TransformResult): void {
-  const blockers = handoffBlockers(result);
+function assertSafeForHandoff(
+  result: TransformResult,
+  transformedText: string,
+  sessionState: SessionGovernanceState | null
+): void {
+  const blockers = handoffBlockers(result, transformedText, sessionState);
   if (blockers.length) {
     throw new Error(`UNSAFE_FOR_HANDOFF: ${blockers.join("; ")}`);
   }
@@ -538,7 +549,7 @@ export function App() {
       const persistedResult = await persistVisibleReviewState();
       if (!persistedResult) throw new Error("No persisted review state available.");
       const copied = await copyToClipboardSafely(
-        formatContinuityExport(persistedResult, editableText)
+        formatContinuityExport(persistedResult, editableText, sessionState)
       );
       if (!copied) {
         throw new Error("Clipboard unavailable.");
@@ -560,7 +571,7 @@ export function App() {
     } finally {
       setPendingAction(null);
     }
-  }, [editableText, persistVisibleReviewState, result, setFeedback]);
+  }, [editableText, persistVisibleReviewState, result, sessionState, setFeedback]);
 
   const diagnosticStateJson = useCallback(() => {
     const context =
@@ -581,26 +592,29 @@ export function App() {
 
   const engineeringSummary = useCallback(() => {
     if (!result) return "";
-    const review = result.continuityReview;
-    const governance = review.diagnostics.adversarialGovernance;
+    const context = artifactContext({ exportStatus: "Engineering Summary" });
+    const diagnostic = context ? buildDiagnosticState(context) : null;
+    const finalBlockers = (diagnostic?.final_readiness_blockers as string[] | undefined) ?? [];
+    const finalMissing =
+      (diagnostic?.final_missing_state_summary as string[] | undefined) ?? [];
     return [
       "Engineering Summary",
-      `Provider: ${review.diagnostics.providerProfile?.provider ?? review.diagnostics.sourceSurface ?? "unknown"}`,
-      `Active Objective: ${review.activeObjective}`,
-      `Stable Core Count: ${review.stableCore.length}`,
-      `Provisional Count: ${review.newProvisional.length}`,
-      `Open / Unresolved Count: ${review.openUnresolved.length}`,
-      `Rejected Directions Count: ${governance?.rejected_directions.length ?? 0}`,
-      `Quarantine Count: ${governance?.quarantine_log.length ?? 0}`,
+      `Provider: ${result.continuityReview.diagnostics.providerProfile?.provider ?? result.continuityReview.diagnostics.sourceSurface ?? "unknown"}`,
+      `Final Artifact Source: ${diagnostic?.final_artifact_source_mode ?? "unknown"}`,
+      `Final Evaluated Objective: ${diagnostic?.final_evaluated_objective ?? result.continuityReview.activeObjective}`,
+      `Final Durable Item Count: ${diagnostic?.final_artifact_durable_item_count ?? "n/a"}`,
+      `Export Readiness: ${diagnostic?.export_readiness_decision ?? result.continuityReview.diagnostics.export_readiness_decision ?? "UNSAFE_FOR_HANDOFF"}`,
+      `Missing State: ${finalMissing.length ? finalMissing.join(", ") : "none"}`,
+      `Readiness Blockers: ${finalBlockers.length ? finalBlockers.join("; ") : "none"}`,
       `Source Purity: ${result.scores.sourcePurityScore ?? "n/a"}`,
       `Bucket Exclusivity: ${result.scores.bucketExclusivityScore ?? "n/a"}`,
       "",
       "Metric Warnings",
-      ...(review.diagnostics.metric_warnings?.length
-        ? review.diagnostics.metric_warnings.map((item) => `- ${item}`)
+      ...(result.continuityReview.diagnostics.metric_warnings?.length
+        ? result.continuityReview.diagnostics.metric_warnings.map((item) => `- ${item}`)
         : ["- None"])
     ].join("\n");
-  }, [result]);
+  }, [artifactContext, result]);
 
   const copyReviewWithJson = useCallback(async () => {
     if (!result) return;
@@ -614,7 +628,7 @@ export function App() {
       const persistedResult = await persistVisibleReviewState();
       if (!persistedResult) throw new Error("No persisted review state available.");
       const text = [
-        formatContinuityExport(persistedResult, editableText),
+        formatContinuityExport(persistedResult, editableText, sessionState),
         "Raw JSON",
         diagnosticStateJson()
       ].join("\n\n");
@@ -635,7 +649,7 @@ export function App() {
     } finally {
       setPendingAction(null);
     }
-  }, [diagnosticStateJson, editableText, persistVisibleReviewState, result, setFeedback]);
+  }, [diagnosticStateJson, editableText, persistVisibleReviewState, result, sessionState, setFeedback]);
 
   const copyEngineeringSummary = useCallback(async () => {
     if (!result) return;
@@ -677,7 +691,7 @@ export function App() {
       const persistedResult = await persistVisibleReviewState();
       if (!persistedResult) throw new Error("No persisted review state available.");
       const now = new Date().toISOString();
-      const draft = buildWorkflowDraft(persistedResult, editableText);
+      const draft = buildWorkflowDraft(persistedResult, editableText, sessionState);
       const exportWorkflow: Workflow = {
         ...draft,
         id: "unsaved-workflow-export",
@@ -706,7 +720,7 @@ export function App() {
     } finally {
       setPendingAction(null);
     }
-  }, [artifactContext, editableText, persistVisibleReviewState, result, setFeedback]);
+  }, [artifactContext, editableText, persistVisibleReviewState, result, sessionState, setFeedback]);
 
   const copyPortableCapsule = useCallback(async () => {
     if (!result) return;
@@ -720,7 +734,7 @@ export function App() {
       const persistedResult = await persistVisibleReviewState();
       if (!persistedResult) throw new Error("No persisted review state available.");
       const now = new Date().toISOString();
-      const draft = buildCapsuleDraft(persistedResult, editableText);
+      const draft = buildCapsuleDraft(persistedResult, editableText, sessionState);
       const exportCapsule: CarryForwardCapsule = {
         capsule_version: 1,
         ...draft,
@@ -750,7 +764,7 @@ export function App() {
     } finally {
       setPendingAction(null);
     }
-  }, [artifactContext, editableText, persistVisibleReviewState, result, setFeedback]);
+  }, [artifactContext, editableText, persistVisibleReviewState, result, sessionState, setFeedback]);
 
   const copyReviewBlock = useCallback(
     async (label: string, text: string) => {
@@ -791,11 +805,11 @@ export function App() {
     try {
       const persistedResult = await persistVisibleReviewState();
       if (!persistedResult) throw new Error("No persisted review state available.");
-      assertSafeForHandoff(persistedResult);
+      assertSafeForHandoff(persistedResult, editableText, sessionState);
       const saved = await platform.messaging.sendMessage<BackgroundMessage, Workflow>({
         type: "workflow:save",
         payload: {
-          workflow: buildWorkflowDraft(persistedResult, editableText)
+          workflow: buildWorkflowDraft(persistedResult, editableText, sessionState)
         }
       });
       savedWorkflow = saved;
@@ -828,7 +842,7 @@ export function App() {
     } finally {
       setPendingAction(null);
     }
-  }, [artifactContext, editableText, persistVisibleReviewState, result, setFeedback]);
+  }, [artifactContext, editableText, persistVisibleReviewState, result, sessionState, setFeedback]);
 
   const saveCapsule = useCallback(async () => {
     if (!result) return;
@@ -839,11 +853,11 @@ export function App() {
     try {
       const persistedResult = await persistVisibleReviewState();
       if (!persistedResult) throw new Error("No persisted review state available.");
-      assertSafeForHandoff(persistedResult);
+      assertSafeForHandoff(persistedResult, editableText, sessionState);
       const saved = await platform.messaging.sendMessage<BackgroundMessage, CarryForwardCapsule>({
         type: "capsule:save",
         payload: {
-          capsule: buildCapsuleDraft(persistedResult, editableText)
+          capsule: buildCapsuleDraft(persistedResult, editableText, sessionState)
         }
       });
       savedCapsule = saved;
@@ -876,7 +890,7 @@ export function App() {
     } finally {
       setPendingAction(null);
     }
-  }, [artifactContext, editableText, persistVisibleReviewState, result, setFeedback]);
+  }, [artifactContext, editableText, persistVisibleReviewState, result, sessionState, setFeedback]);
 
   const copySavedWorkflow = useCallback(async () => {
     if (!workflow) return;
@@ -1070,6 +1084,11 @@ export function App() {
 
   const review = result.continuityReview;
   const governance = review.diagnostics.adversarialGovernance;
+  const finalArtifactTruth = buildFinalArtifactTruth({
+    result,
+    transformedText: editableText,
+    sessionState
+  });
   const rawDiagnosticJson = diagnosticStateJson();
   const rawDiagnosticMarkdown = artifactContext({ exportStatus: "Raw Diagnostic Markdown" })
     ? formatDiagnosticMarkdown(artifactContext({ exportStatus: "Raw Diagnostic Markdown" })!)
@@ -1094,7 +1113,7 @@ export function App() {
     review.diagnostics.fidelity_severity === "critical"
       ? "Critical fidelity failure: source categories appear present but were not extracted."
       : "",
-    review.diagnostics.export_readiness_decision === "UNSAFE_FOR_HANDOFF"
+    finalArtifactTruth.final_artifact_readiness_decision === "UNSAFE_FOR_HANDOFF"
       ? "Export readiness: UNSAFE_FOR_HANDOFF."
       : "",
     (result.scores.sourcePurityScore ?? 1) < 0.8 ? "Durable-state source purity is low." : "",
@@ -1116,9 +1135,9 @@ export function App() {
       : ""
   ].filter(Boolean);
   const readinessLines = [
-    review.diagnostics.export_readiness_decision ?? "UNSAFE_FOR_HANDOFF",
-    ...(review.diagnostics.readiness_blockers?.map((blocker) => `Blocker: ${blocker}`) ?? []),
-    ...(review.diagnostics.missing_state_summary?.map((item) => `Missing state: ${item}`) ?? [])
+    finalArtifactTruth.final_artifact_readiness_decision,
+    ...finalArtifactTruth.final_artifact_blockers.map((blocker) => `Blocker: ${blocker}`),
+    ...finalArtifactTruth.final_missing_state_summary.map((item) => `Missing state: ${item}`)
   ];
   const extractionSourceLines = [
     `Source: ${review.diagnostics.providerHealth?.extraction_source ?? "unknown"}`,
@@ -1245,8 +1264,11 @@ export function App() {
           items={readinessLines}
           emptyText="UNSAFE_FOR_HANDOFF"
           metadata={{
-            decision: review.diagnostics.export_readiness_decision,
-            blockers: review.diagnostics.readiness_blockers,
+            decision: finalArtifactTruth.final_artifact_readiness_decision,
+            blockers: finalArtifactTruth.final_artifact_blockers,
+            final_artifact_source_mode: finalArtifactTruth.final_artifact_source_mode,
+            final_artifact_objective: finalArtifactTruth.final_artifact_objective,
+            review_export_truth_match: finalArtifactTruth.review_export_truth_match,
             metadata: review.diagnostics.readiness_metadata
           }}
           onCopy={copyReviewBlock}
@@ -1257,7 +1279,7 @@ export function App() {
           emptyText="No hard warnings detected."
           metadata={{
             fidelity_severity: review.diagnostics.fidelity_severity,
-            export_readiness_decision: review.diagnostics.export_readiness_decision
+            export_readiness_decision: finalArtifactTruth.final_artifact_readiness_decision
           }}
           onCopy={copyReviewBlock}
         />
@@ -1311,11 +1333,11 @@ export function App() {
       <ReviewTextSection
         className="active-objective"
         title="Active Objective"
-        text={review.activeObjective}
+        text={finalArtifactTruth.final_artifact_objective}
         emptyText="No active objective detected."
-        jsonPayload={stableJsonPayload("Active Objective", review.activeObjective, {
+        jsonPayload={stableJsonPayload("Active Objective", finalArtifactTruth.final_artifact_objective, {
           bucket: "stable_core",
-          source: "continuity_review",
+          source: "final_artifact",
           decision: "admit"
         })}
         onCopy={copyReviewBlock}

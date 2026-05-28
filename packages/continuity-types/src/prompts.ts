@@ -213,6 +213,10 @@ export interface AdversarialGovernanceState {
   rejected_direction_preserved_count?: number;
   negative_state_loss_flag?: boolean;
   bucket_collision_attempt_count?: number;
+  secondary_bucket_suppressed_count?: number;
+  ambiguous_quarantined_count?: number;
+  category_header_blocked_count?: number;
+  prompt_shell_blocked_count?: number;
   exclusive_bucket_violation_count?: number;
   durable_trusted_leakage_count?: number;
   bucket_exclusivity_score?: number;
@@ -252,6 +256,13 @@ export interface ParsedCapsuleState {
 
 export interface ContinuityDiagnostics {
   pipelineSteps: string[];
+  build_provenance?: {
+    extension_version: string;
+    build_timestamp: string;
+    commit_sha: string;
+    environment_tag: string;
+  };
+  runtime_snapshot?: Record<string, unknown>;
   parsedCapsule?: ParsedCapsuleState;
   rawCapsule?: CarryForwardCapsule;
   sourceSurface?: string;

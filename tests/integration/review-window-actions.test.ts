@@ -206,6 +206,30 @@ describe("review window toolbar actions", () => {
     );
   });
 
+  it("renders handoff readiness from final artifact truth instead of raw optimistic review state", async () => {
+    const invalid = transformPrompt({
+      sourceText: "user:",
+      sourceSurface: "chatgpt"
+    });
+    const result: TransformResult = {
+      ...invalid,
+      continuityReview: {
+        ...invalid.continuityReview,
+        diagnostics: {
+          ...invalid.continuityReview.diagnostics,
+          export_readiness_decision: "SAFE_FOR_HANDOFF" as const,
+          readiness_blockers: []
+        }
+      }
+    };
+    mockReviewMessages(result);
+    render(React.createElement(App));
+
+    expect(await screen.findByText("UNSAFE_FOR_HANDOFF")).toBeInTheDocument();
+    expect(screen.getByText("Blocker: invalid_objective")).toBeInTheDocument();
+    expect(screen.getAllByText("invalid_objective").length).toBeGreaterThan(0);
+  });
+
   it("executes review and artifact copy actions even when handoff readiness is unsafe", async () => {
     const base = reviewResult();
     const result: TransformResult = {

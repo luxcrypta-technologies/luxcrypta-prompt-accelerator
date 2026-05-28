@@ -212,7 +212,7 @@ function stripSectionLabel(text: string): string {
 }
 
 const RUNTIME_SECTION_LABELS =
-  "mission|objective|trusted state|trusted_state|stable state|stable core|stable constraints|stable constraint|stable requirements that cannot change without breaking the mission|stable requirements|stable requirement|accepted decisions|accepted decision|new\\s*\\/\\s*provisional|open\\s*\\/\\s*unresolved|open questions|open question|open tensions|open tension|unresolved tensions|unresolved tension|requirements that remain in real tension|missing information|what changed|recommended next actions|continuity instructions|untrusted instructions|untrusted_instructions|quarantine log|quarantine_log|deferred items|deferred item|deferred_items|conditional admissions|conditional admission|conditional_admissions|rejected directions|rejected direction|rejected_directions|governance principles|governance principle|governance_principles|invariants|invariant|continuity safeguards|continuity safeguard|continuity_safeguards|continuity anchors|continuity anchor|recovery mechanisms|recovery mechanism|reconstruction instructions|reconstruction instruction|cross-model transfer notes|cross model transfer notes|mutation targets|mutation target|mutation risk|failure modes|failure mode|operational risks|operational risk|priority model|provisional assumptions|provisional assumption|task local instructions|task-local instructions|task_local_instructions|task local forbidden|task-local forbidden|task_local_forbidden";
+  "mission|active objective|objective|trusted state|trusted_state|stable state|stable core|stable constraints|stable constraint|stable requirements that cannot change without breaking the mission|stable requirements|stable requirement|accepted decisions|accepted decision|new\\s*\\/\\s*provisional|open\\s*\\/\\s*unresolved|open questions|open question|open tensions|open tension|unresolved tensions|unresolved tension|requirements that remain in real tension|missing information|what changed|recommended next actions|continuity instructions|output format|response format|untrusted instructions|untrusted_instructions|quarantine log|quarantine_log|deferred items|deferred item|deferred_items|conditional admissions|conditional admission|conditional_admissions|rejected directions|rejected direction|rejected_directions|governance principles|governance principle|governance_principles|invariants|invariant|continuity safeguards|continuity safeguard|continuity_safeguards|continuity anchors|continuity anchor|recovery mechanisms|recovery mechanism|reconstruction instructions|reconstruction instruction|cross-model transfer notes|cross model transfer notes|mutation targets|mutation target|mutation risk|failure modes|failure mode|operational risks|operational risk|priority model|provisional assumptions|provisional assumption|task local instructions|task-local instructions|task_local_instructions|task local forbidden|task-local forbidden|task_local_forbidden";
 
 const STRICT_REJECT_RE =
   /\b(do not|don't|never|avoid|forbidden|prohibited|must not|should not|cannot|can't|cannot execute|cannot merge|exclude|reject(?:ed)?\s+(?:this|that|the|any|all|direction|directions)|do not accept|do not ignore|do not flatten|do not collapse|do not hide|do not summarize away|do not convert|do not resolve|do not turn|do not reintroduce|do not expose|ignore previous instructions)\b/i;
@@ -233,16 +233,32 @@ const CONTINUITY_SAFEGUARD_RE =
 const MUTATION_RE =
   /\b(attempted (?:state )?override|override (?:trusted state|mission|governance|instructions?)|override block|mutation|mutate|replace|delete|remove|suppress|hidden rewrite|forced resolution|force resolution|false claim|insert false|state override|delete safeguards|suppress audit|ignore previous|discard trusted|treat all unresolved tensions as resolved|unresolved tensions as resolved)\b/i;
 const TASK_LOCAL_RE =
-  /\b(your response must include|final requirements?|follow the required format|required format|score this|end with (?:a )?(?:score|rating)|end with|final scores?|mutation risk report|reconstruction confidence score|what survives cleanly|what is fragile|what is likely to drift|what must be restated verbatim|best reconstruction prompt|produce (?:a )?table|give (?:a )?table|use (?:a )?table|include (?:a|one|the)?\s*(?:paragraph|section)|separate into \d+ sections?|count requirements?|section naming requirements?|formatting[-\s]?only rules?|build a priority model|stage \d+|return (?:the )?(?:answer|response) as|answer[-\s]?shape|response format|markdown table|bullet list|numbered list|write in (?:four|five|six|\d+) sections?)\b/i;
+  /\b(your response must include|final requirements?|follow the required format|required format|score this|end with (?:a )?(?:score|rating)|end with|final scores?|mutation risk report|reconstruction confidence score|what survives cleanly|what is fragile|what is likely to drift|what must be restated verbatim|best reconstruction prompt|produce (?:a )?table|give (?:a )?table|use (?:a )?table|include (?:a|one|the)?\s*(?:paragraph|section)|separate into \d+ sections?|count requirements?|section naming requirements?|formatting[-\s]?only rules?|do not turn this into a paragraph|build a priority model|stage \d+|return (?:the )?(?:answer|response) as|return exactly|answer[-\s]?shape|response format|markdown table|bullet list|numbered list|write in (?:four|five|six|\d+) sections?)\b/i;
 const PROMPT_SCAFFOLD_RE =
-  /\b(below is|here is|structured response|final response|final requirements?|stage \d+|step \d+|phase \d+|copy[-\s]?paste|prompt block|prompt scaffolding|response wrapper|answer contract|final scores?|reconstruction confidence score|best reconstruction prompt|produce a table|include a paragraph|your response must include)\b/i;
+  /\b(below is|here is|structured response|final response|final requirements?|stage \d+|step \d+|phase \d+|copy[-\s]?paste|prompt block|prompt scaffolding|response wrapper|answer contract|final scores?|reconstruction confidence score|best reconstruction prompt|produce a table|include a paragraph|return exactly|your response must include|at the end provide|required engineering note format|what changed|why it was failing|bad before|corrected after|files changed|validation required|live status)\b/i;
 const ASSISTANT_RECONSTRUCTION_RE =
   /\b(a future model reconstructing this state must|future model reconstructing|future model should|restore the mission exactly|portable operational cognition state|defended continuity state|mutation risk report)\b/i;
 const ADOPTION_RE =
   /\b(adopt|promote|save|remember|make (?:this|it) canonical|this is canonical|treat (?:this|it) as stable|user[-\s]?promoted|explicitly adopted)\b/i;
 const SPEAKER_PREFIX_RE = /^\s*(?:user|assistant|system|developer|model|human|ai)\s*:\s*/i;
 const SECTION_LABEL_RE =
-  /^\s*(?:[-*•>]+\s*)?(mission|trusted state|trusted_state|stable state|stable core|stable constraints|stable constraint|stable requirements|stable requirement|stable requirements that cannot change without breaking the mission|accepted decisions|accepted decision|objective|untrusted instructions|untrusted_instructions|conflicting instructions|quarantine log|quarantine_log|quarantine|quarantined item|deferred items|deferred item|deferred_items|defer|conditional admissions|conditional admission|conditional_admissions|conditional admit|rejected directions|rejected direction|rejected_directions|rejections|governance principles|governance principle|governance_principles|invariants|invariant|continuity safeguards|continuity safeguard|continuity_safeguards|continuity anchors|continuity anchor|recovery mechanisms|recovery mechanism|reconstruction instructions|reconstruction instruction|cross-model transfer notes|cross model transfer notes|mutation targets|mutation target|mutation risk|failure modes|failure mode|operational risks|operational risk|open unresolved|open\s*\/\s*unresolved|open questions|open question|open tensions|open tension|unresolved tensions|unresolved tension|requirements that remain in real tension|missing information|new provisional|new\s*\/\s*provisional|provisional assumptions|provisional assumption|admitted updates|priority model|task local instructions|task-local instructions|task_local_instructions|task local forbidden|task-local forbidden|task_local_forbidden)(?::\s*(.*)|\s*)$/i;
+  /^\s*(?:[-*•>]+\s*)?(mission|trusted state|trusted_state|stable state|stable core|stable constraints|stable constraint|stable requirements|stable requirement|stable requirements that cannot change without breaking the mission|accepted decisions|accepted decision|active objective|objective|output format|response format|untrusted instructions|untrusted_instructions|conflicting instructions|quarantine log|quarantine_log|quarantine|quarantined item|deferred items|deferred item|deferred_items|defer|conditional admissions|conditional admission|conditional_admissions|conditional admit|rejected directions|rejected direction|rejected_directions|rejections|governance principles|governance principle|governance_principles|invariants|invariant|continuity safeguards|continuity safeguard|continuity_safeguards|continuity anchors|continuity anchor|recovery mechanisms|recovery mechanism|reconstruction instructions|reconstruction instruction|cross-model transfer notes|cross model transfer notes|mutation targets|mutation target|mutation risk|failure modes|failure mode|operational risks|operational risk|open unresolved|open\s*\/\s*unresolved|open questions|open question|open tensions|open tension|unresolved tensions|unresolved tension|requirements that remain in real tension|missing information|new provisional|new\s*\/\s*provisional|provisional assumptions|provisional assumption|admitted updates|priority model|task local instructions|task-local instructions|task_local_instructions|task local forbidden|task-local forbidden|task_local_forbidden|what changed|why it was failing|bad before|corrected after|files changed|validation|validation required|live status)(?::\s*(.*)|\s*)$/i;
+
+const FINAL_DURABLE_BUCKETS = new Set<ContinuityPrimaryBucket>([
+  "stable_core",
+  "provisional_state",
+  "open_unresolved",
+  "governance_principles",
+  "invariants",
+  "rejected_directions",
+  "continuity_safeguards"
+]);
+
+interface BucketAdmissionDiagnostics {
+  bucketCollisionAttemptCount: number;
+  secondaryBucketSuppressedCount: number;
+  ambiguousQuarantinedCount: number;
+}
 
 function normalizeRuntimeScaffold(text: string): string {
   return text
@@ -926,13 +942,111 @@ function isPromptScaffold(text: string): boolean {
   );
 }
 
+function isPromptShellFragment(text: string): boolean {
+  const clean = normalizeCanonicalText(text);
+  if (!clean) return false;
+  return (
+    /^(?:user|assistant|system|developer|model|human|ai):?$/i.test(clean) ||
+    isPromptScaffold(clean) ||
+    /^(what changed|why it was failing|bad before|corrected after|files changed|validation|required validation|live status|engineering note|required engineering note format|success criteria|out of scope|scope|problem|required changes|required tests)$/i.test(
+      clean
+    ) ||
+    /^(active objective|stable constraints|accepted decisions|rejected directions|governance principles|invariants|continuity safeguards|open unresolved|what is unresolved)$/i.test(
+      clean
+    ) ||
+    /^return exactly\b.*\blabeled sections?\b/i.test(clean) ||
+    /^do not turn this into a paragraph\.?$/i.test(clean) ||
+    /^(?:at the end provide|end with|include|return|provide)\b.*\b(?:what changed|validation|files changed|live status|bad before|corrected after|engineering note|format)\b/i.test(
+      clean
+    )
+  );
+}
+
+function invalidObjectiveReason(objective: string): string | undefined {
+  const clean = normalizeCanonicalText(objective);
+  if (!clean) return "blank objective";
+  if (/^(?:user|assistant|system|developer|model|human|ai):?$/i.test(clean)) {
+    return "role label is not an objective";
+  }
+  if (isCategoryHeader(clean)) return "category label is not an objective";
+  if (isPromptShellFragment(clean) || isTaskLocalInstruction(clean)) {
+    return "prompt shell is not an objective";
+  }
+  if (
+    /^(?:preserve|keep|carry forward|include|return|provide|list|format|write)\b/i.test(clean) &&
+    !/\b(workflow|objective|runtime|extension|review|capsule|state|session|implementation|fix|build|stabilize|provider|export|governance|diagnostic|continuity)\b/i.test(
+      clean
+    )
+  ) {
+    return "shell-derived imperative lacks workflow substance";
+  }
+  return undefined;
+}
+
+function isValidObjective(objective: string): boolean {
+  return !invalidObjectiveReason(objective);
+}
+
 function isCategoryHeader(text: string): boolean {
   return (
     Boolean(text.trim().match(SECTION_LABEL_RE)) ||
-    /^(mission|invariants|failure modes|tensions and tradeoffs|governance principles|stable core|stable constraints|stable requirements|rejected directions|open tensions|unresolved tensions|recovery mechanisms|reconstruction instructions|priority model)$/i.test(
+    /^(mission|invariants|failure modes|tensions and tradeoffs|governance principles|stable core|stable constraints|stable requirements|rejected directions|open tensions|unresolved tensions|recovery mechanisms|reconstruction instructions|priority model|what changed|why it was failing|bad before|corrected after|files changed|validation|required validation|live status)$/i.test(
       text.trim()
     )
   );
+}
+
+function isCategoryHeaderOnly(text: string): boolean {
+  const clean = text.trim();
+  const match = clean.match(SECTION_LABEL_RE);
+  if (match) return !normalizeCanonicalText(match[2] ?? "");
+  return isCategoryHeader(clean);
+}
+
+function durableBucketSignals(text: string): ContinuityPrimaryBucket[] {
+  const clean = normalizeCanonicalText(text);
+  const signals: ContinuityPrimaryBucket[] = [];
+  if (isStrictRejectedDirection(clean)) signals.push("rejected_directions");
+  if (INVARIANT_RE.test(clean)) signals.push("invariants");
+  if (CONTINUITY_SAFEGUARD_RE.test(clean)) signals.push("continuity_safeguards");
+  if (GOVERNANCE_PRINCIPLE_RE.test(clean)) signals.push("governance_principles");
+  if (/\?|open question|unresolved|unclear|risk|tension|unknown/i.test(clean)) {
+    signals.push("open_unresolved");
+  }
+  return Array.from(new Set(signals));
+}
+
+function hasExplicitDurableSection(section: ContinuityPrimaryBucket | undefined): boolean {
+  return Boolean(section && FINAL_DURABLE_BUCKETS.has(section));
+}
+
+function hasAmbiguousDurableBucketMembership(
+  text: string,
+  section: ContinuityPrimaryBucket | undefined
+): boolean {
+  const clean = normalizeCanonicalText(text);
+  if (!clean || hasExplicitDurableSection(section) || isStrictRejectedDirection(clean)) {
+    return false;
+  }
+  const labelHits = [
+    /\bgovernance principles?\b/i,
+    /\binvariants?\b/i,
+    /\bcontinuity safeguards?\b/i,
+    /\brejected directions?\b/i,
+    /\bopen\s*\/?\s*unresolved\b|\bopen questions?\b|\bunresolved tensions?\b/i,
+    /\bstable core\b|\bstable constraints?\b|\baccepted decisions?\b/i,
+    /\bprovisional items?\b|\bnew\s*\/?\s*provisional\b/i
+  ].filter((pattern) => pattern.test(clean)).length;
+  if (labelHits >= 2) return true;
+  if (
+    /\b(governance|invariant|safeguard|rejected direction|open unresolved|stable core)\s*[/+]\s*(governance|invariant|safeguard|rejected direction|open unresolved|stable core)\b/i.test(
+      clean
+    )
+  ) {
+    return true;
+  }
+  const signals = durableBucketSignals(clean);
+  return signals.length >= 3;
 }
 
 function hasGovernanceSourceSignal(text: string): boolean {
@@ -1032,7 +1146,7 @@ function splitGovernanceStatements(
     }
     const statementSourceRole =
       currentSourceRole ??
-      (defaultSourceRole && explicitSourceRole === "trusted_user_input"
+      (defaultSourceRole && isUserAuthoredRole(explicitSourceRole)
         ? defaultSourceRole
         : explicitSourceRole);
     const lineWithoutSpeaker = line.replace(SPEAKER_PREFIX_RE, "").trim();
@@ -1093,6 +1207,7 @@ function isEligibleUserStatement(statement: GovernanceStatement): boolean {
     isUserAuthoredRole(statement.sourceRole) &&
     !isGenericUiChromeArtifact(statement.text) &&
     !isPromptScaffold(statement.text) &&
+    !isPromptShellFragment(statement.text) &&
     !isTaskLocalInstruction(statement.text)
   );
 }
@@ -1170,6 +1285,7 @@ function extractNegativeState(statements: GovernanceStatement[]): NegativeStateI
           ].includes(statement.sectionBucket ?? "provisional_state")) &&
         isDurablyAdmissibleSourceRole(statement.sourceRole) &&
         !isPromptScaffold(statement.text) &&
+        !isPromptShellFragment(statement.text) &&
         !isTaskLocalInstruction(statement.text) &&
         !isCategoryHeader(statement.text)
     });
@@ -1246,7 +1362,7 @@ function bucketForGovernanceStatement(
       reason: `${sourceRole.replace(/_/g, " ")} requires explicit user promotion before admission`
     };
   }
-  if (isPromptScaffold(text)) {
+  if (isPromptShellFragment(text)) {
     return {
       bucket: "diagnostic_only",
       decision: "quarantine",
@@ -1272,6 +1388,13 @@ function bucketForGovernanceStatement(
       bucket: "diagnostic_only",
       decision: "defer",
       reason: "task-local forbidden instruction, not durable rejection"
+    };
+  }
+  if (hasAmbiguousDurableBucketMembership(text, section)) {
+    return {
+      bucket: "quarantine_log",
+      decision: "quarantine",
+      reason: "ambiguous durable bucket membership quarantined"
     };
   }
   if (section === "stable_core") {
@@ -1431,34 +1554,41 @@ const BUCKET_PRIORITY: Record<ContinuityPrimaryBucket, number> = {
   provisional_state: 30
 };
 
-function addUniqueItem(items: CanonicalContinuityItem[], item: CanonicalContinuityItem): void {
+function recordSuppressedBucketCollision(
+  diagnostics: BucketAdmissionDiagnostics | undefined,
+  count = 1
+): void {
+  if (!diagnostics || count <= 0) return;
+  diagnostics.bucketCollisionAttemptCount += count;
+  diagnostics.secondaryBucketSuppressedCount += count;
+}
+
+function addUniqueItem(
+  items: CanonicalContinuityItem[],
+  item: CanonicalContinuityItem,
+  diagnostics?: BucketAdmissionDiagnostics
+): void {
   if (!item.text) return;
   const existing = items.find((candidate) =>
     isMeaningfullyDuplicate(candidate.text, item.text, 0.78)
   );
   if (!existing) {
+    delete item.cross_refs;
     items.push(item);
     return;
   }
   if (BUCKET_PRIORITY[item.primary_bucket] > BUCKET_PRIORITY[existing.primary_bucket]) {
-    const priorBucket = existing.primary_bucket;
-    const mergedCrossRefs = new Set<ContinuityPrimaryBucket>([
-      ...(existing.cross_refs ?? []),
-      ...(item.cross_refs ?? []),
-      priorBucket
-    ]);
-    mergedCrossRefs.delete(item.primary_bucket);
+    if (existing.primary_bucket !== item.primary_bucket) {
+      recordSuppressedBucketCollision(diagnostics);
+    }
     Object.assign(existing, {
       ...item,
-      cross_refs: Array.from(mergedCrossRefs)
+      cross_refs: undefined
     });
     return;
   }
-  if (
-    !existing.cross_refs?.includes(item.primary_bucket) &&
-    existing.primary_bucket !== item.primary_bucket
-  ) {
-    existing.cross_refs = [...(existing.cross_refs ?? []), item.primary_bucket];
+  if (existing.primary_bucket !== item.primary_bucket) {
+    recordSuppressedBucketCollision(diagnostics);
   }
 }
 
@@ -1488,7 +1618,7 @@ function trustedSummaryFrom(
   parsed: ParsedCapsuleState | undefined
 ): string[] {
   return uniqueCanonicalItems([
-    activeObjective ? `Objective: ${activeObjective}` : "",
+    activeObjective && activeObjective !== "invalid_objective" ? `Objective: ${activeObjective}` : "",
     ...(parsed?.stable_constraints ?? []),
     ...(parsed?.accepted_decisions ?? []),
     ...stableCore
@@ -1520,6 +1650,11 @@ function buildAdversarialGovernanceState(input: {
   headerPayloadBindSuccessCount: number;
 }): AdversarialGovernanceState {
   const canonicalItems: CanonicalContinuityItem[] = [];
+  const bucketDiagnostics: BucketAdmissionDiagnostics = {
+    bucketCollisionAttemptCount: 0,
+    secondaryBucketSuppressedCount: 0,
+    ambiguousQuarantinedCount: 0
+  };
   const trustedStable = input.trustedSourceAvailable
     ? trustedSummaryFrom(input.activeObjective, input.stableCore, input.parsed)
     : trustedSummaryFrom("", input.stableCore, input.parsed);
@@ -1536,7 +1671,8 @@ function buildAdversarialGovernanceState(input: {
         "trusted_state",
         "accepted durable state",
         provider
-      )
+      ),
+      bucketDiagnostics
     );
   }
   for (const item of input.openUnresolved) {
@@ -1550,10 +1686,22 @@ function buildAdversarialGovernanceState(input: {
         "trusted_state",
         "open state is preserved",
         provider
-      )
+      ),
+      bucketDiagnostics
     );
   }
 
+  const rawStructuralFragments = [
+    input.newInstructionText || input.sourceText,
+    ...input.newProvisional,
+    ...input.retrievalContext
+  ].flatMap((item) => fragmentLines(normalizeRuntimeScaffold(item)));
+  const categoryHeaderBlockedCount = rawStructuralFragments.filter((item) =>
+    isCategoryHeaderOnly(item.replace(SPEAKER_PREFIX_RE, "").trim())
+  ).length;
+  const rawPromptShellBlockedCount = rawStructuralFragments.filter((item) =>
+    isPromptShellFragment(item.replace(SPEAKER_PREFIX_RE, "").trim())
+  ).length;
   const statements = [
     ...splitGovernanceStatements(input.newInstructionText || input.sourceText, "draft"),
     ...input.newProvisional.flatMap((item) =>
@@ -1585,6 +1733,10 @@ function buildAdversarialGovernanceState(input: {
     ) {
       crossRefs.push("governance_principles");
     }
+    recordSuppressedBucketCollision(bucketDiagnostics, crossRefs.length);
+    if (classification.reason === "ambiguous durable bucket membership quarantined") {
+      bucketDiagnostics.ambiguousQuarantinedCount += 1;
+    }
     addUniqueItem(
       canonicalItems,
       makeCanonicalItem(
@@ -1594,9 +1746,9 @@ function buildAdversarialGovernanceState(input: {
         statement.source,
         statement.sourceRole,
         classification.reason,
-        provider,
-        crossRefs
-      )
+        provider
+      ),
+      bucketDiagnostics
     );
   }
 
@@ -1617,7 +1769,8 @@ function buildAdversarialGovernanceState(input: {
         negativeState.source_role ?? "unknown",
         negativeState.reason ?? "deterministic negative-state extraction",
         provider
-      )
+      ),
+      bucketDiagnostics
     );
   }
 
@@ -1740,7 +1893,7 @@ function buildAdversarialGovernanceState(input: {
   }
   if (
     byBucket("stable_core").some(
-      (item) => isTaskLocalInstruction(item.text) || isPromptScaffold(item.text)
+        (item) => isTaskLocalInstruction(item.text) || isPromptShellFragment(item.text)
     )
   ) {
     metricWarnings.push(
@@ -1766,6 +1919,9 @@ function buildAdversarialGovernanceState(input: {
     hasRejectedSourceSignal(sourceCorpus) && rejectedDirections.length === 0
       ? "rejected_directions"
       : "",
+    hasOpenStateSourceSignal(sourceCorpus) && byBucket("open_unresolved").length === 0
+      ? "unresolved_issues"
+      : "",
     hasContinuitySafeguardSourceSignal(sourceCorpus) && continuitySafeguards.length === 0
       ? "continuity_safeguards"
       : ""
@@ -1780,23 +1936,22 @@ function buildAdversarialGovernanceState(input: {
   if (negativeStateLossFlag) {
     metricWarnings.push("Critical fidelity failure: negative-state source was detected but no rejected direction was preserved.");
   }
-  const bucketCollisionsPrevented = canonicalItems.reduce(
+  const finalCrossRefCount = canonicalItems.reduce(
     (count, item) => count + (item.cross_refs?.length ?? 0),
     0
   );
-  if (bucketCollisionsPrevented > 0) {
+  if (bucketDiagnostics.secondaryBucketSuppressedCount > 0) {
     metricWarnings.push(
-      `Bucket exclusivity collision(s) prevented: ${bucketCollisionsPrevented}.`
+      `Secondary durable bucket assignment(s) suppressed: ${bucketDiagnostics.secondaryBucketSuppressedCount}.`
+    );
+  }
+  if (finalCrossRefCount > 0) {
+    metricWarnings.push(
+      `Final durable cross reference(s) detected: ${finalCrossRefCount}.`
     );
   }
   const durableBuckets = new Set<ContinuityPrimaryBucket>([
-    "stable_core",
-    "provisional_state",
-    "open_unresolved",
-    "governance_principles",
-    "invariants",
-    "rejected_directions",
-    "continuity_safeguards"
+    ...FINAL_DURABLE_BUCKETS
   ]);
   const primaryBucketsByText = canonicalItems.reduce<Map<string, Set<ContinuityPrimaryBucket>>>(
     (map, item) => {
@@ -1821,7 +1976,7 @@ function buildAdversarialGovernanceState(input: {
         isRetrievedRole(item.source_role ?? "unknown") ||
         isReviewOrExportRole(item.source_role ?? "unknown") ||
         item.source_role === "unknown" ||
-        isPromptScaffold(item.text) ||
+        isPromptShellFragment(item.text) ||
         isTaskLocalInstruction(item.text))
   ).length;
   if (exclusiveBucketViolationCount > 0) {
@@ -1882,26 +2037,35 @@ function buildAdversarialGovernanceState(input: {
     chrome_removed_count: input.chromeRemovedCount,
     ui_debris_removed_count: input.uiDebrisRemovedCount,
     provider_chrome_removed_count: input.providerChromeRemovedCount,
-    prompt_scaffolding_detected_count: canonicalItems.filter((item) => isPromptScaffold(item.text))
-      .length,
+    prompt_scaffolding_detected_count:
+      rawPromptShellBlockedCount +
+      canonicalItems.filter((item) => isPromptShellFragment(item.text)).length,
     task_local_leakage_count: canonicalItems.filter((item) => isTaskLocalInstruction(item.text))
       .length,
     durable_from_scaffolding_blocked_count: canonicalItems.filter(
       (item) =>
-        (isPromptScaffold(item.text) || isTaskLocalInstruction(item.text)) &&
+        (isPromptShellFragment(item.text) || isTaskLocalInstruction(item.text)) &&
         item.decision !== "admit"
     ).length,
     negative_state_detected_count: negativeStateItems.length,
     rejected_direction_preserved_count: rejectedDirections.length,
     negative_state_loss_flag: negativeStateLossFlag ? 1 : 0,
-    bucket_collision_attempt_count: bucketCollisionsPrevented,
+    bucket_collision_attempt_count: bucketDiagnostics.bucketCollisionAttemptCount,
+    secondary_bucket_suppressed_count: bucketDiagnostics.secondaryBucketSuppressedCount,
+    ambiguous_quarantined_count: bucketDiagnostics.ambiguousQuarantinedCount,
+    category_header_blocked_count: categoryHeaderBlockedCount,
+    prompt_shell_blocked_count:
+      rawPromptShellBlockedCount +
+      canonicalItems.filter(
+        (item) => isPromptShellFragment(item.text) && item.decision !== "admit"
+      ).length,
     exclusive_bucket_violation_count: exclusiveBucketViolationCount,
     durable_trusted_leakage_count: durableTrustedLeakageCount,
-    cross_ref_count: bucketCollisionsPrevented,
+    cross_ref_count: finalCrossRefCount,
     orphan_header_count: input.orphanHeaderCount,
     header_payload_bind_success_count: input.headerPayloadBindSuccessCount,
-    duplicate_fragments_normalized: bucketCollisionsPrevented,
-    bucket_collisions_prevented: bucketCollisionsPrevented,
+    duplicate_fragments_normalized: bucketDiagnostics.secondaryBucketSuppressedCount,
+    bucket_collisions_prevented: bucketDiagnostics.secondaryBucketSuppressedCount,
     rejected_direction_items_preserved: rejectedDirections.length,
     unresolved_tension_items_preserved: byBucket("open_unresolved").length,
     exported_items_omitted_due_to_contamination: canonicalItems.filter(
@@ -1976,22 +2140,24 @@ function buildAdversarialGovernanceState(input: {
     negative_state_detected_count: negativeStateItems.length,
     rejected_direction_preserved_count: rejectedDirections.length,
     negative_state_loss_flag: negativeStateLossFlag,
-    bucket_collision_attempt_count: bucketCollisionsPrevented,
+    bucket_collision_attempt_count: bucketDiagnostics.bucketCollisionAttemptCount,
+    secondary_bucket_suppressed_count: bucketDiagnostics.secondaryBucketSuppressedCount,
+    ambiguous_quarantined_count: bucketDiagnostics.ambiguousQuarantinedCount,
+    category_header_blocked_count: categoryHeaderBlockedCount,
+    prompt_shell_blocked_count: admissionCounts.prompt_shell_blocked_count,
     exclusive_bucket_violation_count: exclusiveBucketViolationCount,
     durable_trusted_leakage_count: durableTrustedLeakageCount,
     bucket_exclusivity_score: Number(
       Math.max(
         0,
-        1 -
-          (bucketCollisionsPrevented + exclusiveBucketViolationCount) /
-            Math.max(1, canonicalItems.length)
+        1 - (finalCrossRefCount + exclusiveBucketViolationCount) / Math.max(1, canonicalItems.length)
       ).toFixed(2)
     ),
-    cross_ref_count: bucketCollisionsPrevented,
+    cross_ref_count: finalCrossRefCount,
     orphan_header_count: input.orphanHeaderCount,
     header_payload_bind_success_count: input.headerPayloadBindSuccessCount,
-    duplicate_fragments_normalized: bucketCollisionsPrevented,
-    bucket_collisions_prevented: bucketCollisionsPrevented,
+    duplicate_fragments_normalized: bucketDiagnostics.secondaryBucketSuppressedCount,
+    bucket_collisions_prevented: bucketDiagnostics.secondaryBucketSuppressedCount,
     extraction_failure:
       likelyMissingCategories.length > 0 || input.extractionDegraded || negativeStateLossFlag,
     extraction_degraded: input.extractionDegraded,
@@ -2012,6 +2178,7 @@ function isDurableStableCandidate(text: string): boolean {
     !clean ||
     isGenericUiChromeArtifact(clean) ||
     isPromptScaffold(clean) ||
+    isPromptShellFragment(clean) ||
     isTaskLocalInstruction(clean) ||
     ASSISTANT_RECONSTRUCTION_RE.test(clean)
   ) {
@@ -2043,23 +2210,35 @@ function isDurableStableCandidate(text: string): boolean {
 
 function isEligibleUserBodyStatement(text: string): boolean {
   const role = sourceRoleForStatement(text, "draft");
-  return isUserAuthoredRole(role) && !isGenericUiChromeArtifact(text) && !isPromptScaffold(text);
+  return (
+    isUserAuthoredRole(role) &&
+    !isGenericUiChromeArtifact(text) &&
+    !isPromptShellFragment(text)
+  );
 }
 
 function objectiveFromText(text: string, fallback = "Continue the active workflow."): string {
   const prepared = removeGeneratedRuntimeInstructions(text);
   const objectiveMatch = prepared.match(/(?:^|\n)\s*(?:[-*•]\s*)?(?:mission|objective):\s*([^\n]*)/i);
   const objective = objectiveMatch?.[1] ? stripSectionLabel(objectiveMatch[1]).slice(0, 240) : "";
-  if (objective) return objective;
+  if (objective) return isValidObjective(objective) ? objective : "invalid_objective";
 
   const firstCandidate = prepared
     .split("\n")
     .map((line) => stripSectionLabel(line))
     .find(
       (line) =>
-        line.length > 3 && !isRuntimeScaffoldLine(line) && isEligibleUserBodyStatement(line)
+        line.length > 3 &&
+        !isRuntimeScaffoldLine(line) &&
+        isEligibleUserBodyStatement(line) &&
+        isValidObjective(line)
     );
-  return (firstCandidate ?? firstMeaningfulLine(prepared, fallback)).slice(0, 240) || fallback;
+  const fallbackCandidate = firstMeaningfulLine(prepared, "");
+  if (firstCandidate) return firstCandidate.slice(0, 240);
+  if (fallbackCandidate && isValidObjective(fallbackCandidate)) {
+    return fallbackCandidate.slice(0, 240);
+  }
+  return fallback === "Continue the active workflow." ? "invalid_objective" : fallback;
 }
 
 function objectiveFromStatements(
@@ -2069,7 +2248,7 @@ function objectiveFromStatements(
 ): string {
   const eligibleStatements = statements.filter(isEligibleUserStatement);
   if (statements.length > 0 && eligibleStatements.length === 0) {
-    return fallback;
+    return "invalid_objective";
   }
   const sourceObjective = statements
     .filter(isEligibleUserStatement)
@@ -2077,10 +2256,12 @@ function objectiveFromStatements(
       (statement) =>
         statement.sectionBucket === "stable_core" &&
         !isTaskLocalInstruction(statement.text) &&
-        !isPromptScaffold(statement.text)
+        !isPromptShellFragment(statement.text)
     );
   if (sourceObjective?.text) {
-    return sourceObjective.text.slice(0, 240);
+    return isValidObjective(sourceObjective.text)
+      ? sourceObjective.text.slice(0, 240)
+      : "invalid_objective";
   }
   return objectiveFromText(fallbackText, fallback);
 }
@@ -2137,8 +2318,11 @@ function buildReview(input: {
   const draftStatements = splitGovernanceStatements(newInstructionText, "draft");
   const userDraftStatements = draftStatements.filter(isEligibleUserStatement);
   const activeObjective =
-    parsed?.active_objective ??
-    objectiveFromStatements(draftStatements, input.normalized || input.reduced);
+    parsed?.active_objective && isValidObjective(parsed.active_objective)
+      ? parsed.active_objective
+      : parsed?.active_objective
+        ? "invalid_objective"
+        : objectiveFromStatements(draftStatements, input.normalized || input.reduced);
   const explicitlyRejectedStatements = userDraftStatements
     .filter((statement) => statement.sectionBucket === "rejected_directions")
     .map((statement) => statement.text);
@@ -2494,6 +2678,8 @@ function metricPenaltiesForReview(
     lostOpenState: hasOpenSignal && review.openUnresolved.length === 0,
     weakObjectiveNormalization:
       review.activeObjective.length < 18 ||
+      review.activeObjective === "invalid_objective" ||
+      Boolean(invalidObjectiveReason(review.activeObjective)) ||
       /^continue the active workflow\.?$/i.test(review.activeObjective),
     missingMutationHandling: hasMutationSignal && !(governance?.mutation_targets.length ?? 0),
     emptyStateCollapse:
@@ -2516,7 +2702,7 @@ function metricPenaltiesForReview(
       review.stableCore.some((item) => ASSISTANT_RECONSTRUCTION_RE.test(item)) ||
       /(^|\n)\s*(assistant|model|ai)\s*:/i.test(review.stableCore.join("\n")),
     promptScaffoldingLeakage: [review.activeObjective, ...review.stableCore].some((item) =>
-      isPromptScaffold(item)
+      isPromptShellFragment(item)
     ),
     emptyGovernanceWhenPresent:
       hasGovernanceSignal && !(governance?.governance_principles.length ?? 0),
@@ -2560,18 +2746,9 @@ function metricPenaltiesForReview(
 }
 
 function durableCanonicalItems(review: ContinuityReview): CanonicalContinuityItem[] {
-  const durableBuckets = new Set<ContinuityPrimaryBucket>([
-    "stable_core",
-    "provisional_state",
-    "open_unresolved",
-    "governance_principles",
-    "invariants",
-    "rejected_directions",
-    "continuity_safeguards"
-  ]);
   return (
     review.diagnostics.adversarialGovernance?.canonical_items.filter((item) =>
-      durableBuckets.has(item.primary_bucket)
+      FINAL_DURABLE_BUCKETS.has(item.primary_bucket)
     ) ?? []
   );
 }
@@ -2599,6 +2776,10 @@ function readinessBlockers(input: {
   const durable = durableCanonicalItems(input.review);
   const source = input.request.sourceText;
   const missingState = [
+    input.review.activeObjective === "invalid_objective" ||
+    Boolean(invalidObjectiveReason(input.review.activeObjective))
+      ? "invalid_objective"
+      : "",
     hasRejectedSourceSignal(source) && !(governance?.rejected_directions.length ?? 0)
       ? "rejected_directions"
       : "",
@@ -2611,9 +2792,13 @@ function readinessBlockers(input: {
     hasContinuitySafeguardSourceSignal(source) &&
     !(governance?.continuity_safeguards.length ?? 0)
       ? "continuity_safeguards"
+      : "",
+    hasOpenStateSourceSignal(source) && !input.review.openUnresolved.length
+      ? "unresolved_issues"
       : ""
   ].filter(Boolean);
   const blockerPairs: Array<[boolean, string]> = [
+    [missingState.includes("invalid_objective"), "invalid_objective"],
     [
       missingState.includes("rejected_directions"),
       "source contains rejected directions but none were preserved"
@@ -2628,6 +2813,10 @@ function readinessBlockers(input: {
       "source contains continuity safeguards but none were preserved"
     ],
     [
+      missingState.includes("unresolved_issues"),
+      "source contains unresolved issues but none were preserved"
+    ],
+    [
       durable.some(
         (item) => isChromeRole(item.source_role ?? "unknown") || isGenericUiChromeArtifact(item.text)
       ),
@@ -2638,7 +2827,7 @@ function readinessBlockers(input: {
       "assistant/model-authored prose survived in durable buckets"
     ],
     [
-      durable.some((item) => isPromptScaffold(item.text) || isTaskLocalInstruction(item.text)),
+      durable.some((item) => isPromptShellFragment(item.text) || isTaskLocalInstruction(item.text)),
       "prompt scaffolding or task-local instruction survived in durable buckets"
     ],
     [

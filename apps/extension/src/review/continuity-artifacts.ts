@@ -1,4 +1,5 @@
 import type { CarryForwardCapsule } from "@/types/capsules";
+import { getBuildProvenance } from "@/app/build-info";
 import type { SessionGovernanceState } from "@/types/governance";
 import type { MutationTarget, TransformResult } from "@/types/prompts";
 import type { Workflow } from "@/types/workflows";
@@ -99,7 +100,41 @@ interface AdmittedContinuityState {
     normalized_rejected_direction_count: number;
     objective_normalized?: { from: string; to: string };
     capsule_text_compacted?: { before: number; after: number };
+    export_source_mode:
+      | "session_durable_state"
+      | "session_durable_state_with_latest_fill"
+      | "latest_turn_admitted"
+      | "blocked_last_turn_only";
+    session_durable_item_count: number;
+    latest_turn_durable_item_count: number;
+    durable_items_carried_forward_count: number;
+    durable_items_overridden_by_latest_turn_count: number;
+    session_items_considered_count: number;
+    session_items_admitted_count: number;
+    session_items_rejected_as_shell_count: number;
+    fallback_to_latest_turn_only: boolean;
+    session_level_capsule_passed: boolean;
+    quality_gate_blockers: string[];
   };
+}
+
+type HandoffDecision = "SAFE_FOR_HANDOFF" | "UNSAFE_FOR_HANDOFF";
+
+export interface FinalArtifactTruth {
+  final_artifact_source_mode: AdmittedContinuityState["diagnostics"]["export_source_mode"];
+  final_artifact_objective: string;
+  final_evaluated_objective: string;
+  final_artifact_durable_count: number;
+  final_artifact_durable_item_count: number;
+  final_artifact_readiness_decision: HandoffDecision;
+  final_export_readiness_decision: HandoffDecision;
+  final_artifact_blockers: string[];
+  final_readiness_blockers: string[];
+  final_missing_state_summary: string[];
+  session_items_considered_count: number;
+  session_items_admitted_count: number;
+  session_items_rejected_as_shell_count: number;
+  review_export_truth_match: boolean;
 }
 
 const OPERATIONAL_RE =
@@ -118,6 +153,20 @@ const OPEN_RE =
   /\?|(?:\b(open question|unclear|unknown|risk|unresolved|needs confirmation|tension|blocked|uncertain|investigate)\b)/i;
 const IDENTITY_RE =
   /\b(luxcrypta|prompt accelerator|continuity runtime|browser extension|workflow identity|operational cognition|save\/export|workflow|capsule|diagnostic)\b/i;
+const PROMPT_SHELL_EXPORT_RE =
+  /\b(at the end provide|required engineering note format|what changed|why it was failing|bad before|corrected after|files changed|validation required|live status|success criteria|required tests|out of scope|return exactly|copy this final prompt only|do not turn this into a paragraph)\b/i;
+const FORMAT_ONLY_STATE_RE =
+  /^(?:keep (?:this|it|the response|responses?|sections?) short|keep sections separate(?:\s+\d+\.?)?|do not turn this into a paragraph\.?|return exactly (?:these|the)\b.*\b(?:labeled sections?|nothing else)\.?)$/i;
+const PROMPT_SHELL_LABEL_RE =
+  /^(?:user|assistant|system|developer|model|human|ai|active objective|objective|stable constraints|accepted decisions|what is unresolved|rejected directions|governance principles|invariants|continuity safeguards|output format|response format):?$/i;
+const SECTION_LABEL_TOKEN_RE =
+  /\b(active objective|objective|stable constraints|accepted decisions|what is unresolved|rejected directions|open\s*\/\s*unresolved(?: issues)?|open questions?|governance principles|invariants|continuity safeguards|output format|response format)\b/gi;
+const SECTION_LABEL_TRAILING_SENTENCE_RE =
+  /[.!?;:]\s*(?:active objective|objective|stable constraints|accepted decisions|what is unresolved|rejected directions|open\s*\/\s*unresolved(?: issues)?|open questions?|governance principles|invariants|continuity safeguards|output format|response format)\s*$/i;
+const QUESTION_FRAGMENT_OBJECTIVE_RE =
+  /^(?:does|do|is|are|can|could|should|would|will|what|why|how)\b/i;
+const GENERATED_CARRY_FORWARD_SCAFFOLD_RE =
+  /^(?:keep the stable core intact unless the user explicitly changes it|reduce repetition and keep the response anchored to the active objective|keep unresolved questions visible instead of silently resolving or dropping them|use active_objective, stable_constraints|reconstruct the active objective|saved from continuity review|saved from accumulated session durable state)\b/i;
 
 function cleanLine(value: string | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
@@ -205,7 +254,7 @@ export function titleFromObjective(objective: string | undefined, fallback: stri
   const clean = cleanLine(objective)
     .replace(/^active objective:\s*/i, "")
     .replace(/^objective:\s*/i, "");
-  return truncate(clean || fallback, MAX_TITLE_LENGTH);
+  return truncate(clean && clean !== "invalid_objective" ? clean : fallback, MAX_TITLE_LENGTH);
 }
 
 function bulletSection(title: string, items: string[], emptyText?: string): string[] {
@@ -291,6 +340,9 @@ function isMetaDirectiveHeading(text: string): boolean {
 }
 
 function isToolChatter(text: string): boolean {
+  if (/\b(first[-\s]?click|without refresh|open path|advanced opens?)\b/i.test(text)) {
+    return false;
+  }
   return /\b(upload|uploading|click(?:ed)?|browser screenshot|save button|copy button|review window|screenshot workflow)\b/i.test(
     text
   );
@@ -400,7 +452,12 @@ function classifyStateFragment(
     };
   }
 
-  if (isConversationDebris(clean) || isUiArtifact(clean) || isMetaDirectiveHeading(clean)) {
+  if (
+    isConversationDebris(clean) ||
+    isUiArtifact(clean) ||
+    isMetaDirectiveHeading(clean) ||
+    isPortableStateDebris(clean, context)
+  ) {
     recordDiscard(context, clean, true);
     return {
       originalText: text,
@@ -524,21 +581,82 @@ function isLabeledNonStableState(text: string): boolean {
   );
 }
 
+function hasBlendedSectionShell(text: string): boolean {
+  const clean = cleanLine(text);
+  if (PROMPT_SHELL_LABEL_RE.test(clean)) return true;
+  if (SECTION_LABEL_TRAILING_SENTENCE_RE.test(clean)) return true;
+
+  SECTION_LABEL_TOKEN_RE.lastIndex = 0;
+  for (const match of clean.matchAll(SECTION_LABEL_TOKEN_RE)) {
+    const index = match.index ?? -1;
+    if (index <= 0) continue;
+    const before = clean.slice(0, index).trim();
+    const after = clean.slice(index + match[0].length).trim();
+    const charBefore = clean[index - 1] ?? "";
+    if (!before) continue;
+    if (!/\s/.test(charBefore)) return true;
+    if (!after && isFormattingOnlyInstruction(before)) return true;
+    if (/^[:\-–—]/.test(after)) return true;
+    if (!/[:.;!?]$/.test(before) && /^[:\-–—]?\s*(?:[-*•]\s*)?[A-Z0-9]/.test(after)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function isFormattingOnlyInstruction(text: string): boolean {
+  return FORMAT_ONLY_STATE_RE.test(cleanLine(text).replace(/^\d+\.\s*/, ""));
+}
+
 function isPortableStateDebris(text: string, context: AdmissionContext): boolean {
   return (
     isUiArtifact(text) ||
     isConversationDebris(text) ||
     isToolChatter(text) ||
     isMetaDirectiveHeading(text) ||
+    PROMPT_SHELL_EXPORT_RE.test(text) ||
+    isFormattingOnlyInstruction(text) ||
+    GENERATED_CARRY_FORWARD_SCAFFOLD_RE.test(cleanLine(text)) ||
+    PROMPT_SHELL_LABEL_RE.test(cleanLine(text)) ||
+    hasBlendedSectionShell(text) ||
     isQuotedBlockNoise(text) ||
     (isScreenshotDebris(text) && !isScreenshotMissionCritical(context))
   );
 }
 
+function filterPortableStateItemsWithStats(
+  items: string[],
+  context: AdmissionContext
+): {
+  items: string[];
+  considered: number;
+  admitted: number;
+  rejectedAsShell: number;
+} {
+  const uniqueItems = uniqueNonEmpty(items);
+  const output: string[] = [];
+  let rejectedAsShell = 0;
+
+  for (const item of uniqueItems) {
+    if (isPortableStateDebris(item, context)) {
+      rejectedAsShell += 1;
+      recordDiscard(context, item, true);
+      continue;
+    }
+    output.push(truncatePortable(item));
+  }
+
+  return {
+    items: uniqueMeaningfulStrings(output),
+    considered: uniqueItems.length,
+    admitted: output.length,
+    rejectedAsShell
+  };
+}
+
 function filterPortableStateItems(items: string[], context: AdmissionContext): string[] {
-  return uniqueNonEmpty(items)
-    .filter((item) => !isPortableStateDebris(item, context))
-    .map((item) => truncatePortable(item));
+  return filterPortableStateItemsWithStats(items, context).items;
 }
 
 function canonicalizeForTarget(
@@ -637,23 +755,7 @@ function objectiveCandidatesFromText(text: string): string[] {
 }
 
 function derivedObjectiveFromMission(missionText: string): string | undefined {
-  if (
-    /\b(state hygiene|semantic admission|admission filtering|admission layer)\b/i.test(missionText)
-  ) {
-    return "Implement semantic admission filtering for Workflow, Capsule, and Diagnostic exports.";
-  }
-  if (
-    /\bsave\/export|save and export|saved state|exported state\b/i.test(missionText) &&
-    /\bcontinuity\b/i.test(missionText)
-  ) {
-    return "Evaluate Prompt Accelerator continuity behavior and refine save/export functionality.";
-  }
-  if (
-    /\bcapsule\b/i.test(missionText) &&
-    /\bportable|compact|carry[-\s]?forward\b/i.test(missionText)
-  ) {
-    return "Create a compact portable continuity capsule for the active workflow.";
-  }
+  void missionText;
   return undefined;
 }
 
@@ -662,6 +764,12 @@ function isWeakObjective(objective: string): boolean {
   const words = clean.split(/\s+/).filter(Boolean);
   return (
     !clean ||
+    clean === "invalid_objective" ||
+    PROMPT_SHELL_LABEL_RE.test(clean) ||
+    PROMPT_SHELL_EXPORT_RE.test(clean) ||
+    isFormattingOnlyInstruction(clean) ||
+    hasBlendedSectionShell(clean) ||
+    QUESTION_FRAGMENT_OBJECTIVE_RE.test(clean) ||
     words.length <= 3 ||
     /^(hybrid workspace|workspace|continuity|prompt review|review|session|untitled|continue|active session)$/i.test(
       clean
@@ -681,7 +789,11 @@ function scoreObjectiveCandidate(objective: string): number {
   if (
     isConversationDebris(objective) ||
     isUiArtifact(objective) ||
-    isMetaDirectiveHeading(objective)
+    isMetaDirectiveHeading(objective) ||
+    PROMPT_SHELL_LABEL_RE.test(cleanFragmentText(objective)) ||
+    PROMPT_SHELL_EXPORT_RE.test(objective) ||
+    isFormattingOnlyInstruction(objective) ||
+    hasBlendedSectionShell(objective)
   )
     score -= 8;
   return score;
@@ -714,8 +826,9 @@ function normalizeObjective(
   const currentScore = scoreObjectiveCandidate(current);
   const bestScore = ranked[0]?.score ?? currentScore;
   const normalized = isWeakObjective(current) || bestScore > currentScore + 2 ? best : current;
-  const fallback = "Continue the reviewed continuity workflow.";
-  const finalObjective = truncatePortable(normalized || fallback, 180);
+  const finalObjective = isWeakObjective(normalized)
+    ? "invalid_objective"
+    : truncatePortable(normalized, 180);
 
   if (current && finalObjective && !isMeaningfullyDuplicate(current, finalObjective, 0.82)) {
     context.objectiveNormalized = { from: current, to: finalObjective };
@@ -743,7 +856,19 @@ function portableAdmissionSummary(
     debris_removed_count: diagnostics.debris_removed_count,
     normalized_rejected_direction_count: diagnostics.normalized_rejected_direction_count,
     objective_normalized: diagnostics.objective_normalized,
-    capsule_text_compacted: diagnostics.capsule_text_compacted
+    capsule_text_compacted: diagnostics.capsule_text_compacted,
+    export_source_mode: diagnostics.export_source_mode,
+    session_durable_item_count: diagnostics.session_durable_item_count,
+    latest_turn_durable_item_count: diagnostics.latest_turn_durable_item_count,
+    durable_items_carried_forward_count: diagnostics.durable_items_carried_forward_count,
+    durable_items_overridden_by_latest_turn_count:
+      diagnostics.durable_items_overridden_by_latest_turn_count,
+    session_items_considered_count: diagnostics.session_items_considered_count,
+    session_items_admitted_count: diagnostics.session_items_admitted_count,
+    session_items_rejected_as_shell_count: diagnostics.session_items_rejected_as_shell_count,
+    fallback_to_latest_turn_only: diagnostics.fallback_to_latest_turn_only,
+    session_level_capsule_passed: diagnostics.session_level_capsule_passed,
+    quality_gate_blockers: diagnostics.quality_gate_blockers
   };
 }
 
@@ -841,7 +966,7 @@ function portableContinuityText(input: {
     .join("\n\n");
 }
 
-function buildAdmittedState(
+function buildLatestAdmittedState(
   result: TransformResult,
   transformedText: string
 ): AdmittedContinuityState {
@@ -1039,6 +1164,25 @@ function buildAdmittedState(
   if (capsuleText.length < rawNotesLength) {
     context.compactedCapsuleText = { before: rawNotesLength, after: capsuleText.length };
   }
+  const latestDurableItemCount = countDurableItems({
+    activeObjective,
+    stableConstraints,
+    acceptedDecisions,
+    unresolvedIssues,
+    rejectedDirections,
+    governancePrinciples,
+    invariants,
+    continuitySafeguards,
+    provisionalState
+  });
+  const qualityGateBlockers = uniqueNonEmpty([
+    isWeakObjective(activeObjective) || isPortableStateDebris(activeObjective, context)
+      ? "invalid_objective"
+      : "",
+    result.continuityReview.diagnostics.export_readiness_decision === "UNSAFE_FOR_HANDOFF"
+      ? "review artifact is unsafe for handoff"
+      : ""
+  ]);
 
   return {
     activeObjective,
@@ -1066,9 +1210,467 @@ function buildAdmittedState(
       debris_removed_count: context.debrisRemoved,
       normalized_rejected_direction_count: context.normalizedRejected,
       objective_normalized: context.objectiveNormalized,
-      capsule_text_compacted: context.compactedCapsuleText
+      capsule_text_compacted: context.compactedCapsuleText,
+      export_source_mode: "latest_turn_admitted",
+      session_durable_item_count: 0,
+      latest_turn_durable_item_count: latestDurableItemCount,
+      durable_items_carried_forward_count: 0,
+      durable_items_overridden_by_latest_turn_count: 0,
+      session_items_considered_count: 0,
+      session_items_admitted_count: 0,
+      session_items_rejected_as_shell_count: 0,
+      fallback_to_latest_turn_only: true,
+      session_level_capsule_passed: qualityGateBlockers.length === 0,
+      quality_gate_blockers: qualityGateBlockers
     }
   };
+}
+
+function countDurableItems(state: Pick<
+  AdmittedContinuityState,
+  | "activeObjective"
+  | "stableConstraints"
+  | "acceptedDecisions"
+  | "unresolvedIssues"
+  | "rejectedDirections"
+  | "governancePrinciples"
+  | "invariants"
+  | "continuitySafeguards"
+  | "provisionalState"
+>): number {
+  return [
+    isWeakObjective(state.activeObjective) ? "" : state.activeObjective,
+    ...state.stableConstraints,
+    ...state.acceptedDecisions,
+    ...state.unresolvedIssues,
+    ...state.rejectedDirections,
+    ...state.governancePrinciples,
+    ...state.invariants,
+    ...state.continuitySafeguards,
+    ...state.provisionalState
+  ].filter(Boolean).length;
+}
+
+function sessionStateHasRicherDurability(
+  sessionState: SessionGovernanceState | null | undefined
+): boolean {
+  return Boolean(
+    sessionState &&
+      countDurableItems({
+        activeObjective: sessionState.stableCore.objective,
+        stableConstraints: sessionState.stableCore.hardConstraints,
+        acceptedDecisions: sessionState.stableCore.acceptedDecisions,
+        unresolvedIssues: sessionState.opennessLane.openQuestions,
+        rejectedDirections: sessionState.rejectedDirections ?? [],
+        governancePrinciples: sessionState.governancePrinciples ?? [],
+        invariants: sessionState.invariants ?? [],
+        continuitySafeguards: sessionState.continuitySafeguards ?? [],
+        provisionalState: sessionState.noveltyLane.map((item) => item.text)
+      }) > 0
+  );
+}
+
+interface SessionBucketAdmission {
+  items: string[];
+  considered: number;
+  admitted: number;
+  rejectedAsShell: number;
+}
+
+function admitSessionItems(
+  sessionItems: string[] | undefined,
+  context: AdmissionContext,
+  limit: number
+): SessionBucketAdmission {
+  const filtered = filterPortableStateItemsWithStats(sessionItems ?? [], context);
+  return {
+    ...filtered,
+    items: filtered.items.slice(0, limit)
+  };
+}
+
+function mergeAdmittedItems(
+  sessionItems: string[],
+  latestItems: string[],
+  context: AdmissionContext,
+  limit: number
+): string[] {
+  const latestClean = filterPortableStateItems(latestItems, context);
+  return uniqueMeaningfulStrings([...sessionItems, ...latestClean]).slice(0, limit);
+}
+
+function carriedForwardCount(sessionItems: string[], finalItems: string[]): number {
+  return sessionItems.filter((sessionItem) =>
+    finalItems.some((finalItem) => isMeaningfullyDuplicate(sessionItem, finalItem, 0.74))
+  ).length;
+}
+
+function latestOverrideCount(sessionItems: string[], latestItems: string[], finalItems: string[]): number {
+  if (!sessionItems.length) return 0;
+  return latestItems.filter(
+    (latestItem) =>
+      finalItems.some((finalItem) => isMeaningfullyDuplicate(latestItem, finalItem, 0.74)) &&
+      !sessionItems.some((sessionItem) => isMeaningfullyDuplicate(sessionItem, latestItem, 0.74))
+  ).length;
+}
+
+function buildSessionSourcedState(
+  latest: AdmittedContinuityState,
+  sessionState: SessionGovernanceState,
+  result: TransformResult
+): AdmittedContinuityState {
+  const context = makeAdmissionContext(result, sessionState.stableCore.objective);
+  const sessionObjective = cleanFragmentText(sessionState.stableCore.objective);
+  const sessionObjectiveIsAdmitted = Boolean(
+    sessionObjective && !isWeakObjective(sessionObjective) && !isPortableStateDebris(sessionObjective, context)
+  );
+  const activeObjective =
+    sessionObjectiveIsAdmitted ? sessionObjective : latest.activeObjective;
+  const sessionStableConstraints = admitSessionItems(
+    sessionState.stableCore.hardConstraints,
+    context,
+    12
+  );
+  const stableConstraints = mergeAdmittedItems(
+    sessionStableConstraints.items,
+    latest.stableConstraints,
+    context,
+    12
+  );
+  const sessionAcceptedDecisions = admitSessionItems(
+    sessionState.stableCore.acceptedDecisions,
+    context,
+    8
+  );
+  const acceptedDecisions = mergeAdmittedItems(
+    sessionAcceptedDecisions.items,
+    latest.acceptedDecisions,
+    context,
+    8
+  );
+  const sessionUnresolvedIssues = admitSessionItems(
+    [...sessionState.opennessLane.openQuestions, ...sessionState.opennessLane.uncertaintyNotes],
+    context,
+    10
+  );
+  const unresolvedIssues = mergeAdmittedItems(
+    sessionUnresolvedIssues.items,
+    latest.unresolvedIssues,
+    context,
+    10
+  );
+  const sessionRejectedDirections = admitSessionItems(sessionState.rejectedDirections, context, 8);
+  const rejectedDirections = mergeAdmittedItems(
+    sessionRejectedDirections.items,
+    latest.rejectedDirections,
+    context,
+    8
+  );
+  const sessionGovernancePrinciples = admitSessionItems(
+    sessionState.governancePrinciples,
+    context,
+    MAX_PORTABLE_CONTEXT_ITEMS
+  );
+  const governancePrinciples = mergeAdmittedItems(
+    sessionGovernancePrinciples.items,
+    latest.governancePrinciples,
+    context,
+    MAX_PORTABLE_CONTEXT_ITEMS
+  );
+  const sessionInvariants = admitSessionItems(
+    sessionState.invariants,
+    context,
+    MAX_PORTABLE_CONTEXT_ITEMS
+  );
+  const invariants = mergeAdmittedItems(
+    sessionInvariants.items,
+    latest.invariants,
+    context,
+    MAX_PORTABLE_CONTEXT_ITEMS
+  );
+  const sessionContinuitySafeguards = admitSessionItems(
+    sessionState.continuitySafeguards,
+    context,
+    MAX_PORTABLE_CONTEXT_ITEMS
+  );
+  const continuitySafeguards = mergeAdmittedItems(
+    sessionContinuitySafeguards.items,
+    latest.continuitySafeguards,
+    context,
+    MAX_PORTABLE_CONTEXT_ITEMS
+  );
+  const sessionQuarantineLog = admitSessionItems(
+    sessionState.quarantineLog,
+    context,
+    MAX_PORTABLE_CONTEXT_ITEMS
+  );
+  const quarantineLog = mergeAdmittedItems(
+    sessionQuarantineLog.items,
+    latest.quarantineLog,
+    context,
+    MAX_PORTABLE_CONTEXT_ITEMS
+  );
+  const sessionDeferredItems = admitSessionItems(
+    sessionState.deferredItems,
+    context,
+    MAX_PORTABLE_CONTEXT_ITEMS
+  );
+  const deferredItems = mergeAdmittedItems(
+    sessionDeferredItems.items,
+    latest.deferredItems,
+    context,
+    MAX_PORTABLE_CONTEXT_ITEMS
+  );
+  const sessionProvisionalState = admitSessionItems(
+    sessionState.noveltyLane.filter((item) => !item.accepted).map((item) => item.text),
+    context,
+    8
+  );
+  const provisionalState = mergeAdmittedItems(
+    sessionProvisionalState.items,
+    latest.provisionalState,
+    context,
+    8
+  );
+  const sessionAdmissionBuckets = [
+    sessionStableConstraints,
+    sessionAcceptedDecisions,
+    sessionUnresolvedIssues,
+    sessionRejectedDirections,
+    sessionGovernancePrinciples,
+    sessionInvariants,
+    sessionContinuitySafeguards,
+    sessionQuarantineLog,
+    sessionDeferredItems,
+    sessionProvisionalState
+  ];
+  const sessionItemsConsideredCount =
+    (sessionObjective ? 1 : 0) +
+    sessionAdmissionBuckets.reduce((sum, bucket) => sum + bucket.considered, 0);
+  const sessionItemsAdmittedCount =
+    (sessionObjectiveIsAdmitted ? 1 : 0) +
+    sessionAdmissionBuckets.reduce((sum, bucket) => sum + bucket.admitted, 0);
+  const sessionItemsRejectedAsShellCount =
+    (sessionObjective && !sessionObjectiveIsAdmitted ? 1 : 0) +
+    sessionAdmissionBuckets.reduce((sum, bucket) => sum + bucket.rejectedAsShell, 0);
+  const mutationTargets = sessionState.mutationTargets?.slice(0, 8) ?? [];
+  const continuityAnchors = admitCandidates(
+    [
+      candidate(activeObjective, "session.active_objective", "continuity_anchor"),
+      candidate(sessionState.title, "session.title", "continuity_anchor"),
+      ...candidatesFrom(stableConstraints, "session.stable_constraints"),
+      ...candidatesFrom(acceptedDecisions, "session.accepted_decisions")
+    ],
+    "continuity_anchors",
+    context,
+    10
+  );
+  const workflowEvolution = latest.workflowEvolution;
+  const recommendedNextActions = latest.recommendedNextActions;
+  const carryForwardContext = portableContinuityText({
+    activeObjective,
+    stableConstraints,
+    acceptedDecisions,
+    unresolvedIssues,
+    rejectedDirections,
+    governancePrinciples,
+    invariants,
+    continuitySafeguards,
+    quarantineLog,
+    deferredItems,
+    conditionalAdmissions: [],
+    mutationTargets,
+    continuityAnchors,
+    provisionalState,
+    includeProvisional: true
+  });
+  const capsuleText = [
+    "Saved from accumulated session durable state.",
+    `Objective: ${activeObjective}`,
+    ...compactTextSection("Stable Constraints", stableConstraints),
+    ...compactTextSection("Accepted Decisions", acceptedDecisions),
+    ...compactTextSection("Open / Unresolved", unresolvedIssues),
+    ...compactTextSection("Rejected Directions", rejectedDirections, 2),
+    ...compactTextSection("Governance Principles", governancePrinciples, 2),
+    ...compactTextSection("Invariants", invariants, 2),
+    ...compactTextSection("Continuity Safeguards", continuitySafeguards, 2),
+    ...compactTextSection("Quarantine Log", quarantineLog, 2),
+    ...compactTextSection("Deferred Items", deferredItems, 2),
+    ...compactTextSection("Continuity Anchors", continuityAnchors, 2),
+    ...compactTextSection("Recommended Next Actions", recommendedNextActions, 2)
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const finalState = {
+    activeObjective,
+    stableConstraints,
+    acceptedDecisions,
+    unresolvedIssues,
+    rejectedDirections,
+    governancePrinciples,
+    invariants,
+    continuitySafeguards,
+    provisionalState
+  };
+  const sessionStateShape = {
+    activeObjective: sessionState.stableCore.objective,
+    stableConstraints: sessionState.stableCore.hardConstraints,
+    acceptedDecisions: sessionState.stableCore.acceptedDecisions,
+    unresolvedIssues: sessionState.opennessLane.openQuestions,
+    rejectedDirections: sessionState.rejectedDirections ?? [],
+    governancePrinciples: sessionState.governancePrinciples ?? [],
+    invariants: sessionState.invariants ?? [],
+    continuitySafeguards: sessionState.continuitySafeguards ?? [],
+    provisionalState: sessionState.noveltyLane.map((item) => item.text)
+  };
+  const latestStateShape = {
+    activeObjective: latest.activeObjective,
+    stableConstraints: latest.stableConstraints,
+    acceptedDecisions: latest.acceptedDecisions,
+    unresolvedIssues: latest.unresolvedIssues,
+    rejectedDirections: latest.rejectedDirections,
+    governancePrinciples: latest.governancePrinciples,
+    invariants: latest.invariants,
+    continuitySafeguards: latest.continuitySafeguards,
+    provisionalState: latest.provisionalState
+  };
+  const sessionDurableItemCount = countDurableItems(sessionStateShape);
+  const latestTurnDurableItemCount = countDurableItems(latestStateShape);
+  const finalDurableItemCount = countDurableItems(finalState);
+  const sessionDurableItems = [
+    sessionStateShape.activeObjective,
+    ...sessionStateShape.stableConstraints,
+    ...sessionStateShape.acceptedDecisions,
+    ...sessionStateShape.unresolvedIssues,
+    ...sessionStateShape.rejectedDirections,
+    ...sessionStateShape.governancePrinciples,
+    ...sessionStateShape.invariants,
+    ...sessionStateShape.continuitySafeguards,
+    ...sessionStateShape.provisionalState
+  ].filter(Boolean);
+  const finalDurableItems = [
+    activeObjective,
+    ...stableConstraints,
+    ...acceptedDecisions,
+    ...unresolvedIssues,
+    ...rejectedDirections,
+    ...governancePrinciples,
+    ...invariants,
+    ...continuitySafeguards,
+    ...provisionalState
+  ].filter(Boolean);
+  const latestDurableItems = [
+    latestStateShape.activeObjective,
+    ...latestStateShape.stableConstraints,
+    ...latestStateShape.acceptedDecisions,
+    ...latestStateShape.unresolvedIssues,
+    ...latestStateShape.rejectedDirections,
+    ...latestStateShape.governancePrinciples,
+    ...latestStateShape.invariants,
+    ...latestStateShape.continuitySafeguards,
+    ...latestStateShape.provisionalState
+  ].filter(Boolean);
+  const durableItemsCarriedForwardCount = carriedForwardCount(
+    sessionDurableItems,
+    finalDurableItems
+  );
+  const durableItemsOverriddenByLatestTurnCount = latestOverrideCount(
+    sessionDurableItems,
+    latestDurableItems,
+    finalDurableItems
+  );
+  const fallbackToLatestTurnOnly =
+    sessionDurableItemCount > latestTurnDurableItemCount &&
+    durableItemsCarriedForwardCount === 0 &&
+    finalDurableItemCount <= latestTurnDurableItemCount;
+  const qualityGateBlockers = uniqueNonEmpty([
+    isWeakObjective(activeObjective) || isPortableStateDebris(activeObjective, context)
+      ? "invalid_objective"
+      : "",
+    sessionGovernancePrinciples.items.length > 0 && !governancePrinciples.length
+      ? "session governance was not preserved"
+      : "",
+    sessionRejectedDirections.items.length > 0 && !rejectedDirections.length
+      ? "session rejected directions were not preserved"
+      : "",
+    sessionUnresolvedIssues.items.length > 0 && !unresolvedIssues.length
+      ? "session unresolved issues were not preserved"
+      : "",
+    sessionContinuitySafeguards.items.length > 0 && !continuitySafeguards.length
+      ? "session safeguards were not preserved"
+      : "",
+    fallbackToLatestTurnOnly ? "export collapsed to latest-turn-only state" : "",
+    finalDurableItemCount < Math.min(3, sessionDurableItemCount)
+      ? "final artifact is too shallow for session continuity"
+      : ""
+  ]);
+  const sessionLevelCapsulePassed = qualityGateBlockers.length === 0;
+  const exportSourceMode = fallbackToLatestTurnOnly
+    ? "blocked_last_turn_only"
+    : sessionDurableItemCount > durableItemsCarriedForwardCount
+      ? "session_durable_state_with_latest_fill"
+      : "session_durable_state";
+
+  return {
+    activeObjective,
+    stableConstraints,
+    acceptedDecisions,
+    unresolvedIssues,
+    rejectedDirections,
+    governancePrinciples,
+    invariants,
+    continuitySafeguards,
+    quarantineLog,
+    deferredItems,
+    conditionalAdmissions: [],
+    mutationTargets,
+    continuityAnchors,
+    provisionalState,
+    workflowEvolution,
+    recommendedNextActions,
+    carryForwardContext,
+    capsuleText,
+    diagnostics: {
+      ...latest.diagnostics,
+      warnings: uniqueNonEmpty([
+        ...latest.diagnostics.warnings,
+        sessionLevelCapsulePassed
+          ? "Portable export assembled from accumulated session durable state."
+          : "Portable export failed session-level capsule quality gate."
+      ]),
+      export_source_mode: exportSourceMode,
+      session_durable_item_count: sessionDurableItemCount,
+      latest_turn_durable_item_count: latestTurnDurableItemCount,
+      durable_items_carried_forward_count: durableItemsCarriedForwardCount,
+      durable_items_overridden_by_latest_turn_count: durableItemsOverriddenByLatestTurnCount,
+      session_items_considered_count: sessionItemsConsideredCount,
+      session_items_admitted_count: sessionItemsAdmittedCount,
+      session_items_rejected_as_shell_count: sessionItemsRejectedAsShellCount,
+      fallback_to_latest_turn_only: fallbackToLatestTurnOnly,
+      session_level_capsule_passed: sessionLevelCapsulePassed,
+      quality_gate_blockers: qualityGateBlockers
+    }
+  };
+}
+
+function buildAdmittedState(
+  result: TransformResult,
+  transformedText: string,
+  sessionState?: SessionGovernanceState | null
+): AdmittedContinuityState {
+  const latest = buildLatestAdmittedState(result, transformedText);
+  if (!sessionState || !sessionStateHasRicherDurability(sessionState)) {
+    return {
+      ...latest,
+      diagnostics: {
+        ...latest.diagnostics,
+        latest_turn_durable_item_count: countDurableItems(latest),
+        fallback_to_latest_turn_only: true
+      }
+    };
+  }
+  return buildSessionSourcedState(latest, sessionState, result);
 }
 
 function compactGovernanceSummary(
@@ -1077,13 +1679,34 @@ function compactGovernanceSummary(
   if (!sessionState) {
     return {};
   }
+  const objective = cleanFragmentText(sessionState.stableCore.objective);
+  const cleanStoredItems = (items: string[] | undefined): string[] =>
+    uniqueMeaningfulStrings(
+      uniqueNonEmpty(items ?? [])
+        .filter(
+          (item) =>
+            !PROMPT_SHELL_EXPORT_RE.test(item) &&
+            !PROMPT_SHELL_LABEL_RE.test(cleanLine(item)) &&
+            !GENERATED_CARRY_FORWARD_SCAFFOLD_RE.test(cleanLine(item)) &&
+            !hasBlendedSectionShell(item)
+        )
+        .map((item) => truncatePortable(item))
+    );
   return {
     session_id: sessionState.id,
     title: sessionState.title,
-    stable_core: sessionState.stableCore,
-    openness: sessionState.opennessLane,
-    monitors: sessionState.monitors,
-    diagnostics: sessionState.diagnostics
+    stable_core: {
+      ...sessionState.stableCore,
+      objective: objective && !isWeakObjective(objective) ? objective : "invalid_objective",
+      hardConstraints: cleanStoredItems(sessionState.stableCore.hardConstraints),
+      acceptedDecisions: cleanStoredItems(sessionState.stableCore.acceptedDecisions)
+    },
+    openness: {
+      ...sessionState.opennessLane,
+      openQuestions: cleanStoredItems(sessionState.opennessLane.openQuestions),
+      uncertaintyNotes: cleanStoredItems(sessionState.opennessLane.uncertaintyNotes)
+    },
+    monitors: sessionState.monitors
   };
 }
 
@@ -1154,12 +1777,64 @@ function scoreSummary(result: TransformResult): Record<string, number | undefine
   };
 }
 
+function finalTruthFromAdmitted(
+  result: TransformResult,
+  admitted: AdmittedContinuityState
+): FinalArtifactTruth {
+  const review = result.continuityReview;
+  const rawDecision = review.diagnostics.export_readiness_decision ?? "UNSAFE_FOR_HANDOFF";
+  const finalBlockers = uniqueNonEmpty([
+    ...(review.diagnostics.readiness_blockers ?? []),
+    ...admitted.diagnostics.quality_gate_blockers
+  ]);
+  const finalDecision: HandoffDecision =
+    rawDecision === "UNSAFE_FOR_HANDOFF" || finalBlockers.length > 0
+      ? "UNSAFE_FOR_HANDOFF"
+      : "SAFE_FOR_HANDOFF";
+  const finalDurableCount = countDurableItems(admitted);
+
+  return {
+    final_artifact_source_mode: admitted.diagnostics.export_source_mode,
+    final_artifact_objective: admitted.activeObjective,
+    final_evaluated_objective: admitted.activeObjective,
+    final_artifact_durable_count: finalDurableCount,
+    final_artifact_durable_item_count: finalDurableCount,
+    final_artifact_readiness_decision: finalDecision,
+    final_export_readiness_decision: finalDecision,
+    final_artifact_blockers: finalBlockers,
+    final_readiness_blockers: finalBlockers,
+    final_missing_state_summary: review.diagnostics.missing_state_summary ?? [],
+    session_items_considered_count: admitted.diagnostics.session_items_considered_count,
+    session_items_admitted_count: admitted.diagnostics.session_items_admitted_count,
+    session_items_rejected_as_shell_count:
+      admitted.diagnostics.session_items_rejected_as_shell_count,
+    review_export_truth_match: true
+  };
+}
+
+export function buildFinalArtifactTruth(
+  context: Pick<ReviewArtifactContext, "result" | "transformedText" | "sessionState">
+): FinalArtifactTruth {
+  const admitted = buildAdmittedState(context.result, context.transformedText, context.sessionState);
+  return finalTruthFromAdmitted(context.result, admitted);
+}
+
 function diagnosticMetadata(
   result: TransformResult,
   transformedText: string,
-  extensionVersion?: string
+  extensionVersion?: string,
+  admitted?: AdmittedContinuityState
 ): Record<string, unknown> {
+  const buildProvenance =
+    result.continuityReview.diagnostics.build_provenance ??
+    getBuildProvenance(extensionVersion);
+  const truth = admitted ? finalTruthFromAdmitted(result, admitted) : undefined;
+  const finalReadinessDecision =
+    truth?.final_artifact_readiness_decision ??
+    result.continuityReview.diagnostics.export_readiness_decision ??
+    "UNSAFE_FOR_HANDOFF";
   return {
+    build_provenance: buildProvenance,
     source_surface: sourcePlatform(result),
     target_model: result.targetModelApplied ?? result.continuityReview.diagnostics.targetModel,
     requested_mode: result.continuityReview.diagnostics.requestedMode,
@@ -1167,6 +1842,7 @@ function diagnosticMetadata(
     pipeline_steps: result.continuityReview.diagnostics.pipelineSteps,
     provider_profile: result.continuityReview.diagnostics.providerProfile,
     provider_health: result.continuityReview.diagnostics.providerHealth,
+    runtime_snapshot: result.continuityReview.diagnostics.runtime_snapshot,
     retrieval_context: result.continuityReview.diagnostics.retrievalContext,
     mutation_risk_report: result.continuityReview.diagnostics.mutation_risk_report,
     metric_warnings: result.continuityReview.diagnostics.metric_warnings,
@@ -1174,7 +1850,9 @@ function diagnosticMetadata(
     extraction_failure: result.continuityReview.diagnostics.extraction_failure,
     likely_missing_categories: result.continuityReview.diagnostics.likely_missing_categories,
     compression_loss: result.continuityReview.diagnostics.compression_loss,
-    export_readiness_decision: result.continuityReview.diagnostics.export_readiness_decision,
+    export_readiness_decision: finalReadinessDecision,
+    review_readiness_decision: finalReadinessDecision,
+    raw_review_readiness_decision: result.continuityReview.diagnostics.export_readiness_decision,
     readiness_blockers: result.continuityReview.diagnostics.readiness_blockers,
     readiness_metadata: result.continuityReview.diagnostics.readiness_metadata,
     missing_state_summary: result.continuityReview.diagnostics.missing_state_summary,
@@ -1188,8 +1866,25 @@ function diagnosticMetadata(
     raw_input_length: result.originalText.length,
     normalized_length: result.normalizedText.length,
     transformed_length: transformedText.length,
+    final_artifact_source_mode: truth?.final_artifact_source_mode,
+    final_artifact_objective: truth?.final_artifact_objective,
+    final_artifact_durable_count: truth?.final_artifact_durable_count,
+    final_artifact_durable_item_count: truth?.final_artifact_durable_item_count,
+    final_evaluated_objective: truth?.final_evaluated_objective,
+    final_missing_state_summary: truth?.final_missing_state_summary ?? [],
+    final_artifact_readiness_decision: truth?.final_artifact_readiness_decision,
+    final_export_readiness_decision: finalReadinessDecision,
+    final_artifact_blockers: truth?.final_artifact_blockers ?? [],
+    final_readiness_blockers: truth?.final_readiness_blockers ?? [],
+    session_items_considered_count: truth?.session_items_considered_count ?? 0,
+    session_items_admitted_count: truth?.session_items_admitted_count ?? 0,
+    session_items_rejected_as_shell_count: truth?.session_items_rejected_as_shell_count ?? 0,
+    review_export_truth_match: truth?.review_export_truth_match ?? false,
     scores: scoreSummary(result),
-    extension_version: extensionVersion
+    extension_version: extensionVersion,
+    build_timestamp: buildProvenance.build_timestamp,
+    commit_sha: buildProvenance.commit_sha,
+    environment_tag: buildProvenance.environment_tag
   };
 }
 
@@ -1204,8 +1899,13 @@ function sourcePlatform(result: TransformResult): string {
   );
 }
 
-export function formatContinuityExport(result: TransformResult, transformedText: string): string {
-  const admitted = buildAdmittedState(result, transformedText);
+export function formatContinuityExport(
+  result: TransformResult,
+  transformedText: string,
+  sessionState?: SessionGovernanceState | null
+): string {
+  const admitted = buildAdmittedState(result, transformedText, sessionState);
+  const truth = finalTruthFromAdmitted(result, admitted);
   const cleanedTransformedText = transformedText
     .split("\n")
     .map((line) => scrubProviderChromeTokens(line))
@@ -1216,10 +1916,8 @@ export function formatContinuityExport(result: TransformResult, transformedText:
     ["Continuity Review"],
     [
       "Handoff Readiness",
-      result.continuityReview.diagnostics.export_readiness_decision ?? "UNSAFE_FOR_HANDOFF",
-      ...(result.continuityReview.diagnostics.readiness_blockers?.map(
-        (blocker) => `Blocker: ${blocker}`
-      ) ?? [])
+      truth.final_artifact_readiness_decision,
+      ...truth.final_artifact_blockers.map((blocker) => `Blocker: ${blocker}`)
     ],
     ["Active Objective", admitted.activeObjective],
     bulletSection(
@@ -1273,11 +1971,13 @@ export function formatContinuityExport(result: TransformResult, transformedText:
 
 export function buildWorkflowDraft(
   result: TransformResult,
-  transformedText: string
+  transformedText: string,
+  sessionState?: SessionGovernanceState | null
 ): WorkflowDraft {
   const review = result.continuityReview;
   const parsed = review.diagnostics.parsedCapsule;
-  const admitted = buildAdmittedState(result, transformedText);
+  const admitted = buildAdmittedState(result, transformedText, sessionState);
+  const truth = finalTruthFromAdmitted(result, admitted);
   const stableConstraints = admitted.stableConstraints;
   const acceptedDecisions = admitted.acceptedDecisions;
   const openIssues = admitted.unresolvedIssues;
@@ -1289,10 +1989,7 @@ export function buildWorkflowDraft(
     source_platform: sourcePlatform(result),
     detected_model: result.targetModelApplied ?? review.diagnostics.targetModel,
     active_objective: admitted.activeObjective,
-    objective:
-      admitted.activeObjective ||
-      cleanLine(transformedText) ||
-      "Continue the reviewed prompt workflow.",
+    objective: admitted.activeObjective,
     mode: result.modeApplied ?? parsed?.preferred_mode ?? "precision",
     constraints: stableConstraints,
     stable_constraints: stableConstraints,
@@ -1311,7 +2008,7 @@ export function buildWorkflowDraft(
     continuity_state_history: cleanContinuityStateHistory(admitted),
     workflow_evolution: admitted.workflowEvolution.map((change) => ({ change })),
     diagnostic_data: {
-      ...diagnosticMetadata(result, transformedText),
+      ...diagnosticMetadata(result, transformedText, undefined, admitted),
       admission_filter: portableAdmissionSummary(admitted.diagnostics),
       trusted_state_summary: [
         admitted.activeObjective,
@@ -1334,7 +2031,7 @@ export function buildWorkflowDraft(
       durable_precision_score: result.scores.durableStatePrecision,
       durable_recall_estimate: result.scores.durableRecallEstimate,
       export_readiness_score: result.scores.exportReadiness,
-      export_readiness_decision: review.diagnostics.export_readiness_decision
+      export_readiness_decision: truth.final_artifact_readiness_decision
     },
     compression_metrics: {
       compactness_score: result.scores.compactnessScore,
@@ -1365,10 +2062,14 @@ export function buildWorkflowDraft(
   };
 }
 
-export function buildCapsuleDraft(result: TransformResult, transformedText: string): CapsuleDraft {
+export function buildCapsuleDraft(
+  result: TransformResult,
+  transformedText: string,
+  sessionState?: SessionGovernanceState | null
+): CapsuleDraft {
   const review = result.continuityReview;
   const parsed = review.diagnostics.parsedCapsule;
-  const admitted = buildAdmittedState(result, transformedText);
+  const admitted = buildAdmittedState(result, transformedText, sessionState);
   const title = `${titleFromObjective(admitted.activeObjective, "Continuity")} Capsule`;
   const constraints = admitted.stableConstraints;
   const decisions = admitted.acceptedDecisions;
@@ -1382,8 +2083,7 @@ export function buildCapsuleDraft(result: TransformResult, transformedText: stri
     source_platform: sourcePlatform(result),
     detected_model: result.targetModelApplied ?? review.diagnostics.targetModel,
     active_objective: admitted.activeObjective,
-    objective:
-      admitted.activeObjective || cleanLine(transformedText) || "Continue the reviewed session.",
+    objective: admitted.activeObjective,
     constraints,
     stable_constraints: constraints,
     decisions,
@@ -1427,7 +2127,7 @@ export function buildCapsuleDraft(result: TransformResult, transformedText: stri
       source_platform: sourcePlatform(result)
     },
     diagnostic_metadata: {
-      ...diagnosticMetadata(result, transformedText),
+      ...diagnosticMetadata(result, transformedText, undefined, admitted),
       admission_filter: portableAdmissionSummary(admitted.diagnostics)
     },
     preferred_mode: result.modeApplied ?? parsed?.preferred_mode,
@@ -1441,7 +2141,12 @@ export function buildPortableCapsuleArtifact(
   context: ReviewArtifactContext
 ): Record<string, unknown> {
   const review = context.result.continuityReview;
-  const admitted = buildAdmittedState(context.result, context.transformedText);
+  const admitted = buildAdmittedState(
+    context.result,
+    context.transformedText,
+    context.sessionState
+  );
+  const truth = finalTruthFromAdmitted(context.result, admitted);
   return {
     capsule_id: capsule.capsule_id ?? capsule.id,
     version: capsule.version ?? capsule.capsule_version,
@@ -1455,8 +2160,33 @@ export function buildPortableCapsuleArtifact(
     detected_model:
       capsule.detected_model ?? context.result.targetModelApplied ?? review.diagnostics.targetModel,
     active_objective: admitted.activeObjective,
-    export_readiness_decision:
-      review.diagnostics.export_readiness_decision ?? "UNSAFE_FOR_HANDOFF",
+    export_source_mode: admitted.diagnostics.export_source_mode,
+    final_artifact_source_mode: truth.final_artifact_source_mode,
+    final_artifact_objective: truth.final_artifact_objective,
+    final_artifact_durable_count: truth.final_artifact_durable_count,
+    final_artifact_durable_item_count: truth.final_artifact_durable_item_count,
+    final_evaluated_objective: truth.final_evaluated_objective,
+    final_artifact_readiness_decision: truth.final_artifact_readiness_decision,
+    final_export_readiness_decision: truth.final_export_readiness_decision,
+    final_missing_state_summary: truth.final_missing_state_summary,
+    final_artifact_blockers: truth.final_artifact_blockers,
+    final_readiness_blockers: truth.final_readiness_blockers,
+    session_durable_item_count: admitted.diagnostics.session_durable_item_count,
+    latest_turn_durable_item_count: admitted.diagnostics.latest_turn_durable_item_count,
+    durable_items_carried_forward_count:
+      admitted.diagnostics.durable_items_carried_forward_count,
+    durable_items_overridden_by_latest_turn_count:
+      admitted.diagnostics.durable_items_overridden_by_latest_turn_count,
+    session_items_considered_count: truth.session_items_considered_count,
+    session_items_admitted_count: truth.session_items_admitted_count,
+    session_items_rejected_as_shell_count: truth.session_items_rejected_as_shell_count,
+    review_export_truth_match: truth.review_export_truth_match,
+    fallback_to_latest_turn_only: admitted.diagnostics.fallback_to_latest_turn_only,
+    session_level_capsule_passed: admitted.diagnostics.session_level_capsule_passed,
+    capsule_quality_blockers: admitted.diagnostics.quality_gate_blockers,
+    export_readiness_decision: truth.final_artifact_readiness_decision,
+    review_readiness_decision: truth.final_artifact_readiness_decision,
+    raw_review_readiness_decision: review.diagnostics.export_readiness_decision,
     source_purity_score: review.diagnostics.export_readiness_decision
       ? context.result.scores.sourcePurityScore
       : undefined,
@@ -1469,7 +2199,9 @@ export function buildPortableCapsuleArtifact(
     stable_constraints: admitted.stableConstraints,
     accepted_decisions: admitted.acceptedDecisions,
     unresolved_issues: admitted.unresolvedIssues,
-    governance_state: capsule.governance_state ?? compactGovernanceSummary(context.sessionState),
+    governance_state: context.sessionState
+      ? compactGovernanceSummary(context.sessionState)
+      : (capsule.governance_state ?? compactGovernanceSummary(context.sessionState)),
     governance_principles: admitted.governancePrinciples,
     invariants: admitted.invariants,
     continuity_safeguards: admitted.continuitySafeguards,
@@ -1487,8 +2219,16 @@ export function buildPortableCapsuleArtifact(
       target_model: context.result.targetModelApplied,
       preferred_mode: capsule.preferred_mode ?? context.result.modeApplied
     },
+    build_provenance:
+      review.diagnostics.build_provenance ?? getBuildProvenance(context.extensionVersion),
+    runtime_snapshot: review.diagnostics.runtime_snapshot,
     diagnostic_metadata: {
-      ...diagnosticMetadata(context.result, context.transformedText, context.extensionVersion),
+      ...diagnosticMetadata(
+        context.result,
+        context.transformedText,
+        context.extensionVersion,
+        admitted
+      ),
       admission_filter: portableAdmissionSummary(admitted.diagnostics)
     },
     capsule_text: admitted.capsuleText
@@ -1499,7 +2239,12 @@ export function buildPortableWorkflowArtifact(
   workflow: Workflow,
   context: ReviewArtifactContext
 ): Record<string, unknown> {
-  const admitted = buildAdmittedState(context.result, context.transformedText);
+  const admitted = buildAdmittedState(
+    context.result,
+    context.transformedText,
+    context.sessionState
+  );
+  const truth = finalTruthFromAdmitted(context.result, admitted);
   return {
     workflow_id: workflow.workflow_id ?? workflow.id,
     version: workflow.version ?? 1,
@@ -1510,9 +2255,34 @@ export function buildPortableWorkflowArtifact(
     detected_model:
       workflow.detected_model ?? workflow.targetModel ?? context.result.targetModelApplied,
     active_objective: admitted.activeObjective,
-    export_readiness_decision:
-      context.result.continuityReview.diagnostics.export_readiness_decision ??
-      "UNSAFE_FOR_HANDOFF",
+    export_source_mode: admitted.diagnostics.export_source_mode,
+    final_artifact_source_mode: truth.final_artifact_source_mode,
+    final_artifact_objective: truth.final_artifact_objective,
+    final_artifact_durable_count: truth.final_artifact_durable_count,
+    final_artifact_durable_item_count: truth.final_artifact_durable_item_count,
+    final_evaluated_objective: truth.final_evaluated_objective,
+    final_artifact_readiness_decision: truth.final_artifact_readiness_decision,
+    final_missing_state_summary: truth.final_missing_state_summary,
+    final_artifact_blockers: truth.final_artifact_blockers,
+    final_readiness_blockers: truth.final_readiness_blockers,
+    session_durable_item_count: admitted.diagnostics.session_durable_item_count,
+    latest_turn_durable_item_count: admitted.diagnostics.latest_turn_durable_item_count,
+    durable_items_carried_forward_count:
+      admitted.diagnostics.durable_items_carried_forward_count,
+    durable_items_overridden_by_latest_turn_count:
+      admitted.diagnostics.durable_items_overridden_by_latest_turn_count,
+    session_items_considered_count: truth.session_items_considered_count,
+    session_items_admitted_count: truth.session_items_admitted_count,
+    session_items_rejected_as_shell_count: truth.session_items_rejected_as_shell_count,
+    review_export_truth_match: truth.review_export_truth_match,
+    fallback_to_latest_turn_only: admitted.diagnostics.fallback_to_latest_turn_only,
+    session_level_capsule_passed: admitted.diagnostics.session_level_capsule_passed,
+    capsule_quality_blockers: admitted.diagnostics.quality_gate_blockers,
+    export_readiness_decision: truth.final_artifact_readiness_decision,
+    review_readiness_decision: truth.final_artifact_readiness_decision,
+    raw_review_readiness_decision:
+      context.result.continuityReview.diagnostics.export_readiness_decision,
+    final_export_readiness_decision: truth.final_export_readiness_decision,
     source_purity_score: context.result.scores.sourcePurityScore,
     bucket_exclusivity_score: context.result.scores.bucketExclusivityScore,
     chrome_contamination_score: context.result.scores.chromeContaminationScore,
@@ -1536,7 +2306,12 @@ export function buildPortableWorkflowArtifact(
     continuity_state_history: cleanContinuityStateHistory(admitted),
     workflow_evolution: admitted.workflowEvolution.map((change) => ({ change })),
     diagnostic_data: {
-      ...diagnosticMetadata(context.result, context.transformedText, context.extensionVersion),
+      ...diagnosticMetadata(
+        context.result,
+        context.transformedText,
+        context.extensionVersion,
+        admitted
+      ),
       admission_filter: portableAdmissionSummary(admitted.diagnostics)
     },
     risk_scores: workflow.risk_scores ?? {
@@ -1548,8 +2323,7 @@ export function buildPortableWorkflowArtifact(
       durable_precision_score: context.result.scores.durableStatePrecision,
       durable_recall_estimate: context.result.scores.durableRecallEstimate,
       export_readiness_score: context.result.scores.exportReadiness,
-      export_readiness_decision:
-        context.result.continuityReview.diagnostics.export_readiness_decision
+      export_readiness_decision: truth.final_artifact_readiness_decision
     },
     compression_metrics: workflow.compression_metrics ?? {
       compactness_score: context.result.scores.compactnessScore,
@@ -1566,19 +2340,54 @@ export function buildPortableWorkflowArtifact(
       current_url_or_domain: context.currentUrl,
       extension_version: context.extensionVersion
     },
+    build_provenance:
+      context.result.continuityReview.diagnostics.build_provenance ??
+      getBuildProvenance(context.extensionVersion),
+    runtime_snapshot: context.result.continuityReview.diagnostics.runtime_snapshot,
     carry_forward_context: admitted.carryForwardContext
   };
 }
 
 export function buildDiagnosticState(context: ReviewArtifactContext): Record<string, unknown> {
   const review = context.result.continuityReview;
-  const admitted = buildAdmittedState(context.result, context.transformedText);
+  const admitted = buildAdmittedState(
+    context.result,
+    context.transformedText,
+    context.sessionState
+  );
+  const truth = finalTruthFromAdmitted(context.result, admitted);
   return {
     diagnostic_id: `diagnostic-${Date.now()}`,
     version: 1,
     timestamp: new Date().toISOString(),
+    build_provenance:
+      review.diagnostics.build_provenance ?? getBuildProvenance(context.extensionVersion),
     clean_summary: review.cleanSummary,
     active_objective: admitted.activeObjective,
+    export_source_mode: admitted.diagnostics.export_source_mode,
+    final_artifact_source_mode: truth.final_artifact_source_mode,
+    final_artifact_objective: truth.final_artifact_objective,
+    final_artifact_durable_count: truth.final_artifact_durable_count,
+    final_artifact_durable_item_count: truth.final_artifact_durable_item_count,
+    final_evaluated_objective: truth.final_evaluated_objective,
+    final_artifact_readiness_decision: truth.final_artifact_readiness_decision,
+    final_export_readiness_decision: truth.final_export_readiness_decision,
+    final_missing_state_summary: truth.final_missing_state_summary,
+    final_artifact_blockers: truth.final_artifact_blockers,
+    final_readiness_blockers: truth.final_readiness_blockers,
+    session_durable_item_count: admitted.diagnostics.session_durable_item_count,
+    latest_turn_durable_item_count: admitted.diagnostics.latest_turn_durable_item_count,
+    durable_items_carried_forward_count:
+      admitted.diagnostics.durable_items_carried_forward_count,
+    durable_items_overridden_by_latest_turn_count:
+      admitted.diagnostics.durable_items_overridden_by_latest_turn_count,
+    session_items_considered_count: truth.session_items_considered_count,
+    session_items_admitted_count: truth.session_items_admitted_count,
+    session_items_rejected_as_shell_count: truth.session_items_rejected_as_shell_count,
+    review_export_truth_match: truth.review_export_truth_match,
+    fallback_to_latest_turn_only: admitted.diagnostics.fallback_to_latest_turn_only,
+    session_level_capsule_passed: admitted.diagnostics.session_level_capsule_passed,
+    capsule_quality_blockers: admitted.diagnostics.quality_gate_blockers,
     stable_core: uniqueNonEmpty([...admitted.stableConstraints, ...admitted.acceptedDecisions]),
     provisional_state: admitted.provisionalState,
     open_unresolved: admitted.unresolvedIssues,
@@ -1612,7 +2421,9 @@ export function buildDiagnosticState(context: ReviewArtifactContext): Record<str
     durable_precision_score: context.result.scores.durableStatePrecision,
     durable_recall_estimate: context.result.scores.durableRecallEstimate,
     export_readiness_score: context.result.scores.exportReadiness,
-    export_readiness_decision: review.diagnostics.export_readiness_decision,
+    export_readiness_decision: truth.final_artifact_readiness_decision,
+    review_readiness_decision: truth.final_artifact_readiness_decision,
+    raw_review_readiness_decision: review.diagnostics.export_readiness_decision,
     review_truthfulness_score: context.result.scores.reviewTruthfulness,
     continuity_metrics: context.sessionState?.monitors ?? {
       compactness_score: context.result.scores.compactnessScore,
@@ -1623,9 +2434,19 @@ export function buildDiagnosticState(context: ReviewArtifactContext): Record<str
     detected_model: context.result.targetModelApplied ?? review.diagnostics.targetModel,
     current_url_or_domain: context.currentUrl,
     extension_version: context.extensionVersion,
+    build_timestamp:
+      (review.diagnostics.build_provenance ?? getBuildProvenance(context.extensionVersion))
+        .build_timestamp,
+    commit_sha:
+      (review.diagnostics.build_provenance ?? getBuildProvenance(context.extensionVersion))
+        .commit_sha,
+    environment_tag:
+      (review.diagnostics.build_provenance ?? getBuildProvenance(context.extensionVersion))
+        .environment_tag,
     active_constraints: context.result.extractedConstraints,
     provider_profile: review.diagnostics.providerProfile,
     provider_health: review.diagnostics.providerHealth,
+    runtime_snapshot: review.diagnostics.runtime_snapshot,
     retrieval_context: review.diagnostics.retrievalContext,
     adversarial_governance: review.diagnostics.adversarialGovernance,
     metric_warnings: review.diagnostics.metric_warnings,

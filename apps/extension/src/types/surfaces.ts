@@ -21,7 +21,20 @@ export interface ProviderHealth {
   provider: string;
   surface_detected: boolean;
   input_detected: boolean;
+  active_url?: string;
+  active_domain?: string;
+  provider_root_selector_used?: string;
+  provider_root_present?: boolean;
+  authored_body_target_present?: boolean;
   toolbar_mounted: boolean;
+  toolbar_root_mounted?: boolean;
+  toolbar_root_surface?: string;
+  toolbar_current_provider_bound?: boolean;
+  click_route_bound?: boolean;
+  route_key?: string;
+  session_key?: string;
+  persisted_session_state_present?: boolean;
+  session_state_source?: "persisted_local_state" | "built_fresh_in_session" | "none";
   draft_read_success: boolean;
   extraction_status?: "success" | "degraded" | "failed";
   extraction_source?: "composer" | "last_user_turn" | "retrieved_context_only" | "empty";
@@ -66,6 +79,12 @@ export interface ProviderHealth {
   failure_stage?: string;
   failure_reason?: string;
   dom_mount_status?: "mounted" | "missing" | "stale" | "rebinding";
+  build_provenance?: {
+    extension_version: string;
+    build_timestamp: string;
+    commit_sha: string;
+    environment_tag: string;
+  };
   duplicate_guard_active: boolean;
   runtime_errors: string[];
 }

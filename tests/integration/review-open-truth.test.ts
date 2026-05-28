@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { createMessageRouter } from "@/background/message-router";
+import { CURRENT_SESSION_KEY } from "@/storage/keys";
 import { transformPrompt } from "@luxcrypta/continuity-core/pipeline";
 import type { PlatformAPI, PlatformStorage } from "@/types/platform";
+import type { SessionGovernanceState } from "@/types/governance";
 
 class MemoryStorage implements PlatformStorage {
   private readonly values = new Map<string, unknown>();
@@ -94,10 +96,21 @@ describe("Prompt Review open truth model", () => {
     const pending = (await route({
       type: "review:status",
       payload: { reviewId: opened.reviewId }
-    })) as { visibleToUser?: boolean; openStatus?: string };
+    })) as { visibleToUser?: boolean; openStatus?: string; providerHealth?: Record<string, unknown> };
 
     expect(pending.visibleToUser).toBe(false);
     expect(pending.openStatus).toBe("surface_created");
+    expect(pending.providerHealth).toMatchObject({
+      route_key: `12:${opened.reviewId}`,
+      persisted_session_state_present: false,
+      session_state_source: "built_fresh_in_session",
+      build_provenance: expect.objectContaining({
+        extension_version: "2.3.1",
+        build_timestamp: expect.any(String),
+        commit_sha: expect.any(String),
+        environment_tag: expect.any(String)
+      })
+    });
 
     const rendered = (await route({
       type: "review:rendered",
@@ -114,6 +127,11 @@ describe("Prompt Review open truth model", () => {
     expect(rendered.result?.continuityReview.diagnostics.export_readiness_decision).toBe(
       "SAFE_FOR_HANDOFF"
     );
+    expect(rendered.result?.continuityReview.diagnostics.runtime_snapshot).toMatchObject({
+      route_key: `12:${opened.reviewId}`,
+      persisted_session_state_present: false,
+      session_state_source: "built_fresh_in_session"
+    });
     expect(rendered.result?.continuityReview.diagnostics.readiness_blockers ?? []).not.toContain(
       "review-open was not visibly confirmed"
     );
@@ -171,6 +189,63 @@ describe("Prompt Review open truth model", () => {
       review_open_status: "surface_created",
       surface_created: true,
       visible_to_user: false
+    });
+  });
+
+  it("marks persisted local session state when it is present at review open", async () => {
+    const storage = new MemoryStorage();
+    const session: SessionGovernanceState = {
+      id: "session_existing",
+      title: "Existing session",
+      stableCore: {
+        objective: "Preserve persisted session provenance diagnostics.",
+        hardConstraints: [],
+        acceptedDecisions: [],
+        lastUpdatedAt: "2026-05-20T00:00:00.000Z"
+      },
+      noveltyLane: [],
+      opennessLane: {
+        openQuestions: [],
+        uncertaintyNotes: [],
+        optionalBranches: [],
+        preservedCreativeSpace: false,
+        lastUpdatedAt: "2026-05-20T00:00:00.000Z"
+      },
+      monitors: {
+        continuityScore: 90,
+        driftScore: 5,
+        noveltyLoad: 0,
+        opennessScore: 80,
+        compressionDensity: 70,
+        sessionHealth: "healthy"
+      },
+      diagnostics: {
+        stableCoreSummary: [],
+        noveltySummary: [],
+        opennessSummary: [],
+        warnings: [],
+        actionsSuggested: [],
+        generatedAt: "2026-05-20T00:00:00.000Z"
+      },
+      createdAt: "2026-05-20T00:00:00.000Z",
+      updatedAt: "2026-05-20T00:00:00.000Z"
+    };
+    await storage.set(CURRENT_SESSION_KEY, session);
+    const route = createMessageRouter(platform(undefined, storage));
+    const opened = (await route({
+      type: "review:open",
+      payload: { result: result() }
+    })) as { reviewId: string };
+
+    const status = (await route({
+      type: "review:status",
+      payload: { reviewId: opened.reviewId }
+    })) as { providerHealth?: Record<string, unknown> };
+
+    expect(status.providerHealth).toMatchObject({
+      session_key: "session_existing",
+      persisted_session_state_present: true,
+      session_state_source: "persisted_local_state"
     });
   });
 

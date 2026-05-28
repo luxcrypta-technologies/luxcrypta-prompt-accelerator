@@ -1,9 +1,11 @@
 import { getPlatformAPI } from "@platform-runtime";
+import { getBuildProvenance } from "@/app/build-info";
 import { observeDom } from "./dom-observer";
 import {
   extractAuthorSourceFromSurface,
   type AuthoredSourceExtraction
 } from "./extraction";
+import { evaluateOpenPathContract, type OpenPathRuntimeSnapshot } from "./open-path-contract";
 import { createToolbarMountController, TOOLBAR_ID } from "./toolbar-mount";
 import { getCurrentSurface } from "./surface-registry";
 import type { BackgroundMessage, ContentMessage } from "@/types/messages";
@@ -74,7 +76,8 @@ function providerHealth(
     failureStage?: string;
     failureReason?: string;
   },
-  extractionOverride?: AuthoredSourceExtraction
+  extractionOverride?: AuthoredSourceExtraction,
+  openPathSnapshot?: OpenPathRuntimeSnapshot
 ): ProviderHealth {
   const runtime_errors: string[] = [];
   let inputDetected = false;
@@ -103,7 +106,24 @@ function providerHealth(
     provider: surface.id,
     surface_detected: true,
     input_detected: inputDetected,
+    active_url: openPathSnapshot?.active_url ?? window.location.href,
+    active_domain:
+      openPathSnapshot?.active_domain ??
+      (() => {
+        try {
+          return new URL(window.location.href).hostname;
+        } catch {
+          return "unknown";
+        }
+      })(),
+    provider_root_selector_used: openPathSnapshot?.provider_root_selector_used,
+    provider_root_present: openPathSnapshot?.provider_root_present,
+    authored_body_target_present: openPathSnapshot?.authored_body_target_present,
     toolbar_mounted: Boolean(document.getElementById(TOOLBAR_ID)),
+    toolbar_root_mounted: openPathSnapshot?.toolbar_root_mounted,
+    toolbar_root_surface: openPathSnapshot?.toolbar_root_surface,
+    toolbar_current_provider_bound: openPathSnapshot?.toolbar_current_provider_bound,
+    click_route_bound: openPathSnapshot?.click_route_bound,
     draft_read_success: draftReadSuccess,
     extraction_status: extraction.status,
     extraction_source: extracted?.source ?? "empty",
@@ -136,6 +156,7 @@ function providerHealth(
     failure_reason: reviewOpen?.failureReason,
     dom_mount_status: document.getElementById("lcpa-toolbar-root")?.dataset
       .mountStatus as ProviderHealth["dom_mount_status"],
+    build_provenance: getBuildProvenance(),
     duplicate_guard_active: document.querySelectorAll(`#${TOOLBAR_ID}`).length <= 1,
     runtime_errors
   };
@@ -173,11 +194,27 @@ async function waitForVisibleReview(reviewId: string): Promise<boolean> {
 
 async function openAdvancedReviewOnce(surface: ChatSurfaceAdapter, retry = false): Promise<void> {
   const events = [retry ? "fallback_retry" : "advanced_click"];
-  advancedEvent(surface, retry ? "fallback_retry" : "advanced_click");
+  const contract = evaluateOpenPathContract(surface);
+  advancedEvent(surface, retry ? "fallback_retry" : "advanced_click", {
+    stage: contract.stage,
+    ...contract.snapshot
+  });
+  if (!contract.ok) {
+    advancedEvent(surface, "review_open_failed", {
+      stage: contract.stage,
+      reason: contract.reason,
+      ...contract.snapshot
+    });
+    throw new Error(contract.reason ?? `Open path blocked at ${contract.stage}.`);
+  }
   const authoredSource = extractAuthorSourceFromSurface(surface);
   const sourceText = authoredSource.text;
   if (!sourceText.trim()) {
-    advancedEvent(surface, "review_open_timeout", { reason: "empty_source" });
+    advancedEvent(surface, "review_open_failed", {
+      stage: "authored_body_target",
+      reason: "empty_source",
+      ...contract.snapshot
+    });
     throw new Error("No draft body was available for Prompt Review.");
   }
   const result = await platform.messaging.sendMessage<BackgroundMessage, TransformResult>({
@@ -194,7 +231,7 @@ async function openAdvancedReviewOnce(surface: ChatSurfaceAdapter, retry = false
         clickDetected: true,
         navigationAttempted: true,
         retryCount: retry ? 1 : 0
-      }, authoredSource)
+      }, authoredSource, contract.snapshot)
     }
   });
   const response = await platform.messaging.sendMessage<
@@ -205,18 +242,28 @@ async function openAdvancedReviewOnce(surface: ChatSurfaceAdapter, retry = false
     payload: { result }
   });
   if (!response?.reviewId) {
-    advancedEvent(surface, "review_open_timeout", { reason: "missing_review_id" });
+    advancedEvent(surface, "review_open_failed", {
+      stage: "surface_created",
+      reason: "missing_review_id",
+      ...contract.snapshot
+    });
     throw new Error("Prompt Review did not return a review id.");
   }
   advancedEvent(surface, "review_surface_created", { reviewId: response.reviewId });
   const visible = response.visibleToUser || (await waitForVisibleReview(response.reviewId));
   if (!visible) {
-    advancedEvent(surface, "review_visible_timeout", {
+    advancedEvent(surface, "review_open_failed", {
       reviewId: response.reviewId,
+      stage: "visible_render",
       reason: "first_content_not_confirmed",
-      openPathContinued: true
+      openPathContinued: true,
+      repair_scope: surface.id === "perplexity" ? "perplexity_out_of_scope" : "supported_provider",
+      ...contract.snapshot
     });
-    return;
+    if (surface.id === "perplexity") {
+      return;
+    }
+    throw new Error("Prompt Review opened but visible rendered content was not confirmed.");
   }
   advancedEvent(surface, retry ? "fallback_retry_success" : "review_open_success", {
     reviewId: response.reviewId
@@ -244,7 +291,7 @@ async function openAdvancedReview(surface: ChatSurfaceAdapter): Promise<void> {
 
 const toolbarMount = createToolbarMountController({
   getSurface: getCurrentSurface,
-  onAdvanced: (surface) => void openAdvancedReview(surface),
+  onAdvanced: (surface) => openAdvancedReview(surface),
   observeDom
 });
 
