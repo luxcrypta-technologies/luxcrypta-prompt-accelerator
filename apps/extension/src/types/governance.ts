@@ -63,6 +63,7 @@ export interface SessionDiagnostics {
 
 export interface SessionGovernanceState {
   id: string;
+  conversationKey?: string;
   title?: string;
   stableCore: SessionStableCore;
   noveltyLane: SessionNoveltyItem[];
@@ -83,6 +84,7 @@ export interface SessionGovernanceState {
 
 export interface SessionUpdateInput {
   previousState?: SessionGovernanceState | null;
+  conversationKey?: string | null;
   transformRequest?: TransformRequest;
   transformResult?: TransformResult;
   conversationSnapshot?: ConversationSnapshot | null;

@@ -214,8 +214,20 @@ function stripSectionLabel(text: string): string {
 const RUNTIME_SECTION_LABELS =
   "mission|active objective|objective|trusted state|trusted_state|stable state|stable core|stable constraints|stable constraint|stable requirements that cannot change without breaking the mission|stable requirements|stable requirement|accepted decisions|accepted decision|new\\s*\\/\\s*provisional|open\\s*\\/\\s*unresolved|open questions|open question|open tensions|open tension|unresolved tensions|unresolved tension|requirements that remain in real tension|missing information|what changed|recommended next actions|continuity instructions|output format|response format|untrusted instructions|untrusted_instructions|quarantine log|quarantine_log|deferred items|deferred item|deferred_items|conditional admissions|conditional admission|conditional_admissions|rejected directions|rejected direction|rejected_directions|governance principles|governance principle|governance_principles|invariants|invariant|continuity safeguards|continuity safeguard|continuity_safeguards|continuity anchors|continuity anchor|recovery mechanisms|recovery mechanism|reconstruction instructions|reconstruction instruction|cross-model transfer notes|cross model transfer notes|mutation targets|mutation target|mutation risk|failure modes|failure mode|operational risks|operational risk|priority model|provisional assumptions|provisional assumption|task local instructions|task-local instructions|task_local_instructions|task local forbidden|task-local forbidden|task_local_forbidden";
 
-const STRICT_REJECT_RE =
-  /\b(do not|don't|never|avoid|forbidden|prohibited|must not|should not|cannot|can't|cannot execute|cannot merge|exclude|reject(?:ed)?\s+(?:this|that|the|any|all|direction|directions)|do not accept|do not ignore|do not flatten|do not collapse|do not hide|do not summarize away|do not convert|do not resolve|do not turn|do not reintroduce|do not expose|ignore previous instructions)\b/i;
+// A rejected direction is either (a) explicitly labeled / known-unsafe, or
+// (b) an *imperative prohibition* — a directive aimed at the workflow.
+// It is NOT merely any sentence that contains a negation. A descriptive claim
+// ("a system that can't show its work is unreliable") is a principle, not a
+// rejected direction. Matching on a bare modal ("can't"/"don't") anywhere in
+// the text caused declarative principles — including the product's own Core
+// Premise — to be misfiled as "explicitly forbidden direction".
+const EXPLICIT_REJECT_RE =
+  /\b(forbidden|prohibited|disallowed|banned|blacklisted|rejected\s+directions?|rejected:|reject(?:ed)?\s+(?:this|that|the|any|all)\s+(?:direction|directions|approach|idea|option)|ignore previous instructions?|overwrite trusted state|replace trusted state|discard trusted|delete safeguards|do not\s+(?:accept|ignore|flatten|collapse|hide|summarize away|convert|resolve|reintroduce|expose|overwrite))\b/i;
+// Clause-initial imperative negation governing a verb: "Do not X", "Never X",
+// "Avoid X" at the start of a sentence/clause (start, or after ; — :).
+// Mid-clause negation ("..., don't hide it") is intentionally NOT matched.
+const IMPERATIVE_PROHIBITION_RE =
+  /(?:^|[;—:]\s*)(do not|don't|never|avoid|must not|should not)\s+[a-z]/i;
 const UNTRUSTED_RE =
   /\b(untrusted|conflicting instruction|adversarial|override block|new instruction block|attack|malicious|ignore previous|bypass|replace trusted|discard trusted)\b/i;
 const QUARANTINE_RE =
@@ -1240,13 +1252,14 @@ function isReservedGovernanceBucket(bucket: ContinuityPrimaryBucket | undefined)
   );
 }
 
-function isStrictRejectedDirection(text: string): boolean {
+export function isStrictRejectedDirection(text: string): boolean {
   const clean = normalizeCanonicalText(text);
   if (!clean) return false;
   if (/^no silent transitions\.?$/i.test(clean)) return false;
   if (/^(governance priority|audit necessity|identity anchoring)\b/i.test(clean)) return false;
   return (
-    STRICT_REJECT_RE.test(clean) ||
+    EXPLICIT_REJECT_RE.test(clean) ||
+    IMPERATIVE_PROHIBITION_RE.test(clean) ||
     /^no\s+(generic|automatic|untrusted|unsupported|raw json|fake|forced)\b/i.test(clean)
   );
 }
@@ -1254,10 +1267,8 @@ function isStrictRejectedDirection(text: string): boolean {
 function negativeReason(text: string): string | undefined {
   const clean = normalizeCanonicalText(text);
   if (/\bignore previous instructions?\b/i.test(clean)) return "instruction override rejected";
-  if (/\b(do not|don't|must not|should not|never|cannot|can't)\b/i.test(clean)) {
-    return "explicit prohibition";
-  }
   if (/\b(forbidden|prohibited|rejected)\b/i.test(clean)) return "explicit rejection label";
+  if (IMPERATIVE_PROHIBITION_RE.test(clean)) return "explicit prohibition";
   return undefined;
 }
 

@@ -1,4 +1,5 @@
 import type { ChatSurfaceAdapter, ConversationSnapshot, ProviderProfile } from "./types";
+import { SNAPSHOT_SOFT_CAP, conversationIdFromUrl } from "./snapshot";
 import {
   appendDraftText,
   queryFirstUsableInput,
@@ -72,8 +73,9 @@ export const chatgptSurface: ChatSurfaceAdapter = {
     return appendDraftText(queryInput(), text);
   },
   getConversationSnapshot(): ConversationSnapshot | null {
-    const turns = Array.from(document.querySelectorAll("[data-message-author-role]"))
-      .slice(-12)
+    const all = Array.from(document.querySelectorAll("[data-message-author-role]"));
+    const considered = all.length > SNAPSHOT_SOFT_CAP ? all.slice(-SNAPSHOT_SOFT_CAP) : all;
+    const turns = considered
       .map((node) => {
         const element = node as HTMLElement;
         return {
@@ -82,7 +84,21 @@ export const chatgptSurface: ChatSurfaceAdapter = {
         };
       })
       .filter((turn) => turn.text);
-    return turns.length > 0 ? { title: document.title.replace(" - ChatGPT", ""), turns } : null;
+    if (turns.length === 0) return null;
+    const truncated = all.length > SNAPSHOT_SOFT_CAP;
+    return {
+      title: document.title.replace(" - ChatGPT", ""),
+      turns,
+      scope: {
+        turns_captured: turns.length,
+        capture_scope: truncated ? "partial" : "full",
+        coverage_confidence: truncated ? "medium" : "high",
+        role_attribution: "dom_markers"
+      }
+    };
+  },
+  getConversationId(url: string = window.location.href) {
+    return conversationIdFromUrl("chatgpt", url);
   },
   getProviderProfile() {
     return CHATGPT_PROVIDER_PROFILE;

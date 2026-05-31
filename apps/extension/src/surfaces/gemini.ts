@@ -1,4 +1,5 @@
 import type { ChatSurfaceAdapter, ConversationSnapshot, ProviderProfile } from "./types";
+import { buildSnapshotFromNodes, conversationIdFromUrl } from "./snapshot";
 import {
   appendDraftText,
   queryFirstUsableInput,
@@ -63,22 +64,15 @@ export const geminiSurface: ChatSurfaceAdapter = {
     return appendDraftText(queryInput(), text);
   },
   getConversationSnapshot(): ConversationSnapshot | null {
-    const turns = Array.from(
+    const nodes = Array.from(
       document.querySelectorAll("user-query, model-response, .query-text, .response-content")
-    )
-      .slice(-12)
-      .map((node) => {
-        const tagName = (node as HTMLElement).tagName.toLowerCase();
-        return {
-          role:
-            tagName.includes("user") || (node as HTMLElement).className.includes("query")
-              ? "user"
-              : "assistant",
-          text: ((node as HTMLElement).textContent ?? "").trim()
-        };
-      })
-      .filter((turn) => turn.text.length > 0) as ConversationSnapshot["turns"];
-    return turns.length ? { title: document.title.replace("Gemini", "").trim(), turns } : null;
+    );
+    return buildSnapshotFromNodes(nodes, {
+      title: document.title.replace("Gemini", "").trim()
+    });
+  },
+  getConversationId(url: string = window.location.href) {
+    return conversationIdFromUrl("gemini", url);
   },
   getProviderProfile() {
     return GEMINI_PROVIDER_PROFILE;

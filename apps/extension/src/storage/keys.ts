@@ -11,6 +11,16 @@ export const STORAGE_PREFIXES = {
 export const PREFERENCE_KEY = `${STORAGE_PREFIXES.preference}user`;
 export const CURRENT_SESSION_KEY = `${STORAGE_PREFIXES.session}current`;
 
+/**
+ * Per-conversation "current" session slot. `conversationKey` is
+ * `<provider>:<conversationId>` (see surfaces/snapshot.ts). Keeps each
+ * conversation's live session isolated so state cannot bleed across threads or
+ * providers (defect D0a-1).
+ */
+export function currentSessionKey(conversationKey: string): string {
+  return `${STORAGE_PREFIXES.session}current:${conversationKey}`;
+}
+
 export function workflowKey(id: string): string {
   return `${STORAGE_PREFIXES.workflow}${id}`;
 }

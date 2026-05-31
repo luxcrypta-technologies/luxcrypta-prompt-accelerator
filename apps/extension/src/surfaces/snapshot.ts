@@ -1,0 +1,150 @@
+import type { ConversationSnapshot } from "./types";
+
+/**
+ * Shared conversation-snapshot helpers (Stage 0 rebuild).
+ *
+ * Replaces the per-adapter `.slice(-12)` + `index % 2` role guess that caused
+ * truncated, mis-roled snapshots (defect D0b). Roles are read from real DOM
+ * markers; extraction is uncapped but scope-labeled honestly.
+ */
+
+export type SnapshotRole = ConversationSnapshot["turns"][number]["role"];
+
+// Soft cap: we no longer hard-slice to 12. We read everything the DOM exposes,
+// and only label scope. This is high to avoid losing real history; provider DOM
+// virtualization (not this number) is the true ceiling, and we report it.
+export const SNAPSHOT_SOFT_CAP = 400;
+
+export interface SnapshotScope {
+  turns_captured: number;
+  capture_scope: "full" | "partial" | "empty";
+  coverage_confidence: "high" | "medium" | "low";
+  role_attribution: "dom_markers" | "positional_fallback";
+}
+
+/**
+ * Determine a turn's role from real DOM signals (data attributes, aria, class,
+ * tag name), never from alternating position. Returns null when no marker is
+ * found so the caller can decide whether to fall back.
+ */
+export function roleFromMarkers(el: HTMLElement): SnapshotRole | null {
+  const marker = [
+    el.dataset?.messageAuthorRole,
+    el.getAttribute?.("data-message-author-role"),
+    el.dataset?.testid,
+    el.getAttribute?.("data-testid"),
+    el.getAttribute?.("aria-label"),
+    el.getAttribute?.("role"),
+    el.tagName?.toLowerCase(),
+    String(el.className ?? "")
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (/\b(system|notice|disclaimer)\b/.test(marker)) return "system";
+  if (/\b(user|human|you|prompt|query|user-query)\b/.test(marker)) return "user";
+  if (
+    /\b(assistant|model|response|bot|ai|claude|gpt|gemini|deepseek|grok|model-response)\b/.test(
+      marker
+    )
+  ) {
+    return "assistant";
+  }
+  return null;
+}
+
+/**
+ * Build a snapshot from a list of message nodes using real role markers, with a
+ * positional fallback ONLY when markers are entirely absent. Reports scope so
+ * the capsule can state its own coverage truthfully (never claims full when it
+ * truncated).
+ */
+export function buildSnapshotFromNodes(
+  nodes: Element[],
+  options: { title?: string } = {}
+): (ConversationSnapshot & { scope: SnapshotScope }) | null {
+  const total = nodes.length;
+  if (total === 0) {
+    return null;
+  }
+
+  const considered = total > SNAPSHOT_SOFT_CAP ? nodes.slice(-SNAPSHOT_SOFT_CAP) : nodes;
+
+  let anyMarker = false;
+  const interim = considered.map((node, index) => {
+    const el = node as HTMLElement;
+    const marked = roleFromMarkers(el);
+    if (marked) anyMarker = true;
+    return {
+      role: marked,
+      index,
+      text: (el.textContent ?? "").replace(/\s+/g, " ").trim()
+    };
+  });
+
+  const turns = interim
+    .filter((t) => t.text.length > 0)
+    .map((t) => ({
+      role: (t.role ?? (t.index % 2 === 0 ? "user" : "assistant")) as SnapshotRole,
+      text: t.text
+    }));
+
+  if (turns.length === 0) {
+    return null;
+  }
+
+  const truncated = total > SNAPSHOT_SOFT_CAP;
+  const scope: SnapshotScope = {
+    turns_captured: turns.length,
+    capture_scope: truncated ? "partial" : "full",
+    coverage_confidence: anyMarker ? (truncated ? "medium" : "high") : "low",
+    role_attribution: anyMarker ? "dom_markers" : "positional_fallback"
+  };
+
+  return { title: options.title, turns, scope };
+}
+
+/**
+ * Per-provider conversation id parsed from the URL path. Returns null on the
+ * pre-first-message "/new" state (caller holds session in memory until an id
+ * appears — agreed first-turn behavior).
+ *
+ * Patterns (verified):
+ *   ChatGPT  chatgpt.com/c/<uuid>
+ *   Claude   claude.ai/chat/<uuid>
+ *   Gemini   gemini.google.com/app/<id>
+ *   DeepSeek chat.deepseek.com/a/chat/s/<id>
+ *   Grok     grok.com/chat/<id>
+ *   Perplexity perplexity.ai/search/<slug-id>
+ */
+export function conversationIdFromUrl(provider: string, url: string): string | null {
+  let path = url;
+  try {
+    path = new URL(url).pathname;
+  } catch {
+    // use raw url as a last resort
+  }
+
+  const pick = (re: RegExp): string | null => {
+    const m = path.match(re);
+    return m && m[1] ? m[1] : null;
+  };
+
+  switch (provider) {
+    case "chatgpt":
+      return pick(/\/c\/([0-9a-zA-Z-]+)/);
+    case "claude":
+      return pick(/\/chat\/([0-9a-zA-Z-]+)/);
+    case "gemini":
+      return pick(/\/app\/([0-9a-zA-Z-]+)/);
+    case "deepseek":
+      return pick(/\/chat\/s\/([0-9a-zA-Z-]+)/) ?? pick(/\/a\/chat\/([0-9a-zA-Z-]+)/);
+    case "grok":
+      return pick(/\/chat\/([0-9a-zA-Z-]+)/);
+    case "perplexity":
+      return pick(/\/search\/([0-9a-zA-Z-]+)/);
+    default:
+      return null;
+  }
+}

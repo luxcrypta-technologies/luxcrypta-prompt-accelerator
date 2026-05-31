@@ -5,6 +5,12 @@ export interface ConversationSnapshot {
     text: string;
     timestamp?: string;
   }>;
+  scope?: {
+    turns_captured: number;
+    capture_scope: "full" | "partial" | "empty";
+    coverage_confidence: "high" | "medium" | "low";
+    role_attribution: "dom_markers" | "positional_fallback";
+  };
 }
 
 export interface ProviderProfile {
@@ -99,5 +105,6 @@ export interface ChatSurfaceAdapter {
   setCurrentDraftText(text: string): boolean;
   insertText(text: string): boolean;
   getConversationSnapshot?(): ConversationSnapshot | null;
+  getConversationId?(url?: string): string | null;
   getProviderProfile?(): ProviderProfile;
 }

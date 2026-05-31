@@ -1,4 +1,5 @@
 import type { ChatSurfaceAdapter, ConversationSnapshot, ProviderProfile } from "./types";
+import { SNAPSHOT_SOFT_CAP, conversationIdFromUrl } from "./snapshot";
 import {
   appendDraftText,
   queryFirstUsableInput,
@@ -209,7 +210,7 @@ export const perplexitySurface: ChatSurfaceAdapter = {
     const input = queryInput();
     const seen = new Set<string>();
     const turns = Array.from(document.querySelectorAll(THREAD_SELECTORS.join(",")))
-      .slice(-14)
+      .slice(-SNAPSHOT_SOFT_CAP)
       .map((node, index) => {
         const element = node as HTMLElement;
         if (input && element.contains(input)) return null;
@@ -221,14 +222,16 @@ export const perplexitySurface: ChatSurfaceAdapter = {
           text
         };
       })
-      .filter((turn): turn is ConversationSnapshot["turns"][number] => Boolean(turn))
-      .slice(-6);
+      .filter((turn): turn is ConversationSnapshot["turns"][number] => Boolean(turn));
 
     const retrieved = sourceTurns(input, seen);
-    const combined = [...turns, ...retrieved].slice(-10);
+    const combined = [...turns, ...retrieved];
     return combined.length
       ? { title: document.title.replace("Perplexity", "").trim(), turns: combined }
       : null;
+  },
+  getConversationId(url: string = window.location.href) {
+    return conversationIdFromUrl("perplexity", url);
   },
   getProviderProfile() {
     return PERPLEXITY_PROVIDER_PROFILE;

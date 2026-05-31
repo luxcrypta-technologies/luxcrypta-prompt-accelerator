@@ -333,7 +333,15 @@ platform.messaging.onMessage((message: unknown) => {
     };
   }
   if (typedMessage.type === "content:snapshot:get") {
-    return surface.getConversationSnapshot?.() ?? null;
+    const snapshot = surface.getConversationSnapshot?.() ?? null;
+    const conversationId = surface.getConversationId?.(window.location.href) ?? null;
+    const conversationKey = conversationId ? `${surface.id}:${conversationId}` : null;
+    return {
+      snapshot,
+      provider: surface.id,
+      conversationId,
+      conversationKey
+    };
   }
   return null;
 });

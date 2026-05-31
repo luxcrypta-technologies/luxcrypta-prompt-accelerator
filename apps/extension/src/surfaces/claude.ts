@@ -1,4 +1,5 @@
 import type { ChatSurfaceAdapter, ConversationSnapshot, ProviderProfile } from "./types";
+import { buildSnapshotFromNodes, conversationIdFromUrl } from "./snapshot";
 import {
   appendDraftText,
   queryFirstUsableInput,
@@ -63,18 +64,17 @@ export const claudeSurface: ChatSurfaceAdapter = {
     return appendDraftText(queryInput(), text);
   },
   getConversationSnapshot(): ConversationSnapshot | null {
-    const candidates = Array.from(
-      document.querySelectorAll("[data-testid*='message'], article, [class*='message']")
-    )
-      .slice(-12)
-      .map((node, index) => ({
-        role: index % 2 === 0 ? ("user" as const) : ("assistant" as const),
-        text: ((node as HTMLElement).textContent ?? "").trim()
-      }))
-      .filter((turn) => turn.text.length > 0);
-    return candidates.length
-      ? { title: document.title.replace("Claude", "").trim(), turns: candidates }
-      : null;
+    const nodes = Array.from(
+      document.querySelectorAll(
+        "[data-testid*='message'], [data-test-render-count] [data-testid], div[class*='font-claude'], article, [class*='message']"
+      )
+    );
+    return buildSnapshotFromNodes(nodes, {
+      title: document.title.replace("Claude", "").trim()
+    });
+  },
+  getConversationId(url: string = window.location.href) {
+    return conversationIdFromUrl("claude", url);
   },
   getProviderProfile() {
     return CLAUDE_PROVIDER_PROFILE;

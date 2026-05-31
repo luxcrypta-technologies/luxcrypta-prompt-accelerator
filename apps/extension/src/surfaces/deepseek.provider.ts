@@ -1,4 +1,5 @@
 import type { ChatSurfaceAdapter, ConversationSnapshot, ProviderProfile } from "./types";
+import { SNAPSHOT_SOFT_CAP, conversationIdFromUrl } from "./snapshot";
 import {
   appendDraftText,
   queryFirstUsableInput,
@@ -129,7 +130,7 @@ export const deepseekSurface: ChatSurfaceAdapter = {
     const input = queryInput();
     const seen = new Set<string>();
     const turns = Array.from(document.querySelectorAll(SNAPSHOT_SELECTORS.join(",")))
-      .slice(-16)
+      .slice(-SNAPSHOT_SOFT_CAP)
       .map((node, index) => {
         const element = node as HTMLElement;
         if (input && element.contains(input)) return null;
@@ -141,10 +142,12 @@ export const deepseekSurface: ChatSurfaceAdapter = {
           text
         };
       })
-      .filter((turn): turn is ConversationSnapshot["turns"][number] => Boolean(turn))
-      .slice(-8);
+      .filter((turn): turn is ConversationSnapshot["turns"][number] => Boolean(turn));
 
     return turns.length ? { title: document.title.replace("DeepSeek", "").trim(), turns } : null;
+  },
+  getConversationId(url: string = window.location.href) {
+    return conversationIdFromUrl("deepseek", url);
   },
   getProviderProfile() {
     return DEEPSEEK_PROVIDER_PROFILE;

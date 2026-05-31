@@ -23,21 +23,29 @@ export class SessionGovernanceService {
     this.preferences = new PreferenceStore(storage);
   }
 
-  getCurrent(): Promise<SessionGovernanceState | null> {
-    return this.sessions.getCurrent();
+  getCurrent(conversationKey?: string | null): Promise<SessionGovernanceState | null> {
+    return this.sessions.getCurrent(conversationKey);
   }
 
   async update(input: SessionUpdateInput): Promise<SessionUpdateResult | null> {
     const preferences = await this.preferences.get();
     if (!preferences.sessionGovernanceEnabled) return null;
 
-    const previousState = input.previousState ?? (await this.sessions.getCurrent());
+    const previousState =
+      input.previousState ?? (await this.sessions.getCurrent(input.conversationKey));
     const result = updateSessionGovernance({
       ...input,
       previousState,
       preserveOpenQuestions: preferences.preserveOpenQuestions,
       conservativeStableCoreUpdates: preferences.conservativeStableCoreUpdates
     });
+
+    // Stamp the conversation scope so the store routes this to the correct
+    // per-conversation slot (defect D0a-1). Preserve any prior key.
+    if (input.conversationKey || previousState?.conversationKey) {
+      result.state.conversationKey =
+        input.conversationKey ?? previousState?.conversationKey ?? undefined;
+    }
 
     if (preferences.saveSessionStateLocally) {
       await this.sessions.save(result.state);
@@ -69,13 +77,13 @@ export class SessionGovernanceService {
     return next;
   }
 
-  async reset(): Promise<null> {
-    await this.sessions.resetCurrent();
+  async reset(conversationKey?: string | null): Promise<null> {
+    await this.sessions.resetCurrent(conversationKey);
     return null;
   }
 
-  async getDiagnostics(): Promise<SessionDiagnostics | null> {
-    const current = await this.sessions.getCurrent();
+  async getDiagnostics(conversationKey?: string | null): Promise<SessionDiagnostics | null> {
+    const current = await this.sessions.getCurrent(conversationKey);
     return current?.diagnostics ?? null;
   }
 

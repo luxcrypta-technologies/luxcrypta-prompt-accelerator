@@ -1,4 +1,5 @@
 import type { ChatSurfaceAdapter, ConversationSnapshot } from "./types";
+import { SNAPSHOT_SOFT_CAP, conversationIdFromUrl } from "./snapshot";
 import { appendDraftText, queryFirstUsableInput, readBodyFirstDraftText, replaceDraftText, type DraftInputElement } from "./dom";
 
 const INPUT_SELECTORS = [
@@ -77,7 +78,7 @@ export const grokSurface: ChatSurfaceAdapter = {
     const input = queryInput();
     const seen = new Set<string>();
     const turns = Array.from(document.querySelectorAll(SNAPSHOT_SELECTORS.join(",")))
-      .slice(-16)
+      .slice(-SNAPSHOT_SOFT_CAP)
       .map((node, index) => {
         const element = node as HTMLElement;
         if (input && element.contains(input)) return null;
@@ -89,9 +90,11 @@ export const grokSurface: ChatSurfaceAdapter = {
           text
         };
       })
-      .filter((turn): turn is ConversationSnapshot["turns"][number] => Boolean(turn))
-      .slice(-8);
+      .filter((turn): turn is ConversationSnapshot["turns"][number] => Boolean(turn));
 
     return turns.length ? { title: document.title.replace("Grok", "").trim(), turns } : null;
+  },
+  getConversationId(url: string = window.location.href) {
+    return conversationIdFromUrl("grok", url);
   }
 };

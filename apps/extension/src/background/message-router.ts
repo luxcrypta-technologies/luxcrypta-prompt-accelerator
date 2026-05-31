@@ -31,6 +31,41 @@ import { nowIso } from "@/utils/time";
 
 const reviewStates = new Map<string, ReviewState>();
 
+/**
+ * Read the active tab's live conversation context (snapshot + conversation key)
+ * via the content script. This is the Stage-0 fix that makes capture reflect
+ * the CURRENT conversation instead of stale persisted/global state. Returns
+ * nulls (not throwing) when the surface can't answer, so callers degrade to the
+ * legacy in-memory slot rather than failing.
+ */
+interface ActiveConversationContext {
+  snapshot: import("@/types/surfaces").ConversationSnapshot | null;
+  provider: string | null;
+  conversationId: string | null;
+  conversationKey: string | null;
+}
+
+async function readActiveConversationContext(
+  platform: PlatformAPI
+): Promise<ActiveConversationContext> {
+  try {
+    const res = (await platform.tabs.sendToActiveTab({
+      type: "content:snapshot:get"
+    })) as Partial<ActiveConversationContext> | null;
+    if (!res || typeof res !== "object") {
+      return { snapshot: null, provider: null, conversationId: null, conversationKey: null };
+    }
+    return {
+      snapshot: res.snapshot ?? null,
+      provider: res.provider ?? null,
+      conversationId: res.conversationId ?? null,
+      conversationKey: res.conversationKey ?? null
+    };
+  } catch {
+    return { snapshot: null, provider: null, conversationId: null, conversationKey: null };
+  }
+}
+
 function rememberReviewStateInMemory(state: ReviewState): void {
   reviewStates.set(state.id, state);
   while (reviewStates.size > REVIEW_STATE_LIMIT) {
@@ -175,6 +210,7 @@ export function createMessageRouter(platform: PlatformAPI) {
     const backgroundMessage = message as BackgroundMessage;
     switch (backgroundMessage.type) {
       case "prompt:transform": {
+        const txCtx = await readActiveConversationContext(platform);
         const result = await executeTransformPrompt(backgroundMessage.payload, {
           storage: platform.storage
         });
@@ -182,6 +218,7 @@ export function createMessageRouter(platform: PlatformAPI) {
           {
             transformRequest: backgroundMessage.payload,
             transformResult: result,
+            conversationKey: txCtx.conversationKey,
             sourceSurface: backgroundMessage.payload.sourceSurface
           },
           { storage: platform.storage }
@@ -189,13 +226,23 @@ export function createMessageRouter(platform: PlatformAPI) {
         return result;
       }
       case "capsule:generate": {
-        const capsule = await executeContinueSession(backgroundMessage.payload, {
-          storage: platform.storage
-        });
+        const capCtx = await readActiveConversationContext(platform);
+        const capsule = await executeContinueSession(
+          {
+            ...backgroundMessage.payload,
+            snapshot: backgroundMessage.payload.snapshot ?? capCtx.snapshot ?? undefined,
+            conversationKey: capCtx.conversationKey
+          },
+          {
+            storage: platform.storage
+          }
+        );
         await executeUpdateSessionState(
           {
             capsule,
-            conversationSnapshot: backgroundMessage.payload.snapshot ?? null,
+            conversationSnapshot:
+              backgroundMessage.payload.snapshot ?? capCtx.snapshot ?? null,
+            conversationKey: capCtx.conversationKey,
             sourceSurface: backgroundMessage.payload.sourceSurface
           },
           { storage: platform.storage }
@@ -218,22 +265,29 @@ export function createMessageRouter(platform: PlatformAPI) {
         return executeExportBundle({ storage: platform.storage });
       case "import:apply":
         return executeImportBundle(backgroundMessage.payload.bundle, { storage: platform.storage });
-      case "session:get":
-        return executeReviewSessionState({ storage: platform.storage });
+      case "session:get": {
+        const ctx = await readActiveConversationContext(platform);
+        return new SessionGovernanceService(platform.storage).getCurrent(ctx.conversationKey);
+      }
       case "session:update":
         return executeUpdateSessionState(backgroundMessage.payload, { storage: platform.storage });
       case "session:promote-novelty":
         return executePromoteNovelty(backgroundMessage.payload, { storage: platform.storage });
-      case "session:reset":
-        return new SessionGovernanceService(platform.storage).reset();
-      case "diagnostics:get":
-        return executeGetDiagnostics({ storage: platform.storage });
+      case "session:reset": {
+        const ctx = await readActiveConversationContext(platform);
+        return new SessionGovernanceService(platform.storage).reset(ctx.conversationKey);
+      }
+      case "diagnostics:get": {
+        const ctx = await readActiveConversationContext(platform);
+        return new SessionGovernanceService(platform.storage).getDiagnostics(ctx.conversationKey);
+      }
       case "review:open": {
         const createdAt = nowIso();
         const surface = platform.reviewSurface.getPreferredSurface();
         const sourceTabId = await platform.tabs.getActiveTabId();
-        const currentSession = await platform.storage.get<SessionGovernanceState>(
-          CURRENT_SESSION_KEY
+        const activeCtx = await readActiveConversationContext(platform);
+        const currentSession = await new SessionGovernanceService(platform.storage).getCurrent(
+          activeCtx.conversationKey
         );
         const result = backgroundMessage.payload.result;
         if (result.continuityReview.diagnostics.providerHealth) {
