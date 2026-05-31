@@ -53,7 +53,6 @@ describe("content body-first extraction", () => {
 
     expect(extracted.source).toBe("last_user_turn");
     expect(extracted.bodyFirst).toBe(true);
-    expect(extracted.text).toContain("user:");
     expect(extracted.text).toContain("Objective: preserve the real authored body.");
     expect(extracted.text).not.toContain("assistant reconstruction");
     expect(extracted.text).not.toMatch(/Prompt Review|Copy JSON|Show more|conversation title/i);
@@ -112,5 +111,42 @@ describe("content body-first extraction", () => {
     expect(extracted.bodyFirst).toBe(false);
     expect(extracted.text).toBe("");
     expect(extracted.warnings.join(" ")).toContain("No user-authored draft body");
+  });
+  it("recovers the FULL conversation (all user turns) when the composer is empty", () => {
+    const extracted = extractAuthorSourceFromSurface(
+      surface("claude", "", {
+        title: "Japan trip",
+        turns: [
+          { role: "user", text: "Help me plan a 10-day trip to Japan in October." },
+          { role: "assistant", text: "Sure, let's start." },
+          { role: "user", text: "A hard requirement: every place must be reachable by train." },
+          { role: "assistant", text: "Noted." },
+          { role: "user", text: "Decision: first 4 days in Tokyo, then Kansai." }
+        ]
+      })
+    );
+    // every user turn is present, in order — not just the last one
+    expect(extracted.text).toContain("Help me plan a 10-day trip to Japan");
+    expect(extracted.text).toContain("reachable by train");
+    expect(extracted.text).toContain("first 4 days in Tokyo");
+    expect(extracted.segmentCount).toBeGreaterThanOrEqual(1);
+    expect(extracted.sourceSummary).toMatch(/recovered \d+ user-authored turns/);
+    // assistant prose stays out
+    expect(extracted.text).not.toContain("Noted.");
+  });
+
+  it("strips leading provider role labels (Gemini 'You said') from recovered turns", () => {
+    const extracted = extractAuthorSourceFromSurface(
+      surface("gemini", "", {
+        title: "Strength program",
+        turns: [
+          { role: "user", text: "You said Design a 3-day dumbbell-only strength program." },
+          { role: "user", text: "You said Add a note on progressive overload." }
+        ]
+      })
+    );
+    expect(extracted.text).not.toMatch(/You said/);
+    expect(extracted.text).toContain("Design a 3-day dumbbell-only strength program.");
+    expect(extracted.text).toContain("Add a note on progressive overload.");
   });
 });

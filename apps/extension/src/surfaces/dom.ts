@@ -72,6 +72,11 @@ export function stripProviderChromeLines(value: string): string {
   return value
     .replace(/\b(show more)\s*(show less)\b/gi, "\n")
     .replace(/\b(Copy JSON|Copy Raw|Copy All Review|Copy Review \+ Raw JSON|Copy Engineering Summary|Copy Portable Capsule|Copy Workflow Export|Prompt Review|Retry Open)\b/gi, "\n")
+    // Provider role labels prepended to message bodies (Gemini "You said",
+    // "Gemini said"; ChatGPT "You said"/"ChatGPT said", etc.). These are DOM
+    // chrome, not authored content — strip the leading label so it does not
+    // become part of the objective/constraint text.
+    .replace(/^\s*(?:you|gemini|chatgpt|claude|assistant|model|copilot)\s+said[:\s]+/gim, "")
     .replace(/^.*\bThought for (?:a few|\d+(?:\.\d+)?) seconds?\b.*$/gim, "\n")
     .replace(/^.*\bPowered by\b.*$/gim, "\n")
     .split(/\n+/)

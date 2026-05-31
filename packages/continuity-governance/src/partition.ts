@@ -73,8 +73,14 @@ function isTaskLocalInstruction(text: string): boolean {
   return !durableSignals;
 }
 
+const BARE_ROLE_LABEL_RE = /^\s*(?:user|assistant|model|ai|system)\s*:?\s*$/i;
+
 function isAdmissibleSourceLine(text: string): boolean {
-  return !ASSISTANT_SOURCE_RE.test(text) && !SCAFFOLD_RE.test(text);
+  return (
+    !ASSISTANT_SOURCE_RE.test(text) &&
+    !SCAFFOLD_RE.test(text) &&
+    !BARE_ROLE_LABEL_RE.test(text)
+  );
 }
 
 function asCandidate(

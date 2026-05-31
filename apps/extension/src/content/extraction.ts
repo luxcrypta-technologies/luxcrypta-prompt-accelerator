@@ -52,13 +52,29 @@ function authoredFromSnapshot(
             )
             .slice(0, 6)
         : [];
-    const segments = [`user:\n${lastUserBody}`, ...retrieved];
+    // The session/admission engine needs the WHOLE conversation, not just the
+    // last turn. When the composer is empty (the normal state when opening the
+    // review after sending), recover every user-authored turn in order so the
+    // objective, constraints, decisions and open items across the session are
+    // all available to the transform. Reducing to the last turn here was
+    // starving the admission engine (objective came back invalid/garbage and
+    // stable_core was empty even though the snapshot captured the full thread).
+    const orderedUserSegments = userTurns.map((body) => body);
+    const segments =
+      orderedUserSegments.length > 0
+        ? [orderedUserSegments.join("\n\n"), ...retrieved]
+        : [lastUserBody, ...retrieved];
+    const multiTurn = userTurns.length > 1;
     return {
       text: segments.join("\n\n").trim(),
       source: "last_user_turn",
-      sourceSummary: retrieved.length
-        ? "composer empty; recovered last user-authored turn with retrieved evidence quarantinable"
-        : "composer empty; recovered last user-authored turn",
+      sourceSummary: multiTurn
+        ? `composer empty; recovered ${orderedUserSegments.length} user-authored turns from conversation${
+            retrieved.length ? " with retrieved evidence quarantinable" : ""
+          }`
+        : retrieved.length
+          ? "composer empty; recovered last user-authored turn with retrieved evidence quarantinable"
+          : "composer empty; recovered last user-authored turn",
       segmentCount: segments.length,
       bodyFirst: true,
       warnings: []
