@@ -107,3 +107,32 @@ describe("buildSnapshotFromNodes — uncapped + honest scope (D0b)", () => {
     expect(buildSnapshotFromNodes([])).toBeNull();
   });
 });
+
+describe("cross-chat isolation on the /new window (D0a-1 follow-up)", () => {
+  // Before a thread id exists, the conversation key must come from a per-tab
+  // ephemeral id — NOT a single shared/global slot. Two fresh chats must not
+  // collide. We simulate the content-script's key computation here.
+  const keyFor = (provider: string, url: string, ephemeral: string): string => {
+    const id = conversationIdFromUrl(provider, url);
+    return `${provider}:${id ?? ephemeral}`;
+  };
+
+  it("two fresh /new chats in different tabs get different keys", () => {
+    const tabA = keyFor("claude", "https://claude.ai/new", "tab-aaa");
+    const tabB = keyFor("claude", "https://claude.ai/new", "tab-bbb");
+    expect(tabA).not.toBe(tabB);
+  });
+
+  it("a real thread id overrides the ephemeral id once the URL updates", () => {
+    const ephemeral = keyFor("claude", "https://claude.ai/new", "tab-aaa");
+    const real = keyFor("claude", "https://claude.ai/chat/real-uuid-1", "tab-aaa");
+    expect(real).toBe("claude:real-uuid-1");
+    expect(real).not.toBe(ephemeral);
+  });
+
+  it("two different threads never share a key", () => {
+    const one = keyFor("claude", "https://claude.ai/chat/uuid-1", "tab-x");
+    const two = keyFor("claude", "https://claude.ai/chat/uuid-2", "tab-x");
+    expect(one).not.toBe(two);
+  });
+});

@@ -451,6 +451,9 @@ export function App() {
         capsule,
         extensionVersion: getExtensionVersion(),
         currentUrl: window.location.href,
+        conversationId: sessionState?.conversationKey?.split(":").slice(1).join(":") ?? null,
+        conversationKey: sessionState?.conversationKey ?? null,
+        snapshotScope: sessionState?.diagnostics?.snapshot_scope ?? null,
         saveStatus: currentFeedback,
         exportStatus: currentFeedback,
         errorLogs:

@@ -62,11 +62,11 @@ export type BackgroundMessage =
   | { type: "preferences:update"; payload: Partial<UserPreferences> }
   | { type: "export:create" }
   | { type: "import:apply"; payload: { bundle: unknown } }
-  | { type: "session:get" }
+  | { type: "session:get"; payload?: { sourceTabId?: number } }
   | { type: "session:update"; payload: SessionUpdateInput }
   | { type: "session:promote-novelty"; payload: { noveltyIds: string[] } }
-  | { type: "session:reset" }
-  | { type: "diagnostics:get" }
+  | { type: "session:reset"; payload?: { sourceTabId?: number } }
+  | { type: "diagnostics:get"; payload?: { sourceTabId?: number } }
   | { type: "review:open"; payload: { result: TransformResult } }
   | { type: "review:get"; payload: { reviewId?: string } }
   | { type: "review:update"; payload: { reviewId: string; result: TransformResult } }

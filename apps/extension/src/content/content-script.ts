@@ -15,6 +15,16 @@ import type { ChatSurfaceAdapter, ProviderHealth } from "@/types/surfaces";
 
 const platform = getPlatformAPI();
 
+/**
+ * Stable per-tab id minted once when this content script loads. Used as the
+ * conversation key fallback before a real thread id exists in the URL, so two
+ * fresh ("/new") chats in different tabs never share session state and never
+ * fall back to the global slot.
+ */
+const EPHEMERAL_CONVERSATION_ID = `tab-${Date.now().toString(36)}-${Math.random()
+  .toString(36)
+  .slice(2, 10)}`;
+
 function extractionTelemetry(text: string): {
   status: ProviderHealth["extraction_status"];
   warnings: string[];
@@ -335,12 +345,18 @@ platform.messaging.onMessage((message: unknown) => {
   if (typedMessage.type === "content:snapshot:get") {
     const snapshot = surface.getConversationSnapshot?.() ?? null;
     const conversationId = surface.getConversationId?.(window.location.href) ?? null;
-    const conversationKey = conversationId ? `${surface.id}:${conversationId}` : null;
+    // Before a thread id exists (e.g. claude.ai/new), fall back to a per-tab
+    // ephemeral key so two fresh chats in two tabs never share state — and
+    // never collapse to the global slot. Once the URL gains a real id, that
+    // takes over. (Defect: cross-chat bleed from the /new + new-tab combo.)
+    const effectiveId = conversationId ?? EPHEMERAL_CONVERSATION_ID;
+    const conversationKey = `${surface.id}:${effectiveId}`;
     return {
       snapshot,
       provider: surface.id,
       conversationId,
-      conversationKey
+      conversationKey,
+      conversationKeyIsEphemeral: conversationId === null
     };
   }
   return null;

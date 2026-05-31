@@ -59,6 +59,12 @@ export interface SessionDiagnostics {
   warnings: string[];
   actionsSuggested: string[];
   generatedAt: string;
+  snapshot_scope?: {
+    turns_captured: number;
+    capture_scope: "full" | "partial" | "empty";
+    coverage_confidence: "high" | "medium" | "low";
+    role_attribution: "dom_markers" | "positional_fallback";
+  } | null;
 }
 
 export interface SessionGovernanceState {

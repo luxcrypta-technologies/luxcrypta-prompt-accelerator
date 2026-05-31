@@ -22,6 +22,16 @@ export interface ReviewArtifactContext {
   saveStatus?: string;
   exportStatus?: string;
   errorLogs?: string[];
+  // Stage 0 capture-verification fields (so staleness/keying is provable).
+  conversationId?: string | null;
+  conversationKey?: string | null;
+  conversationKeyIsEphemeral?: boolean;
+  snapshotScope?: {
+    turns_captured: number;
+    capture_scope: "full" | "partial" | "empty";
+    coverage_confidence: "high" | "medium" | "low";
+    role_attribution: "dom_markers" | "positional_fallback";
+  } | null;
 }
 
 const MAX_TITLE_LENGTH = 72;
@@ -2360,6 +2370,12 @@ export function buildDiagnosticState(context: ReviewArtifactContext): Record<str
     diagnostic_id: `diagnostic-${Date.now()}`,
     version: 1,
     timestamp: new Date().toISOString(),
+    capture_verification: {
+      conversation_id: context.conversationId ?? null,
+      conversation_key: context.conversationKey ?? context.sessionState?.conversationKey ?? null,
+      conversation_key_is_ephemeral: context.conversationKeyIsEphemeral ?? null,
+      snapshot_scope: context.snapshotScope ?? null
+    },
     build_provenance:
       review.diagnostics.build_provenance ?? getBuildProvenance(context.extensionVersion),
     clean_summary: review.cleanSummary,

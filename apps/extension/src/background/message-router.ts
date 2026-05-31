@@ -46,12 +46,19 @@ interface ActiveConversationContext {
 }
 
 async function readActiveConversationContext(
-  platform: PlatformAPI
+  platform: PlatformAPI,
+  sourceTabId?: number | null
 ): Promise<ActiveConversationContext> {
   try {
-    const res = (await platform.tabs.sendToActiveTab({
-      type: "content:snapshot:get"
-    })) as Partial<ActiveConversationContext> | null;
+    // Prefer the originating conversation tab (captured at review:open). The
+    // active tab is wrong when the diagnostic is requested from the review
+    // page, which lives in its own tab/window — that was the cause of the
+    // cross-tab fallback to the global session slot.
+    const res = (await (typeof sourceTabId === "number"
+      ? platform.tabs.sendToTab(sourceTabId, { type: "content:snapshot:get" })
+      : platform.tabs.sendToActiveTab({ type: "content:snapshot:get" }))) as Partial<
+      ActiveConversationContext
+    > | null;
     if (!res || typeof res !== "object") {
       return { snapshot: null, provider: null, conversationId: null, conversationKey: null };
     }
@@ -266,7 +273,10 @@ export function createMessageRouter(platform: PlatformAPI) {
       case "import:apply":
         return executeImportBundle(backgroundMessage.payload.bundle, { storage: platform.storage });
       case "session:get": {
-        const ctx = await readActiveConversationContext(platform);
+        const ctx = await readActiveConversationContext(
+          platform,
+          backgroundMessage.payload?.sourceTabId
+        );
         return new SessionGovernanceService(platform.storage).getCurrent(ctx.conversationKey);
       }
       case "session:update":
@@ -274,18 +284,24 @@ export function createMessageRouter(platform: PlatformAPI) {
       case "session:promote-novelty":
         return executePromoteNovelty(backgroundMessage.payload, { storage: platform.storage });
       case "session:reset": {
-        const ctx = await readActiveConversationContext(platform);
+        const ctx = await readActiveConversationContext(
+          platform,
+          backgroundMessage.payload?.sourceTabId
+        );
         return new SessionGovernanceService(platform.storage).reset(ctx.conversationKey);
       }
       case "diagnostics:get": {
-        const ctx = await readActiveConversationContext(platform);
+        const ctx = await readActiveConversationContext(
+          platform,
+          backgroundMessage.payload?.sourceTabId
+        );
         return new SessionGovernanceService(platform.storage).getDiagnostics(ctx.conversationKey);
       }
       case "review:open": {
         const createdAt = nowIso();
         const surface = platform.reviewSurface.getPreferredSurface();
         const sourceTabId = await platform.tabs.getActiveTabId();
-        const activeCtx = await readActiveConversationContext(platform);
+        const activeCtx = await readActiveConversationContext(platform, sourceTabId);
         const currentSession = await new SessionGovernanceService(platform.storage).getCurrent(
           activeCtx.conversationKey
         );
