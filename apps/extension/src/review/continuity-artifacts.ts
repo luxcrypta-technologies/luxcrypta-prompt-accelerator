@@ -2373,8 +2373,14 @@ export function buildDiagnosticState(context: ReviewArtifactContext): Record<str
     capture_verification: {
       conversation_id: context.conversationId ?? null,
       conversation_key: context.conversationKey ?? context.sessionState?.conversationKey ?? null,
-      conversation_key_is_ephemeral: context.conversationKeyIsEphemeral ?? null,
-      snapshot_scope: context.snapshotScope ?? null
+      conversation_key_is_ephemeral:
+        context.conversationKeyIsEphemeral ??
+        (typeof (context.conversationKey ?? context.sessionState?.conversationKey) === "string"
+          ? /:tab-[a-z0-9-]+$/i.test(
+              (context.conversationKey ?? context.sessionState?.conversationKey) as string
+            )
+          : null),
+      snapshot_scope: context.snapshotScope ?? context.sessionState?.diagnostics?.snapshot_scope ?? null
     },
     build_provenance:
       review.diagnostics.build_provenance ?? getBuildProvenance(context.extensionVersion),

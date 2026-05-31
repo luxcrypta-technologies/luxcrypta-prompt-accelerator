@@ -91,6 +91,12 @@ export interface SessionGovernanceState {
 export interface SessionUpdateInput {
   previousState?: SessionGovernanceState | null;
   conversationKey?: string | null;
+  snapshotScope?: {
+    turns_captured: number;
+    capture_scope: "full" | "partial" | "empty";
+    coverage_confidence: "high" | "medium" | "low";
+    role_attribution: "dom_markers" | "positional_fallback";
+  } | null;
   transformRequest?: TransformRequest;
   transformResult?: TransformResult;
   conversationSnapshot?: ConversationSnapshot | null;

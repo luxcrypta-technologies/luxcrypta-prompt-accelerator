@@ -46,6 +46,12 @@ export class SessionGovernanceService {
       result.state.conversationKey =
         input.conversationKey ?? previousState?.conversationKey ?? undefined;
     }
+    // Persist snapshot coverage so the diagnostic's capture_verification block
+    // can report it (proves full/partial + real-role attribution).
+    if (input.snapshotScope !== undefined) {
+      result.state.diagnostics.snapshot_scope =
+        input.snapshotScope ?? previousState?.diagnostics?.snapshot_scope ?? null;
+    }
 
     if (preferences.saveSessionStateLocally) {
       await this.sessions.save(result.state);

@@ -340,10 +340,11 @@ export function App() {
       BackgroundMessage,
       SessionGovernanceState | null
     >({
-      type: "session:get"
+      type: "session:get",
+      payload: { sourceTabId: state?.sourceTabId }
     });
     setSessionState(next);
-  }, []);
+  }, [state?.sourceTabId]);
 
   useEffect(() => {
     platform.messaging

@@ -105,7 +105,7 @@ describe("Prompt Review open truth model", () => {
       persisted_session_state_present: false,
       session_state_source: "built_fresh_in_session",
       build_provenance: expect.objectContaining({
-        extension_version: "2.3.4",
+        extension_version: "2.3.5",
         build_timestamp: expect.any(String),
         commit_sha: expect.any(String),
         environment_tag: expect.any(String)

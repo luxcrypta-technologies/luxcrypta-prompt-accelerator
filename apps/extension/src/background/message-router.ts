@@ -226,6 +226,7 @@ export function createMessageRouter(platform: PlatformAPI) {
             transformRequest: backgroundMessage.payload,
             transformResult: result,
             conversationKey: txCtx.conversationKey,
+            snapshotScope: txCtx.snapshot?.scope ?? null,
             sourceSurface: backgroundMessage.payload.sourceSurface
           },
           { storage: platform.storage }
