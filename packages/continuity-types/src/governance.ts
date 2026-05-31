@@ -44,11 +44,16 @@ export interface SessionOpennessState {
 }
 
 export interface SessionMonitors {
-  continuityScore: number;
-  driftScore: number;
-  noveltyLoad: number;
-  opennessScore: number;
-  compressionDensity: number;
+  // Canonical six-component continuity health vector (Stage 1).
+  // Existing field names retained for the 5 original consumers; the mapping to
+  // the doctrine's (chi, delta, rho, mu, nu, omega) is noted per field.
+  continuityScore: number; // chi  — composite continuity health (anchor)
+  driftScore: number; // delta — drift vs session baseline W0
+  noveltyLoad: number; // nu   — novelty load (excludes stable/ARC; D7 fix)
+  opennessScore: number; // omega — openness / GAP pressure
+  compressionDensity: number; // retained: compression density
+  replayFidelity?: number; // rho  — replay re-derivation similarity (0-100)
+  mutationStability?: number; // mu   — admitted-clean / total mutations (0-100)
   sessionHealth: "healthy" | "watch" | "unstable";
 }
 
@@ -59,6 +64,15 @@ export interface SessionDiagnostics {
   warnings: string[];
   actionsSuggested: string[];
   generatedAt: string;
+  awg_distribution?: { arc: number; wedge: number; gap: number; heldOut: number };
+  legality?: {
+    objective_score: number;
+    legal: boolean;
+    violations: string[];
+    monotonic: boolean;
+  };
+  cap_overflow?: { constraints: number; decisions: number; total: number };
+  placement_mismatches?: number;
 }
 
 export interface SessionGovernanceState {

@@ -94,6 +94,24 @@ describe("buildSnapshotFromNodes — uncapped + honest scope (D0b)", () => {
     expect(snap!.scope.capture_scope).toBe("partial");
   });
 
+  it("coalesces consecutive same-role sub-nodes into real turns (turn-count fix)", () => {
+    // An 8-turn exchange where each message renders across 2 sub-nodes (e.g. a
+    // paragraph + a code block). Old behavior counted 16 nodes as 16 turns;
+    // coalescing reports the real 8.
+    const nodes: HTMLElement[] = [];
+    for (let i = 0; i < 8; i++) {
+      const role = i % 2 === 0 ? "user" : "assistant";
+      nodes.push(node(role, `message ${i} part A`));
+      nodes.push(node(role, `message ${i} part B`));
+    }
+    const snap = buildSnapshotFromNodes(nodes);
+    expect(snap!.turns.length).toBe(8);
+    expect(snap!.scope.turns_captured).toBe(8);
+    // full message text is preserved (both sub-nodes joined)
+    expect(snap!.turns[0].text).toContain("part A");
+    expect(snap!.turns[0].text).toContain("part B");
+  });
+
   it("falls back to positional roles only when markers are absent", () => {
     const plain = [node("", "a"), node("", "b"), node("", "c")];
     const snap = buildSnapshotFromNodes(plain);

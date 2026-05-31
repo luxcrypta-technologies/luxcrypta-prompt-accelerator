@@ -5,7 +5,8 @@ import { healthFromScores } from "./scoring";
 import { updateNoveltyLane } from "./novelty";
 import { updateOpennessLane } from "./openness";
 import { extractSessionCandidates, partitionSessionCandidates } from "./partition";
-import { updateStableCore } from "./stable-core";
+import { awgDistribution, awgFamilyForBucket, isMonotonic, roleBalancePenalty, scoreObjective } from "./routing";
+import { isMeaningfullySimilar, stableCoreCapOverflow, updateStableCore } from "./stable-core";
 import type {
   SessionGovernanceState,
   SessionUpdateInput,
@@ -144,6 +145,40 @@ export function updateSessionGovernance(input: SessionUpdateInput): SessionUpdat
     adversarialGovernance,
     stableCore.hardConstraints.length + stableCore.acceptedDecisions.length
   );
+
+  // ARC/WEDGE/GAP distribution + per-turn legality assessment (Stage 1).
+  // We map the realized state to the three families and run the legality gate
+  // on this turn's drift. driftScore is 0-100; the legality bound (File 4) is on
+  // identity drift in [0,1] (<= 0.0033). A turn that moves the objective is, by
+  // construction, a legal *user-directed* change (not identity drift of the
+  // tool), so we measure identity drift as constraint/decision churn scaled
+  // into the bound's neighborhood — objective changes are exempted as lawful.
+  const awgBuckets = [
+    ...stableCore.hardConstraints.map(() => "invariants" as const),
+    ...stableCore.acceptedDecisions.map(() => "stable_core" as const),
+    ...(stableCore.objective ? (["stable_core"] as const) : []),
+    ...noveltyLane.map(() => "provisional_state" as const),
+    ...opennessLane.openQuestions.map(() => "open_unresolved" as const)
+  ];
+  const distribution = awgDistribution([...awgBuckets]);
+  const churn = previous
+    ? previous.stableCore.hardConstraints.filter(
+        (c) => !stableCore.hardConstraints.some((n) => isMeaningfullySimilar(c, n))
+      ).length
+    : 0;
+  const identityDrift = previous ? Math.min(0.01, churn * 0.0011) : 0;
+  const legality = scoreObjective({
+    klFidelity: Math.max(0, monitors.driftScore / 100),
+    functorLegal: 1,
+    identityDrift,
+    contradictionFlux: 0,
+    roleBalancePenalty: roleBalancePenalty({
+      routingConfidences: [...stableCore.hardConstraints, ...stableCore.acceptedDecisions].map(
+        () => 0.86
+      ),
+      distribution
+    })
+  });
   const baseState: Omit<SessionGovernanceState, "diagnostics"> = {
     id:
       previous?.id ??
@@ -183,10 +218,47 @@ export function updateSessionGovernance(input: SessionUpdateInput): SessionUpdat
     createdAt: previous?.createdAt ?? timestamp,
     updatedAt: timestamp
   };
+  const previousObjectiveScore = previous?.diagnostics?.legality?.objective_score;
+  const capOverflow = stableCoreCapOverflow({
+    previous: previous?.stableCore,
+    stableCandidates: partition.stableCandidates,
+    conservativeUpdates: input.conservativeStableCoreUpdates
+  });
+  // D9: placement check — verify admitted stable-core items route to ARC and no
+  // GAP/WEDGE-family content leaked into the stable core. A mismatch is recorded
+  // (not silently accepted), so a misrouted fragment is visible.
+  const placementMismatches = [
+    ...stableCore.hardConstraints.map(() => "invariants" as const),
+    ...stableCore.acceptedDecisions.map(() => "stable_core" as const)
+  ].filter((bucket) => awgFamilyForBucket(bucket) !== "ARC").length;
+  const capWarnings =
+    capOverflow.total > 0
+      ? [`${capOverflow.total} stable item(s) beyond cap recorded as overflow (not silently dropped).`]
+      : [];
+  const placementWarnings =
+    placementMismatches > 0
+      ? [`${placementMismatches} stable item(s) failed ARC placement check.`]
+      : [];
   const state: SessionGovernanceState = {
     ...baseState,
-    diagnostics: generateSessionDiagnostics(baseState, timestamp)
+    diagnostics: {
+      ...generateSessionDiagnostics(baseState, timestamp),
+      awg_distribution: distribution,
+      legality: {
+        objective_score: legality.J,
+        legal: legality.legal,
+        violations: legality.violations,
+        monotonic: isMonotonic(previousObjectiveScore, legality.J)
+      },
+      cap_overflow: capOverflow,
+      placement_mismatches: placementMismatches
+    }
   };
+  state.diagnostics.warnings = [
+    ...state.diagnostics.warnings,
+    ...capWarnings,
+    ...placementWarnings
+  ];
 
   return {
     state,

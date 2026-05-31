@@ -984,14 +984,15 @@ function invalidObjectiveReason(objective: string): string | undefined {
   if (isPromptShellFragment(clean) || isTaskLocalInstruction(clean)) {
     return "prompt shell is not an objective";
   }
-  if (
-    /^(?:preserve|keep|carry forward|include|return|provide|list|format|write)\b/i.test(clean) &&
-    !/\b(workflow|objective|runtime|extension|review|capsule|state|session|implementation|fix|build|stabilize|provider|export|governance|diagnostic|continuity)\b/i.test(
-      clean
-    )
-  ) {
-    return "shell-derived imperative lacks workflow substance";
-  }
+  // D2 fix: the previous rule rejected any imperative objective
+  // (write/provide/list/...) unless it contained a hardcoded LuxCrypta-domain
+  // word (workflow/runtime/governance/...). That tuned the tool to its own
+  // dogfooding vocabulary and rejected normal user objectives like "Write a
+  // comparison of Tangier vs Marrakesh" or "Plan a 5-day Tokyo trip". An
+  // imperative verb is NOT a defect — a normal objective starts with one.
+  // We reject only objectives that are structurally non-objectives (blank,
+  // role label, category header, prompt shell, ephemeral task-local), handled
+  // above. No vocabulary gate.
   return undefined;
 }
 
@@ -2232,7 +2233,9 @@ function objectiveFromText(text: string, fallback = "Continue the active workflo
   const prepared = removeGeneratedRuntimeInstructions(text);
   const objectiveMatch = prepared.match(/(?:^|\n)\s*(?:[-*•]\s*)?(?:mission|objective):\s*([^\n]*)/i);
   const objective = objectiveMatch?.[1] ? stripSectionLabel(objectiveMatch[1]).slice(0, 240) : "";
-  if (objective) return isValidObjective(objective) ? objective : "invalid_objective";
+  if (objective && !looksLikeConstraintNotObjective(objective)) {
+    return isValidObjective(objective) ? objective : "invalid_objective";
+  }
 
   const firstCandidate = prepared
     .split("\n")
@@ -2242,11 +2245,16 @@ function objectiveFromText(text: string, fallback = "Continue the active workflo
         line.length > 3 &&
         !isRuntimeScaffoldLine(line) &&
         isEligibleUserBodyStatement(line) &&
-        isValidObjective(line)
+        isValidObjective(line) &&
+        !looksLikeConstraintNotObjective(line)
     );
   const fallbackCandidate = firstMeaningfulLine(prepared, "");
   if (firstCandidate) return firstCandidate.slice(0, 240);
-  if (fallbackCandidate && isValidObjective(fallbackCandidate)) {
+  if (
+    fallbackCandidate &&
+    isValidObjective(fallbackCandidate) &&
+    !looksLikeConstraintNotObjective(fallbackCandidate)
+  ) {
     return fallbackCandidate.slice(0, 240);
   }
   return fallback === "Continue the active workflow." ? "invalid_objective" : fallback;
@@ -2267,7 +2275,8 @@ function objectiveFromStatements(
       (statement) =>
         statement.sectionBucket === "stable_core" &&
         !isTaskLocalInstruction(statement.text) &&
-        !isPromptShellFragment(statement.text)
+        !isPromptShellFragment(statement.text) &&
+        !looksLikeConstraintNotObjective(statement.text)
     );
   if (sourceObjective?.text) {
     return isValidObjective(sourceObjective.text)
@@ -2275,6 +2284,24 @@ function objectiveFromStatements(
       : "invalid_objective";
   }
   return objectiveFromText(fallbackText, fallback);
+}
+
+/**
+ * A statement that is itself a standing constraint, hard requirement, explicit
+ * rejection, or open question is NOT the session objective — it belongs in its
+ * own bucket. This prevents a single-line constraint turn (which the splitter
+ * may route to stable_core) from being chosen as the objective and shadowing
+ * the real goal.
+ */
+function looksLikeConstraintNotObjective(text: string): boolean {
+  const t = text.trim();
+  return (
+    /\b(always (?:assume|use|include|keep)|(?:is|are) non[-\s]?negotiable|non[-\s]?negotiable|every (?:recommendation|place|option|item|result)\b.*\bmust\b|must (?:always )?include|must be reachable|hard requirement)\b/i.test(
+      t
+    ) ||
+    /^\s*(don'?t|do not|never|avoid)\b/i.test(t) ||
+    /\?|\bleave (?:that|it|this) open\b|\bdon'?t decide\b|\btorn between\b/i.test(t)
+  );
 }
 
 function section(title: string, lines: string[]): string {

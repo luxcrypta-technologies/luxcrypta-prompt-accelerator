@@ -65,6 +65,15 @@ export interface SessionDiagnostics {
     coverage_confidence: "high" | "medium" | "low";
     role_attribution: "dom_markers" | "positional_fallback";
   } | null;
+  awg_distribution?: { arc: number; wedge: number; gap: number; heldOut: number };
+  legality?: {
+    objective_score: number;
+    legal: boolean;
+    violations: string[];
+    monotonic: boolean;
+  };
+  cap_overflow?: { constraints: number; decisions: number; total: number };
+  placement_mismatches?: number;
 }
 
 export interface SessionGovernanceState {

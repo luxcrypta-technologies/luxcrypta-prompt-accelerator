@@ -73,13 +73,19 @@ function isCoveredByStableCore(text: string, stableCore: SessionStableCore): boo
 }
 
 function requirementLikeObjective(text: string): SessionNoveltyItem["kind"] | null {
+  // Check the additive pattern FIRST: a compound objective whose operative
+  // intent is "add/compare/include/cover X" is a new_constraint, even if the
+  // line incidentally also contains an output word (e.g. "...Output bullet
+  // points only. Must compare privacy implications."). Checking output first
+  // mis-routed the whole line to output_shift and shadowed the real new
+  // constraint in the novelty lane.
+  if (/\b(also include|include|add|compare|cover|address)\b/i.test(text)) {
+    return "new_constraint";
+  }
   if (
     /\b(executive summary|summary at the top|output|format|table|json|yaml|markdown)\b/i.test(text)
   ) {
     return "output_shift";
-  }
-  if (/\b(also include|include|add|compare|cover|address)\b/i.test(text)) {
-    return "new_constraint";
   }
   return null;
 }

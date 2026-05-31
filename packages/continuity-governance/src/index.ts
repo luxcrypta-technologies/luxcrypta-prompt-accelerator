@@ -4,6 +4,7 @@ export * from "./monitors";
 export * from "./novelty";
 export * from "./openness";
 export * from "./partition";
+export * from "./routing";
 export * from "./scoring";
 export * from "./session-state";
 export * from "./session-update";

@@ -2382,6 +2382,10 @@ export function buildDiagnosticState(context: ReviewArtifactContext): Record<str
           : null),
       snapshot_scope: context.snapshotScope ?? context.sessionState?.diagnostics?.snapshot_scope ?? null
     },
+    governance_routing: {
+      awg_distribution: context.sessionState?.diagnostics?.awg_distribution ?? null,
+      legality: context.sessionState?.diagnostics?.legality ?? null
+    },
     build_provenance:
       review.diagnostics.build_provenance ?? getBuildProvenance(context.extensionVersion),
     clean_summary: review.cleanSummary,

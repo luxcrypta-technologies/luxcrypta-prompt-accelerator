@@ -83,15 +83,30 @@ export function buildSnapshotFromNodes(
     };
   });
 
-  const turns = interim
+  const nodeTurns = interim
     .filter((t) => t.text.length > 0)
     .map((t) => ({
       role: (t.role ?? (t.index % 2 === 0 ? "user" : "assistant")) as SnapshotRole,
       text: t.text
     }));
 
-  if (turns.length === 0) {
+  if (nodeTurns.length === 0) {
     return null;
+  }
+
+  // Coalesce consecutive same-role nodes into a single turn. A single message
+  // can render across several DOM sub-nodes (paragraphs, code blocks, list
+  // items); counting each as a turn inflated turns_captured (e.g. 34/49 for an
+  // 8-turn chat). A real turn is a contiguous run of one role. Full text is
+  // preserved by joining; only the COUNT changes to reflect true turns.
+  const turns: { role: SnapshotRole; text: string }[] = [];
+  for (const nodeTurn of nodeTurns) {
+    const last = turns[turns.length - 1];
+    if (last && last.role === nodeTurn.role) {
+      last.text = `${last.text}\n${nodeTurn.text}`.trim();
+    } else {
+      turns.push({ role: nodeTurn.role, text: nodeTurn.text });
+    }
   }
 
   const truncated = total > SNAPSHOT_SOFT_CAP;
