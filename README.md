@@ -46,6 +46,77 @@ Rather than treating AI interaction as isolated prompts, Prompt Accelerator trea
 
 ---
 
+## Supported Platforms
+
+Prompt Accelerator runs as a browser extension (Chrome / Chromium and Firefox) across the major AI chat surfaces:
+
+- Claude
+- ChatGPT
+- Gemini
+- Grok
+- DeepSeek
+- Perplexity
+
+The continuity engine is provider-independent; each platform has a dedicated capture adapter so the extension reads the real conversation on that surface. (Perplexity is a search surface rather than a multi-turn chat, so its sessions are shallower by nature — the extension captures the user query and governs retrieved sources accordingly.)
+
+---
+
+## Key Features
+
+### Portable Capsule
+
+The Portable Capsule is the system's continuity hand-off artifact. With one click ("Copy Portable Capsule"), Prompt Accelerator produces a self-contained, structured snapshot of the workflow's continuity state:
+
+- the workflow identity and active objective,
+- the admitted durable state (constraints and decisions that have been validated as stable),
+- unresolved/open conditions carried forward,
+- a final-artifact readiness verdict (whether the state is coherent enough to hand off),
+- the source platform and detected model.
+
+The capsule is portable by design: it can be carried from one session, model, or tool to another so a workflow resumes with its objective, constraints, and decisions intact instead of being rebuilt from scratch. It is the practical expression of "continuity you can move."
+
+### Continuity Review
+
+A periodic, continuity-aware reconstruction of workflow state that separates what is stable from what is new, unresolved, or rejected — surfacing drift instead of silently absorbing it.
+
+### Workflow Save / Capsule Save
+
+Persist a workflow or capsule locally so long-horizon work survives across sessions.
+
+### Engineering / Workflow Export
+
+Structured exports of the reviewed state for downstream use.
+
+---
+
+## Privacy
+
+Prompt Accelerator runs entirely in your browser. It collects no data and sends nothing to any server — there is no analytics, no telemetry, and no remote calls. Continuity state lives locally on your device. The extension requests only minimal permissions (local storage, and the side panel on Chromium) and runs only on the supported AI domains.
+
+---
+
+## Install
+
+Load the built extension as an unpacked extension during development:
+
+```
+npm install
+npm run build:chromium   # output: dist/chromium
+npm run build:firefox    # output: dist/firefox
+```
+
+- Chrome / Chromium: open `chrome://extensions`, enable Developer mode, "Load unpacked", select `dist/chromium`.
+- Firefox: open `about:debugging` → This Firefox → "Load Temporary Add-on", select a file in `dist/firefox`.
+
+Run the test suite and type checks with:
+
+```
+npm test
+npm run typecheck
+```
+
+---
+
 ## Core Concepts
 
 ### Continuity Preservation
