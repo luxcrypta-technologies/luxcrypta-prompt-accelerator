@@ -20,6 +20,8 @@ const OUTPUT_RE = /\b(json|markdown|table|csv|yaml|bullet|format|schema|return a
 // "must include ...". These are durable ARC constraints, not one-off content.
 const STANDING_CONSTRAINT_RE =
   /\b(always (?:assume|use|include|keep)|(?:is|are) non[-\s]?negotiable|every (?:recommendation|place|option|item|result)\b.*\bmust\b|must (?:always )?include|must be reachable|hard requirement)\b/i;
+const OBJECTIVE_CHANGE_RE =
+  /\b(change of plan|update the objective|new objective|revised objective|instead,? (?:make|let'?s)|scratch that|the new goal|change the (?:goal|objective|plan))\b/i;
 const TASK_LOCAL_RE =
   /\b(follow the required format|end with (?:a )?(?:score|rating)|give (?:a )?table|use (?:a )?table|separate into \d+ sections?|build a priority model|stage \d+|final scores?|reconstruction confidence score|respond with|answer format)\b/i;
 const ASSISTANT_SOURCE_RE = /^\s*(assistant|model|ai)\s*:/i;
@@ -110,16 +112,18 @@ function objectiveFromText(text: string): string | null {
   // rejection, or a hard requirement is NOT the session objective — it belongs
   // in its own bucket. Skipping these here prevents e.g. "Always assume two
   // adults" or "Don't include bus tours" from hijacking/replacing the objective.
-  const firstLine = text
+  const eligibleLines = text
     .split("\n")
     .map((line) => stripLabel(line))
-    .find(
+    .filter(
       (line) =>
         line.length > 3 &&
         !/^(mode|task):\s*/i.test(line) &&
         isAdmissibleSourceLine(line) &&
         !isNonObjectiveLine(line)
     );
+  const explicitChange = [...eligibleLines].reverse().find((line) => OBJECTIVE_CHANGE_RE.test(line));
+  const firstLine = explicitChange ?? eligibleLines[0];
   const firstSentence = firstLine?.match(/^.+?[.!?](?:\s|$)/)?.[0].trim();
   return (
     firstSentence?.slice(0, 220) ||

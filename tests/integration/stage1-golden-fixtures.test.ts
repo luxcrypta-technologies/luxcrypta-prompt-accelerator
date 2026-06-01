@@ -105,4 +105,21 @@ describe("Stage 1 golden fixtures (cross-provider capture protocol)", () => {
     // ARC should hold the durable spine; GAP/WEDGE visible as the plan evolves
     expect(s.diagnostics.awg_distribution!.arc).toBeGreaterThan(0);
   });
+  it("D1 live-blob: explicit objective change wins when the whole conversation is resolved at once", () => {
+    // The live capture re-feeds the entire conversation as one blob with no
+    // prior state. An explicit "change of plan ... update the objective" later
+    // in the blob must supersede the first-stated goal.
+    const blob = [
+      "I want you to help me plan a 10-day trip to Japan in October.",
+      "A hard requirement: every place must be reachable by train.",
+      "Decision: first 4 days in Tokyo, then move to Kansai.",
+      "Change of plan: make it a 7-day trip to Japan plus 3 days in Seoul, South Korea. Update the objective."
+    ].join("\n\n");
+    const req = { sourceText: blob, mode: "research" as const };
+    const s = updateSessionGovernance({ transformRequest: req, transformResult: transformPrompt(req) }).state;
+    expect(s.stableCore.objective.toLowerCase()).toMatch(/seoul/);
+    // awg + legality populate on the blob path too
+    expect(s.diagnostics.awg_distribution).toBeDefined();
+    expect(s.diagnostics.legality).toBeDefined();
+  });
 });

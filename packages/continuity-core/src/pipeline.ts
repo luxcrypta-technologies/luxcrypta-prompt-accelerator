@@ -2237,10 +2237,10 @@ function objectiveFromText(text: string, fallback = "Continue the active workflo
     return isValidObjective(objective) ? objective : "invalid_objective";
   }
 
-  const firstCandidate = prepared
+  const candidateLines = prepared
     .split("\n")
     .map((line) => stripSectionLabel(line))
-    .find(
+    .filter(
       (line) =>
         line.length > 3 &&
         !isRuntimeScaffoldLine(line) &&
@@ -2248,6 +2248,11 @@ function objectiveFromText(text: string, fallback = "Continue the active workflo
         isValidObjective(line) &&
         !looksLikeConstraintNotObjective(line)
     );
+  // Latest-explicit-objective-wins (see objectiveFromStatements): a later
+  // "change of plan / update the objective / instead make it ..." supersedes the
+  // first line when the whole conversation is resolved at once.
+  const explicitChange = [...candidateLines].reverse().find((line) => isExplicitObjectiveChange(line));
+  const firstCandidate = explicitChange ?? candidateLines[0];
   const fallbackCandidate = firstMeaningfulLine(prepared, "");
   if (firstCandidate) return firstCandidate.slice(0, 240);
   if (
@@ -2269,21 +2274,43 @@ function objectiveFromStatements(
   if (statements.length > 0 && eligibleStatements.length === 0) {
     return "invalid_objective";
   }
-  const sourceObjective = statements
-    .filter(isEligibleUserStatement)
-    .find(
-      (statement) =>
-        statement.sectionBucket === "stable_core" &&
-        !isTaskLocalInstruction(statement.text) &&
-        !isPromptShellFragment(statement.text) &&
-        !looksLikeConstraintNotObjective(statement.text)
-    );
+  const eligibleObjectiveCandidates = eligibleStatements.filter(
+    (statement) =>
+      statement.sectionBucket === "stable_core" &&
+      !isTaskLocalInstruction(statement.text) &&
+      !isPromptShellFragment(statement.text) &&
+      !looksLikeConstraintNotObjective(statement.text)
+  );
+  // Latest-explicit-objective-wins: when a later turn explicitly changes the
+  // objective ("change of plan", "update the objective", "new objective",
+  // "instead make it ..."), that supersedes the first-stated goal. This matters
+  // for the live capture path, which re-feeds the WHOLE conversation as one
+  // blob with no prior state — without this, the first line always won and an
+  // explicit mid-session objective change (e.g. adding Seoul) never took. Falls
+  // back to first-match when no explicit change signal is present, preserving
+  // existing single-turn behavior.
+  const explicitlyChangedObjective = [...eligibleObjectiveCandidates]
+    .reverse()
+    .find((statement) => isExplicitObjectiveChange(statement.text));
+  const sourceObjective = explicitlyChangedObjective ?? eligibleObjectiveCandidates[0];
   if (sourceObjective?.text) {
     return isValidObjective(sourceObjective.text)
       ? sourceObjective.text.slice(0, 240)
       : "invalid_objective";
   }
   return objectiveFromText(fallbackText, fallback);
+}
+
+/**
+ * Detects an explicit user-directed objective change. Used so a later
+ * "change of plan / update the objective / new objective / instead make it ..."
+ * supersedes the originally stated objective when the whole conversation is
+ * resolved at once.
+ */
+function isExplicitObjectiveChange(text: string): boolean {
+  return /\b(change of plan|update the objective|new objective|revised objective|instead,? (?:make|let'?s)|scratch that|on second thought,? (?:make|let)|the new goal|change the (?:goal|objective|plan))\b/i.test(
+    text
+  );
 }
 
 /**
