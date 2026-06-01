@@ -64,6 +64,12 @@ export interface SessionDiagnostics {
   warnings: string[];
   actionsSuggested: string[];
   generatedAt: string;
+  snapshot_scope?: {
+    turns_captured: number;
+    capture_scope: "full" | "partial" | "empty";
+    coverage_confidence: "high" | "medium" | "low";
+    role_attribution: "dom_markers" | "positional_fallback";
+  } | null;
   awg_distribution?: { arc: number; wedge: number; gap: number; heldOut: number };
   legality?: {
     objective_score: number;
@@ -77,6 +83,7 @@ export interface SessionDiagnostics {
 
 export interface SessionGovernanceState {
   id: string;
+  conversationKey?: string;
   title?: string;
   stableCore: SessionStableCore;
   noveltyLane: SessionNoveltyItem[];
@@ -97,6 +104,13 @@ export interface SessionGovernanceState {
 
 export interface SessionUpdateInput {
   previousState?: SessionGovernanceState | null;
+  conversationKey?: string | null;
+  snapshotScope?: {
+    turns_captured: number;
+    capture_scope: "full" | "partial" | "empty";
+    coverage_confidence: "high" | "medium" | "low";
+    role_attribution: "dom_markers" | "positional_fallback";
+  } | null;
   transformRequest?: TransformRequest;
   transformResult?: TransformResult;
   conversationSnapshot?: ConversationSnapshot | null;

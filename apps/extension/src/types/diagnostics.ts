@@ -1,8 +1,1 @@
-import type { SessionDiagnostics } from "./governance";
-
-export interface DiagnosticSnapshot {
-  id: string;
-  sessionId: string;
-  diagnostics: SessionDiagnostics;
-  createdAt: string;
-}
+export * from "@luxcrypta/continuity-types/diagnostics";
