@@ -6,7 +6,6 @@ import { buildDiagnosticState } from "@/review/continuity-artifacts";
 describe("D9/D10 + governance_routing surfacing (Stage 1)", () => {
   it("records cap overflow instead of silently dropping (D10)", () => {
     // Build a session that accumulates many distinct constraints over turns.
-    let state = undefined as never;
     let prev: ReturnType<typeof updateSessionGovernance>["state"] | undefined;
     for (let t = 0; t < 20; t++) {
       const req = { sourceText: `Objective: build a spec. Must satisfy unique-rule-number-${t} exactly.`, sourceSurface: "chatgpt" as const };

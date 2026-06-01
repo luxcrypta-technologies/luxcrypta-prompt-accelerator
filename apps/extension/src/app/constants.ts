@@ -1,5 +1,5 @@
 export const PRODUCT_NAME = "LuxCrypta Prompt Accelerator";
-export const EXTENSION_VERSION = "2.4.4";
+export const EXTENSION_VERSION = "2.4.5";
 export const RUNTIME_LABEL = "Powered by LuxCrypta";
 export const ADVANCED_ACTION = { id: "advanced_review", label: "Advanced" } as const;
 

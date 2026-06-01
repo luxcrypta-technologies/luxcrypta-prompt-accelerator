@@ -36,7 +36,11 @@ function queryInput(): DraftInputElement | null {
 }
 
 function compactText(value: string): string {
-  return value.replace(/\s+/g, " ").trim();
+  return value
+    .replace(/[\t\r\n\f\v]+/g, " ")
+    .replace(/[\u00a0\u2000-\u200b\u202f\u205f\u3000\ufeff]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function roleFromElement(element: HTMLElement, index: number): ConversationSnapshot["turns"][number]["role"] {

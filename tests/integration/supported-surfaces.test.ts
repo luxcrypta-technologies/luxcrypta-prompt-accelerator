@@ -177,6 +177,27 @@ describe("supported surfaces", () => {
     expect(surface?.getCurrentDraftText()).toBe("textarea replacement");
   });
 
+  it("captures the Perplexity user query from heading/title (search DOM has no message bubble)", () => {
+    document.title = "Help me design a beginner dumbbell program";
+    document.body.innerHTML = `
+      <main>
+        <h1 class="query-title">Help me design a beginner dumbbell program</h1>
+        <div data-testid="answer">Here is a 3-day plan...</div>
+        <a data-testid="source-citation">setforset</a>
+      </main>
+      <textarea aria-label="Ask anything">draft should stay out</textarea>
+    `;
+    const surface = CHAT_SURFACES.find((candidate) =>
+      candidate.matches("https://www.perplexity.ai/search/example")
+    );
+    const snapshot = surface?.getConversationSnapshot?.();
+    const userTurns = snapshot?.turns.filter((t) => t.role === "user") ?? [];
+    expect(userTurns.length).toBeGreaterThan(0);
+    expect(userTurns.map((t) => t.text).join(" ")).toContain("beginner dumbbell program");
+    // the active draft must not leak in
+    expect(snapshot?.turns.map((t) => t.text).join(" ")).not.toContain("draft should stay out");
+  });
+
   it("keeps Grok conversation snapshots shallow and excludes the active draft", () => {
     document.title = "Planning - Grok";
     document.body.innerHTML = `

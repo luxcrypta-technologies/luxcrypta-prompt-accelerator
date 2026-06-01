@@ -83,7 +83,11 @@ function queryInput(): DraftInputElement | null {
 }
 
 function compactText(value: string): string {
-  return value.replace(/\s+/g, " ").trim();
+  return value
+    .replace(/[\t\r\n\f\v]+/g, " ")
+    .replace(/[\u00a0\u2000-\u200b\u202f\u205f\u3000\ufeff]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function isUiArtifactText(value: string): boolean {
@@ -170,6 +174,38 @@ function roleFromElement(
   return index % 2 === 0 ? "user" : "assistant";
 }
 
+function userQueryTurns(seen: Set<string>): ConversationSnapshot["turns"] {
+  const turns: ConversationSnapshot["turns"] = [];
+  // Perplexity renders each user question as a prominent heading above its
+  // answer (typically an h1/h2 with a group/query container). Collect those in
+  // document order so multi-question threads keep all user turns.
+  const headingNodes = Array.from(
+    document.querySelectorAll(
+      "[class*='query' i] h1, [class*='query' i] h2, h1[class*='query' i], main h1, [data-testid*='query' i]"
+    )
+  );
+  for (const node of headingNodes.slice(-SNAPSHOT_SOFT_CAP)) {
+    const element = node as HTMLElement;
+    const text = stripUiLines(compactText(element.textContent ?? "")).slice(0, 2000);
+    if (!text || isUiArtifactText(text) || seen.has(text)) continue;
+    seen.add(text);
+    turns.push({ role: "user", text });
+  }
+  // Fallback: if no query heading was found, the page <title> on a Perplexity
+  // search is the user's question. Use it so there is always a user-authored
+  // objective rather than only retrieved citations.
+  if (turns.length === 0) {
+    const titleText = stripUiLines(
+      compactText(document.title.replace(/\s*[-|]\s*Perplexity.*$/i, ""))
+    ).slice(0, 2000);
+    if (titleText && !isUiArtifactText(titleText) && !seen.has(titleText)) {
+      seen.add(titleText);
+      turns.push({ role: "user", text: titleText });
+    }
+  }
+  return turns;
+}
+
 function sourceTurns(
   input: DraftInputElement | null,
   seen: Set<string>
@@ -224,8 +260,15 @@ export const perplexitySurface: ChatSurfaceAdapter = {
       })
       .filter((turn): turn is ConversationSnapshot["turns"][number] => Boolean(turn));
 
+    // Perplexity is a search surface, not a chat app: the user's question is
+    // not rendered as a message bubble — it lives in the page <title> and the
+    // query heading(s). Without this, capture finds only retrieved citations
+    // (which are correctly quarantined), leaving no user-authored objective.
+    // Prepend the user's actual query as a user-role turn.
+    const userQueries = userQueryTurns(seen);
+
     const retrieved = sourceTurns(input, seen);
-    const combined = [...turns, ...retrieved];
+    const combined = [...userQueries, ...turns, ...retrieved];
     return combined.length
       ? { title: document.title.replace("Perplexity", "").trim(), turns: combined }
       : null;

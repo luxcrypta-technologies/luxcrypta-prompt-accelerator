@@ -40,6 +40,13 @@ const BODY_SELECTORS = [
 const SNAPSHOT_SELECTORS = [
   "[data-message-author-role]",
   "[data-testid*='message' i]",
+  // DeepSeek live DOM (observed in inspector): assistant content renders as
+  // .ds-markdown-paragraph inside .ds-scroll-area containers; there is no
+  // data-message-author-role. Target the observed ds- structure, with a
+  // generic fallback for the user-turn container.
+  ".ds-markdown",
+  ".ds-markdown-paragraph",
+  "[class*='ds-scroll-area' i]",
   "[class*='message' i]",
   "article"
 ];
@@ -72,7 +79,11 @@ function queryInput(): DraftInputElement | null {
 }
 
 function compactText(value: string): string {
-  return value.replace(/\s+/g, " ").trim();
+  return value
+    .replace(/[\t\r\n\f\v]+/g, " ")
+    .replace(/[\u00a0\u2000-\u200b\u202f\u205f\u3000\ufeff]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function matchesDeepSeekUrl(url: string): boolean {
