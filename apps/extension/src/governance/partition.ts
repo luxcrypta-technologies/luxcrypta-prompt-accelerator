@@ -22,6 +22,23 @@ const STANDING_CONSTRAINT_RE =
   /\b(always (?:assume|use|include|keep)|(?:is|are) non[-\s]?negotiable|every (?:recommendation|place|option|item|result)\b.*\bmust\b|must (?:always )?include|must be reachable|hard requirement)\b/i;
 const OBJECTIVE_CHANGE_RE =
   /\b(change of plan|update the objective|new objective|revised objective|instead,? (?:make|let'?s)|scratch that|the new goal|change the (?:goal|objective|plan))\b/i;
+
+// When an explicit objective-change line wins, strip the leading change-signal
+// phrase so the stored objective reads as the goal itself ("make it a 7-day
+// trip ...") rather than carrying the lead-in ("Change of plan: make it ...").
+// Only removes a leading conversational lead-in; preserves the substantive goal.
+function stripObjectiveChangeLead(line: string | undefined): string | undefined {
+  if (!line) return line;
+  const trimmed = line
+    .replace(
+      /^\s*(?:change of plan|update the objective|new objective|revised objective|the new goal|scratch that|change the (?:goal|objective|plan))\s*[:,.\-—]*\s*/i,
+      ""
+    )
+    .replace(/^\s*(?:and\s+)?(?:please\s+)?update the objective\s*[:,.\-—]*\s*/i, "")
+    .trim();
+  // If stripping left nothing meaningful, fall back to the original line.
+  return trimmed.length > 2 ? trimmed : line;
+}
 const TASK_LOCAL_RE =
   /\b(follow the required format|end with (?:a )?(?:score|rating)|give (?:a )?table|use (?:a )?table|separate into \d+ sections?|build a priority model|stage \d+|final scores?|reconstruction confidence score|respond with|answer format)\b/i;
 const ASSISTANT_SOURCE_RE = /^\s*(assistant|model|ai)\s*:/i;
@@ -128,7 +145,7 @@ function objectiveFromText(text: string): string | null {
   // supersede the first-stated goal. Otherwise the first line always won and a
   // mid-session objective change never took.
   const explicitChange = [...eligibleLines].reverse().find((line) => OBJECTIVE_CHANGE_RE.test(line));
-  const firstLine = explicitChange ?? eligibleLines[0];
+  const firstLine = stripObjectiveChangeLead(explicitChange) ?? eligibleLines[0];
   const firstSentence = firstLine?.match(/^.+?[.!?](?:\s|$)/)?.[0].trim();
   return (
     firstSentence?.slice(0, 220) ||

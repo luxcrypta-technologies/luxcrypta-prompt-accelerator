@@ -118,6 +118,8 @@ describe("Stage 1 golden fixtures (cross-provider capture protocol)", () => {
     const req = { sourceText: blob, mode: "research" as const };
     const s = updateSessionGovernance({ transformRequest: req, transformResult: transformPrompt(req) }).state;
     expect(s.stableCore.objective.toLowerCase()).toMatch(/seoul/);
+    // prefix trim: the "Change of plan:" lead-in is stripped from the objective
+    expect(s.stableCore.objective.toLowerCase()).not.toMatch(/^change of plan/);
     // awg + legality populate on the blob path too
     expect(s.diagnostics.awg_distribution).toBeDefined();
     expect(s.diagnostics.legality).toBeDefined();

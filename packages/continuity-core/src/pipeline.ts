@@ -2252,7 +2252,7 @@ function objectiveFromText(text: string, fallback = "Continue the active workflo
   // "change of plan / update the objective / instead make it ..." supersedes the
   // first line when the whole conversation is resolved at once.
   const explicitChange = [...candidateLines].reverse().find((line) => isExplicitObjectiveChange(line));
-  const firstCandidate = explicitChange ?? candidateLines[0];
+  const firstCandidate = explicitChange ? stripObjectiveChangeLead(explicitChange) : candidateLines[0];
   const fallbackCandidate = firstMeaningfulLine(prepared, "");
   if (firstCandidate) return firstCandidate.slice(0, 240);
   if (
@@ -2294,9 +2294,10 @@ function objectiveFromStatements(
     .find((statement) => isExplicitObjectiveChange(statement.text));
   const sourceObjective = explicitlyChangedObjective ?? eligibleObjectiveCandidates[0];
   if (sourceObjective?.text) {
-    return isValidObjective(sourceObjective.text)
-      ? sourceObjective.text.slice(0, 240)
-      : "invalid_objective";
+    const objectiveText = explicitlyChangedObjective
+      ? stripObjectiveChangeLead(sourceObjective.text)
+      : sourceObjective.text;
+    return isValidObjective(objectiveText) ? objectiveText.slice(0, 240) : "invalid_objective";
   }
   return objectiveFromText(fallbackText, fallback);
 }
@@ -2311,6 +2312,20 @@ function isExplicitObjectiveChange(text: string): boolean {
   return /\b(change of plan|update the objective|new objective|revised objective|instead,? (?:make|let'?s)|scratch that|on second thought,? (?:make|let)|the new goal|change the (?:goal|objective|plan))\b/i.test(
     text
   );
+}
+
+// Strip a leading change-signal lead-in from an explicit objective-change line
+// so the stored objective reads as the goal ("make it a 7-day trip ...") rather
+// than carrying the conversational prefix ("Change of plan: make it ...").
+function stripObjectiveChangeLead(text: string): string {
+  const trimmed = text
+    .replace(
+      /^\s*(?:change of plan|update the objective|new objective|revised objective|the new goal|scratch that|on second thought|change the (?:goal|objective|plan))\s*[:,.\-—]*\s*/i,
+      ""
+    )
+    .replace(/^\s*(?:and\s+)?(?:please\s+)?update the objective\s*[:,.\-—]*\s*/i, "")
+    .trim();
+  return trimmed.length > 2 ? trimmed : text;
 }
 
 /**
