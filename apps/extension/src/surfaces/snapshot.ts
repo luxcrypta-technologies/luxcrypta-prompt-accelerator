@@ -15,6 +15,28 @@ export type SnapshotRole = ConversationSnapshot["turns"][number]["role"];
 // virtualization (not this number) is the true ceiling, and we report it.
 export const SNAPSHOT_SOFT_CAP = 400;
 
+// The extension mounts its own UI (toolbar + review surface) into the page DOM.
+// Those subtrees must never be captured as conversation content — otherwise the
+// extension reads its own buttons/labels ("Copy JSON", "Prompt Review",
+// "Advanced") back as user turns, producing extension_or_review_chrome_token
+// contamination and scaffold-dominant extraction (observed on long, self-
+// referential sessions). This guard excludes any node that is, or lives inside,
+// the extension's own UI. Identifiers come from content/toolbar-mount.ts.
+const EXTENSION_OWN_SELECTOR =
+  "#luxcrypta-toolbar, #lcpa-toolbar-root, .lcpa-toolbar-root, [id^='lcpa-'], [class^='lcpa-'], [id^='luxcrypta'], [data-lcpa]";
+
+export function isExtensionOwnNode(node: Element | null): boolean {
+  if (!node) return false;
+  try {
+    const el = node as HTMLElement;
+    if (el.id === "luxcrypta-toolbar" || el.id === "lcpa-toolbar-root") return true;
+    if (typeof el.closest === "function" && el.closest(EXTENSION_OWN_SELECTOR)) return true;
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 export interface SnapshotScope {
   turns_captured: number;
   capture_scope: "full" | "partial" | "empty";
@@ -69,7 +91,17 @@ export function buildSnapshotFromNodes(
     return null;
   }
 
-  const considered = total > SNAPSHOT_SOFT_CAP ? nodes.slice(-SNAPSHOT_SOFT_CAP) : nodes;
+  // Exclude the extension's own toolbar/review DOM so it is never captured as
+  // conversation content (fixes extension_or_review_chrome_token contamination).
+  const conversationNodes = nodes.filter((node) => !isExtensionOwnNode(node));
+  if (conversationNodes.length === 0) {
+    return null;
+  }
+
+  const considered =
+    conversationNodes.length > SNAPSHOT_SOFT_CAP
+      ? conversationNodes.slice(-SNAPSHOT_SOFT_CAP)
+      : conversationNodes;
 
   let anyMarker = false;
   const interim = considered.map((node, index) => {

@@ -19,6 +19,33 @@ const HARD_CUES = [
   "step-by-step"
 ];
 
+// Build a word-boundary matcher per cue so common cue words (use, only, cite)
+// match as whole words / phrases and do NOT fire on substrings inside narration
+// ("used", "lonely") or incidental mentions ("only 151kb").
+const HARD_CUE_PATTERNS = HARD_CUES.map(
+  (cue) => new RegExp(`(^|[^a-z])${cue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z]|$)`, "i")
+);
+
+// Conversational narration is not a constraint, even if it incidentally contains
+// a cue word. A line that is first-person musing, hedging, or an aside
+// ("I don't have all the answers", "I have never really used an AI agent",
+// "Prompt Accelerator is only 151kb", "for example, ...") must not be admitted
+// as a durable constraint. Real constraints are directive, not narrative.
+const NARRATION_RE =
+  /^\s*(i\s+(?:don'?t|do not|never|have never|haven'?t|am|'m|was|wasn'?t|really|genuinely|think|guess|feel|believe|mean|want to (?:make sure|understand)|don'?t have|don'?t know)|in the meantime|for example|by the way|honestly|basically|i'?m not sure|maybe|perhaps|it (?:may|might) be)\b/i;
+
+// A bare incidental quantity mention ("X is only 151kb", "it's only a demo") is
+// narration, not a directive "only" constraint. Real "only" constraints are
+// imperative ("use dumbbells only", "return only JSON").
+const INCIDENTAL_ONLY_RE = /\bis\s+only\b|\bonly\s+\d/i;
+
+function isDirectiveConstraint(candidate: string): boolean {
+  const text = candidate.trim();
+  if (NARRATION_RE.test(text)) return false;
+  if (INCIDENTAL_ONLY_RE.test(text)) return false;
+  return HARD_CUE_PATTERNS.some((pattern) => pattern.test(text));
+}
+
 function splitCandidates(text: string): string[] {
   const structured = text
     .replace(/\s+(requirements?|hard requirements?|output contract|context):\s*/gi, "\n$1:\n")
@@ -60,10 +87,7 @@ function confidenceFor(text: string, hard: boolean): number {
 export function extractConstraints(text: string): ExtractedConstraint[] {
   const candidates = splitCandidates(text);
   const constraintTexts = uniqueMeaningfulStrings(
-    candidates.filter((candidate) => {
-      const lower = candidate.toLowerCase();
-      return HARD_CUES.some((cue) => lower.includes(cue));
-    })
+    candidates.filter((candidate) => isDirectiveConstraint(candidate))
   );
 
   return constraintTexts.map((constraintText) => {
