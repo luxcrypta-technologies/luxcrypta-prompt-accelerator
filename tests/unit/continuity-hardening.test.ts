@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { transformPrompt } from "@luxcrypta/continuity-core/pipeline";
-import type { ProviderProfile } from "@luxcrypta/continuity-types/surfaces";
+import type { ProviderHealth, ProviderProfile } from "@luxcrypta/continuity-types/surfaces";
 import { formatContinuityExport } from "@/review/continuity-artifacts";
 
 const fixtureDir = resolve(process.cwd(), "tests/fixtures/brutal");
@@ -21,6 +21,20 @@ function profile(provider: string): ProviderProfile {
     recommended_runtime_emphasis: ["prefer quarantine over contaminated durable state"],
     retrieved_content_default_state:
       provider === "perplexity" ? "provisional_or_quarantine" : undefined
+  };
+}
+
+function providerHealth(overrides: Partial<ProviderHealth>): ProviderHealth {
+  return {
+    provider: "gemini",
+    surface_detected: true,
+    input_detected: true,
+    toolbar_mounted: false,
+    draft_read_success: true,
+    writeback_success: false,
+    duplicate_guard_active: false,
+    runtime_errors: [],
+    ...overrides
   };
 }
 
@@ -609,7 +623,7 @@ describe("review-open readiness blocker (pending vs failed)", () => {
     const r = _tp({
       sourceText: src,
       sourceSurface: "gemini",
-      providerHealth: {
+      providerHealth: providerHealth({
         provider: "gemini",
         review_open_attempted: true,
         review_open_status: "requested",
@@ -618,7 +632,7 @@ describe("review-open readiness blocker (pending vs failed)", () => {
         first_content_rendered: false,
         visible_to_user: false,
         persisted: false
-      } as any
+      })
     });
     expect(r.continuityReview.diagnostics.readiness_blockers ?? []).not.toContain(
       "review-open was not visibly confirmed"
@@ -628,13 +642,13 @@ describe("review-open readiness blocker (pending vs failed)", () => {
     const r = _tp({
       sourceText: src,
       sourceSurface: "gemini",
-      providerHealth: {
+      providerHealth: providerHealth({
         provider: "gemini",
         review_open_attempted: true,
         review_open_status: "open_failed",
         failure_stage: "visible_render",
         visible_to_user: false
-      } as any
+      })
     });
     expect(r.continuityReview.diagnostics.readiness_blockers ?? []).toContain(
       "review-open was not visibly confirmed"
