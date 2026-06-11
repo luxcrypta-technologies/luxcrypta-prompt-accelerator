@@ -277,18 +277,20 @@ async function openAdvancedReviewOnce(surface: ChatSurfaceAdapter, retry = false
   advancedEvent(surface, "review_surface_created", { reviewId: response.reviewId });
   const visible = response.visibleToUser || (await waitForVisibleReview(response.reviewId));
   if (!visible) {
-    advancedEvent(surface, "review_open_failed", {
+    // The panel WAS opened (we have a reviewId, and review:preopen already opened
+    // the surface within the gesture). "Not visibly confirmed" here only means the
+    // async render ack hasn't landed yet — review:rendered confirms it shortly.
+    // Do NOT throw: throwing triggers the retry path, which opens a SECOND panel
+    // (the duplicate-panel bug on fast providers). Log and return; the panel is up.
+    advancedEvent(surface, "review_open_pending_visible_render", {
       reviewId: response.reviewId,
       stage: "visible_render",
-      reason: "first_content_not_confirmed",
+      reason: "first_content_not_confirmed_async",
       openPathContinued: true,
       repair_scope: surface.id === "perplexity" ? "perplexity_out_of_scope" : "supported_provider",
       ...contract.snapshot
     });
-    if (surface.id === "perplexity") {
-      return;
-    }
-    throw new Error("Prompt Review opened but visible rendered content was not confirmed.");
+    return;
   }
   advancedEvent(surface, retry ? "fallback_retry_success" : "review_open_success", {
     reviewId: response.reviewId

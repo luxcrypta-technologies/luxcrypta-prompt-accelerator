@@ -105,7 +105,7 @@ describe("Prompt Review open truth model", () => {
       persisted_session_state_present: false,
       session_state_source: "built_fresh_in_session",
       build_provenance: expect.objectContaining({
-        extension_version: "2.5.3",
+        extension_version: "2.5.4",
         build_timestamp: expect.any(String),
         commit_sha: expect.any(String),
         environment_tag: expect.any(String)
@@ -143,6 +143,24 @@ describe("Prompt Review open truth model", () => {
         "review_open_success"
       ])
     );
+  });
+
+  it("opens the review surface exactly once when pre-opened within the gesture", async () => {
+    const openSpy = vi.fn().mockResolvedValue(undefined);
+    const route = createMessageRouter(platform(openSpy));
+    await route({ type: "review:preopen", payload: { sourceSurface: "gemini" } });
+    await route({ type: "review:open", payload: { result: result(), preopened: true } });
+    expect(openSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens twice only when the preopened flag is absent (guards the regression)", async () => {
+    const openSpy = vi.fn().mockResolvedValue(undefined);
+    const route = createMessageRouter(platform(openSpy));
+    await route({ type: "review:preopen", payload: { sourceSurface: "gemini" } });
+    await route({ type: "review:open", payload: { result: result() } });
+    // documents that the flag is what prevents the duplicate; with it set (above)
+    // the surface opens once, without it the legacy double-open occurs.
+    expect(openSpy).toHaveBeenCalledTimes(2);
   });
 
   it("records the failed observable-open stage when surface creation throws", async () => {
