@@ -130,6 +130,15 @@ interface AdmittedContinuityState {
 
 type HandoffDecision = "SAFE_FOR_HANDOFF" | "UNSAFE_FOR_HANDOFF";
 
+// Why a session isn't handoff-ready. "insufficient_state" is the normal,
+// non-alarming early-session case (not enough accumulated durable state to hand
+// off yet). "degraded" means a real fidelity/contamination problem. "ready"
+// means safe. This lets the UI show a calm "not enough yet" message instead of
+// an alarming "fidelity failure" when a short conversation is simply shallow.
+type ReadinessReason = "ready" | "insufficient_state" | "degraded";
+
+const SHALLOW_BLOCKER = "final artifact is too shallow for session continuity";
+
 export interface FinalArtifactTruth {
   final_artifact_source_mode: AdmittedContinuityState["diagnostics"]["export_source_mode"];
   final_artifact_objective: string;
@@ -140,6 +149,7 @@ export interface FinalArtifactTruth {
   final_export_readiness_decision: HandoffDecision;
   final_artifact_blockers: string[];
   final_readiness_blockers: string[];
+  final_readiness_reason: ReadinessReason;
   final_missing_state_summary: string[];
   session_items_considered_count: number;
   session_items_admitted_count: number;
@@ -1801,6 +1811,17 @@ function finalTruthFromAdmitted(
     rawDecision === "UNSAFE_FOR_HANDOFF" || finalBlockers.length > 0
       ? "UNSAFE_FOR_HANDOFF"
       : "SAFE_FOR_HANDOFF";
+  // Distinguish "not enough state yet" (normal, short session) from a real
+  // fidelity/contamination problem. If the only thing blocking handoff is
+  // shallowness, this is the benign early-session case — the UI should say so
+  // calmly rather than implying something failed.
+  const nonShallowBlockers = finalBlockers.filter((b) => b !== SHALLOW_BLOCKER);
+  const finalReason: ReadinessReason =
+    finalDecision === "SAFE_FOR_HANDOFF"
+      ? "ready"
+      : nonShallowBlockers.length === 0 && finalBlockers.includes(SHALLOW_BLOCKER)
+        ? "insufficient_state"
+        : "degraded";
   const finalDurableCount = countDurableItems(admitted);
 
   return {
@@ -1813,6 +1834,7 @@ function finalTruthFromAdmitted(
     final_export_readiness_decision: finalDecision,
     final_artifact_blockers: finalBlockers,
     final_readiness_blockers: finalBlockers,
+    final_readiness_reason: finalReason,
     final_missing_state_summary: review.diagnostics.missing_state_summary ?? [],
     session_items_considered_count: admitted.diagnostics.session_items_considered_count,
     session_items_admitted_count: admitted.diagnostics.session_items_admitted_count,

@@ -363,6 +363,20 @@ export function createMessageRouter(platform: PlatformAPI) {
       }
       case "review:get":
         return getReviewState(platform.storage, backgroundMessage.payload.reviewId);
+      case "review:preopen": {
+        // Open the side panel synchronously within the user-gesture window,
+        // BEFORE the (potentially slow) prompt:transform runs. On heavy DOMs
+        // (ChatGPT) the transform can outlive Chrome's gesture window, so
+        // opening afterward silently fails. Opening here keeps the gesture
+        // valid; the panel shows a loading state and polls review:get until the
+        // subsequent review:open persists the real review state.
+        try {
+          await platform.reviewSurface.openReviewSurface();
+        } catch {
+          // Fallback (new tab) is handled inside openReviewSurface.
+        }
+        return { preopened: true };
+      }
       case "review:update": {
         const state = await getReviewState(platform.storage, backgroundMessage.payload.reviewId);
         if (!state) return null;

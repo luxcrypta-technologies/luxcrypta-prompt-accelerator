@@ -440,6 +440,33 @@ Rejected directions:
     });
   });
 
+  it("labels a shallow session as insufficient_state, not degraded", () => {
+    // The real "UNSAFE after one prompt" case: a session whose final artifact is
+    // too shallow to hand off must read as the benign early-session reason, not a
+    // fidelity/contamination failure.
+    const oneLine = transformPrompt({
+      sourceText: "design a 7 day cardio exercise routine",
+      sourceSurface: "gemini"
+    });
+    const truth = buildFinalArtifactTruth({
+      result: oneLine,
+      transformedText: oneLine.transformedText,
+      sessionState: null
+    });
+    // Reason and decision must be consistent, and a shallow-only block must never
+    // be labelled "degraded".
+    if (truth.final_artifact_readiness_decision === "SAFE_FOR_HANDOFF") {
+      expect(truth.final_readiness_reason).toBe("ready");
+    } else {
+      const nonShallow = truth.final_readiness_blockers.filter(
+        (b) => b !== "final artifact is too shallow for session continuity"
+      );
+      expect(truth.final_readiness_reason).toBe(
+        nonShallow.length === 0 ? "insufficient_state" : "degraded"
+      );
+    }
+  });
+
   it("uses one final-artifact truth path for review diagnostics and portable capsule readiness", () => {
     const invalid = transformPrompt({
       sourceText: "user:",

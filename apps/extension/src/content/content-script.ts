@@ -227,6 +227,19 @@ async function openAdvancedReviewOnce(surface: ChatSurfaceAdapter, retry = false
     });
     throw new Error("No draft body was available for Prompt Review.");
   }
+  // Open the side panel FIRST, synchronously within the user-gesture window,
+  // before the transform runs. chrome.sidePanel.open() requires an active user
+  // gesture; on heavy DOMs (ChatGPT) the transform below can outlive that
+  // window, so opening afterward fails silently. Pre-opening keeps the gesture
+  // valid — the panel shows a loading state and polls until review:open lands.
+  try {
+    await platform.messaging.sendMessage<BackgroundMessage, { preopened?: boolean }>({
+      type: "review:preopen",
+      payload: { sourceSurface: surface.id }
+    });
+  } catch {
+    // Non-fatal: if preopen fails, review:open below still attempts to open.
+  }
   const result = await platform.messaging.sendMessage<BackgroundMessage, TransformResult>({
     type: "prompt:transform",
     payload: {

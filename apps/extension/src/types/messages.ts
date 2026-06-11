@@ -68,6 +68,7 @@ export type BackgroundMessage =
   | { type: "session:reset"; payload?: { sourceTabId?: number } }
   | { type: "diagnostics:get"; payload?: { sourceTabId?: number } }
   | { type: "review:open"; payload: { result: TransformResult } }
+  | { type: "review:preopen"; payload?: { sourceSurface?: string } }
   | { type: "review:get"; payload: { reviewId?: string } }
   | { type: "review:update"; payload: { reviewId: string; result: TransformResult } }
   | { type: "review:status"; payload: { reviewId: string } }

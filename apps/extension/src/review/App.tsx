@@ -347,21 +347,45 @@ export function App() {
   }, [state?.sourceTabId]);
 
   useEffect(() => {
-    platform.messaging
-      .sendMessage<BackgroundMessage, ReviewState | null>({
-        type: "review:get",
-        payload: { reviewId: reviewIdFromUrl() }
-      })
-      .then((review) => {
-        const next = review;
-        setState(next);
-        setEditableText(next?.result.transformedText ?? "");
-        setStatus(next ? "Ready to review." : "Review expired. Run a prompt action again.");
-        void loadSessionState();
-      })
-      .catch((error: unknown) =>
-        setStatus(error instanceof Error ? error.message : "Unable to load review.")
-      );
+    let cancelled = false;
+    let attempts = 0;
+    // When the panel is pre-opened (within the user gesture, before the
+    // transform finishes), there is briefly no review state yet. Poll review:get
+    // a few times before concluding the review expired, so the loading state
+    // resolves into the populated review once review:open lands.
+    const MAX_ATTEMPTS = 40; // ~10s at 250ms
+    const tryLoad = () => {
+      platform.messaging
+        .sendMessage<BackgroundMessage, ReviewState | null>({
+          type: "review:get",
+          payload: { reviewId: reviewIdFromUrl() }
+        })
+        .then((review) => {
+          if (cancelled) return;
+          if (review) {
+            setState(review);
+            setEditableText(review.result.transformedText ?? "");
+            setStatus("Ready to review.");
+            void loadSessionState();
+            return;
+          }
+          attempts += 1;
+          if (attempts < MAX_ATTEMPTS) {
+            setStatus("Preparing continuity review…");
+            window.setTimeout(tryLoad, 250);
+          } else {
+            setStatus("Review expired. Run a prompt action again.");
+          }
+        })
+        .catch((error: unknown) => {
+          if (cancelled) return;
+          setStatus(error instanceof Error ? error.message : "Unable to load review.");
+        });
+    };
+    tryLoad();
+    return () => {
+      cancelled = true;
+    };
   }, [loadSessionState]);
 
   useEffect(() => {
@@ -1117,7 +1141,8 @@ export function App() {
     review.diagnostics.fidelity_severity === "critical"
       ? "Critical fidelity failure: source categories appear present but were not extracted."
       : "",
-    finalArtifactTruth.final_artifact_readiness_decision === "UNSAFE_FOR_HANDOFF"
+    finalArtifactTruth.final_artifact_readiness_decision === "UNSAFE_FOR_HANDOFF" &&
+    finalArtifactTruth.final_readiness_reason !== "insufficient_state"
       ? "Export readiness: UNSAFE_FOR_HANDOFF."
       : "",
     (result.scores.sourcePurityScore ?? 1) < 0.8 ? "Durable-state source purity is low." : "",
@@ -1138,11 +1163,18 @@ export function App() {
       ? `Review-open failed at ${review.diagnostics.providerHealth.failure_stage}: ${review.diagnostics.providerHealth.failure_reason ?? "unknown reason"}`
       : ""
   ].filter(Boolean);
-  const readinessLines = [
-    finalArtifactTruth.final_artifact_readiness_decision,
-    ...finalArtifactTruth.final_artifact_blockers.map((blocker) => `Blocker: ${blocker}`),
-    ...finalArtifactTruth.final_missing_state_summary.map((item) => `Missing state: ${item}`)
-  ];
+  const readinessLines =
+    finalArtifactTruth.final_readiness_reason === "insufficient_state"
+      ? [
+          "NOT_READY_FOR_HANDOFF — not enough session state yet",
+          "This conversation is still too short to hand off. Continue the session; the capsule becomes handoff-ready as durable objective, constraints, and decisions accumulate.",
+          ...finalArtifactTruth.final_missing_state_summary.map((item) => `Missing state: ${item}`)
+        ]
+      : [
+          finalArtifactTruth.final_artifact_readiness_decision,
+          ...finalArtifactTruth.final_artifact_blockers.map((blocker) => `Blocker: ${blocker}`),
+          ...finalArtifactTruth.final_missing_state_summary.map((item) => `Missing state: ${item}`)
+        ];
   const extractionSourceLines = [
     `Source: ${review.diagnostics.providerHealth?.extraction_source ?? "unknown"}`,
     `Summary: ${review.diagnostics.providerHealth?.extraction_source_summary ?? "n/a"}`,
