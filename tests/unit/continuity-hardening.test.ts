@@ -601,3 +601,43 @@ Construct a portable operational cognition state for a long-running AI workflow 
     expect(result.scores.exportReadiness).toBeLessThanOrEqual(0.32);
   });
 });
+
+import { transformPrompt as _tp } from "@luxcrypta/continuity-core/pipeline";
+describe("review-open readiness blocker (pending vs failed)", () => {
+  const src = "design a 7 day cardio exercise routine. keep it beginner friendly and 30 min per day.";
+  it("does not block handoff while the panel is merely pending render", () => {
+    const r = _tp({
+      sourceText: src,
+      sourceSurface: "gemini",
+      providerHealth: {
+        provider: "gemini",
+        review_open_attempted: true,
+        review_open_status: "requested",
+        surface_created: false,
+        app_mounted: false,
+        first_content_rendered: false,
+        visible_to_user: false,
+        persisted: false
+      } as any
+    });
+    expect(r.continuityReview.diagnostics.readiness_blockers ?? []).not.toContain(
+      "review-open was not visibly confirmed"
+    );
+  });
+  it("blocks handoff on a confirmed review-open failure", () => {
+    const r = _tp({
+      sourceText: src,
+      sourceSurface: "gemini",
+      providerHealth: {
+        provider: "gemini",
+        review_open_attempted: true,
+        review_open_status: "open_failed",
+        failure_stage: "visible_render",
+        visible_to_user: false
+      } as any
+    });
+    expect(r.continuityReview.diagnostics.readiness_blockers ?? []).toContain(
+      "review-open was not visibly confirmed"
+    );
+  });
+});

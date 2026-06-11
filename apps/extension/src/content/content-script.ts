@@ -232,11 +232,13 @@ async function openAdvancedReviewOnce(surface: ChatSurfaceAdapter, retry = false
   // gesture; on heavy DOMs (ChatGPT) the transform below can outlive that
   // window, so opening afterward fails silently. Pre-opening keeps the gesture
   // valid — the panel shows a loading state and polls until review:open lands.
+  let preopened = false;
   try {
-    await platform.messaging.sendMessage<BackgroundMessage, { preopened?: boolean }>({
+    const pre = await platform.messaging.sendMessage<BackgroundMessage, { preopened?: boolean }>({
       type: "review:preopen",
       payload: { sourceSurface: surface.id }
     });
+    preopened = pre?.preopened === true;
   } catch {
     // Non-fatal: if preopen fails, review:open below still attempts to open.
   }
@@ -262,7 +264,7 @@ async function openAdvancedReviewOnce(surface: ChatSurfaceAdapter, retry = false
     { reviewId: string; visibleToUser?: boolean }
   >({
     type: "review:open",
-    payload: { result }
+    payload: { result, preopened }
   });
   if (!response?.reviewId) {
     advancedEvent(surface, "review_open_failed", {

@@ -327,16 +327,22 @@ export function createMessageRouter(platform: PlatformAPI) {
         };
         attachRuntimeDiagnostics(state, currentSession, sourceTabId);
         await rememberReviewState(state, platform.storage);
-        try {
-          await platform.reviewSurface.openReviewSurface(state.id);
-        } catch (error) {
-          markReviewOpenFailure(
-            state,
-            "surface_created",
-            error instanceof Error ? error.message : String(error)
-          );
-          await rememberReviewState(state, platform.storage);
-          throw error;
+        // If the panel was already opened within the user gesture (review:preopen),
+        // do NOT open it again here — a second open spawns a duplicate panel.
+        // The already-open panel polls review:get and picks up this persisted state.
+        const alreadyOpen = backgroundMessage.payload.preopened === true;
+        if (!alreadyOpen) {
+          try {
+            await platform.reviewSurface.openReviewSurface(state.id);
+          } catch (error) {
+            markReviewOpenFailure(
+              state,
+              "surface_created",
+              error instanceof Error ? error.message : String(error)
+            );
+            await rememberReviewState(state, platform.storage);
+            throw error;
+          }
         }
         if (state.result.continuityReview.diagnostics.providerHealth) {
           state.result.continuityReview.diagnostics.providerHealth.surface_created = true;

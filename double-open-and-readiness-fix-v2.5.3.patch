@@ -1,0 +1,260 @@
+diff --git a/apps/extension/manifests/manifest.chromium.json b/apps/extension/manifests/manifest.chromium.json
+index 1c12c28..bd251cb 100644
+--- a/apps/extension/manifests/manifest.chromium.json
++++ b/apps/extension/manifests/manifest.chromium.json
+@@ -2,7 +2,7 @@
+   "manifest_version": 3,
+   "name": "LuxCrypta Prompt Accelerator",
+   "short_name": "Prompt Accelerator",
+-  "version": "2.5.2",
++  "version": "2.5.3",
+   "description": "Local continuity review, workflow memory, and carry-forward capsules for supported AI chats.",
+   "homepage_url": "https://luxcrypta.com/prompt-accelerator",
+   "icons": {
+diff --git a/apps/extension/manifests/manifest.firefox.json b/apps/extension/manifests/manifest.firefox.json
+index 12e43a5..dc3cfda 100644
+--- a/apps/extension/manifests/manifest.firefox.json
++++ b/apps/extension/manifests/manifest.firefox.json
+@@ -2,7 +2,7 @@
+   "manifest_version": 3,
+   "name": "LuxCrypta Prompt Accelerator",
+   "short_name": "Prompt Accelerator",
+-  "version": "2.5.2",
++  "version": "2.5.3",
+   "description": "Local continuity review, workflow memory, and carry-forward capsules for supported AI chats.",
+   "homepage_url": "https://luxcrypta.com/prompt-accelerator",
+   "icons": {
+diff --git a/apps/extension/src/app/constants.ts b/apps/extension/src/app/constants.ts
+index c3254a0..d2c7d57 100644
+--- a/apps/extension/src/app/constants.ts
++++ b/apps/extension/src/app/constants.ts
+@@ -1,5 +1,5 @@
+ export const PRODUCT_NAME = "LuxCrypta Prompt Accelerator";
+-export const EXTENSION_VERSION = "2.5.2";
++export const EXTENSION_VERSION = "2.5.3";
+ export const RUNTIME_LABEL = "Powered by LuxCrypta";
+ export const ADVANCED_ACTION = { id: "advanced_review", label: "Advanced" } as const;
+ 
+diff --git a/apps/extension/src/background/message-router.ts b/apps/extension/src/background/message-router.ts
+index b6455a7..2459854 100644
+--- a/apps/extension/src/background/message-router.ts
++++ b/apps/extension/src/background/message-router.ts
+@@ -327,16 +327,22 @@ export function createMessageRouter(platform: PlatformAPI) {
+         };
+         attachRuntimeDiagnostics(state, currentSession, sourceTabId);
+         await rememberReviewState(state, platform.storage);
+-        try {
+-          await platform.reviewSurface.openReviewSurface(state.id);
+-        } catch (error) {
+-          markReviewOpenFailure(
+-            state,
+-            "surface_created",
+-            error instanceof Error ? error.message : String(error)
+-          );
+-          await rememberReviewState(state, platform.storage);
+-          throw error;
++        // If the panel was already opened within the user gesture (review:preopen),
++        // do NOT open it again here — a second open spawns a duplicate panel.
++        // The already-open panel polls review:get and picks up this persisted state.
++        const alreadyOpen = backgroundMessage.payload.preopened === true;
++        if (!alreadyOpen) {
++          try {
++            await platform.reviewSurface.openReviewSurface(state.id);
++          } catch (error) {
++            markReviewOpenFailure(
++              state,
++              "surface_created",
++              error instanceof Error ? error.message : String(error)
++            );
++            await rememberReviewState(state, platform.storage);
++            throw error;
++          }
+         }
+         if (state.result.continuityReview.diagnostics.providerHealth) {
+           state.result.continuityReview.diagnostics.providerHealth.surface_created = true;
+diff --git a/apps/extension/src/content/content-script.ts b/apps/extension/src/content/content-script.ts
+index 8472a0b..1dbb742 100644
+--- a/apps/extension/src/content/content-script.ts
++++ b/apps/extension/src/content/content-script.ts
+@@ -232,11 +232,13 @@ async function openAdvancedReviewOnce(surface: ChatSurfaceAdapter, retry = false
+   // gesture; on heavy DOMs (ChatGPT) the transform below can outlive that
+   // window, so opening afterward fails silently. Pre-opening keeps the gesture
+   // valid — the panel shows a loading state and polls until review:open lands.
++  let preopened = false;
+   try {
+-    await platform.messaging.sendMessage<BackgroundMessage, { preopened?: boolean }>({
++    const pre = await platform.messaging.sendMessage<BackgroundMessage, { preopened?: boolean }>({
+       type: "review:preopen",
+       payload: { sourceSurface: surface.id }
+     });
++    preopened = pre?.preopened === true;
+   } catch {
+     // Non-fatal: if preopen fails, review:open below still attempts to open.
+   }
+@@ -262,7 +264,7 @@ async function openAdvancedReviewOnce(surface: ChatSurfaceAdapter, retry = false
+     { reviewId: string; visibleToUser?: boolean }
+   >({
+     type: "review:open",
+-    payload: { result }
++    payload: { result, preopened }
+   });
+   if (!response?.reviewId) {
+     advancedEvent(surface, "review_open_failed", {
+diff --git a/apps/extension/src/types/messages.ts b/apps/extension/src/types/messages.ts
+index 011f0d5..2a94c83 100644
+--- a/apps/extension/src/types/messages.ts
++++ b/apps/extension/src/types/messages.ts
+@@ -67,7 +67,7 @@ export type BackgroundMessage =
+   | { type: "session:promote-novelty"; payload: { noveltyIds: string[] } }
+   | { type: "session:reset"; payload?: { sourceTabId?: number } }
+   | { type: "diagnostics:get"; payload?: { sourceTabId?: number } }
+-  | { type: "review:open"; payload: { result: TransformResult } }
++  | { type: "review:open"; payload: { result: TransformResult; preopened?: boolean } }
+   | { type: "review:preopen"; payload?: { sourceSurface?: string } }
+   | { type: "review:get"; payload: { reviewId?: string } }
+   | { type: "review:update"; payload: { reviewId: string; result: TransformResult } }
+diff --git a/package-lock.json b/package-lock.json
+index 866ba1a..4629136 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1,12 +1,12 @@
+ {
+   "name": "luxcrypta-prompt-accelerator",
+-  "version": "2.5.2",
++  "version": "2.5.3",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "luxcrypta-prompt-accelerator",
+-      "version": "2.5.2",
++      "version": "2.5.3",
+       "license": "MIT",
+       "workspaces": [
+         "packages/*",
+diff --git a/package.json b/package.json
+index b92996b..b4f0a3d 100644
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "luxcrypta-prompt-accelerator",
+-  "version": "2.5.2",
++  "version": "2.5.3",
+   "private": true,
+   "main": "dist/desktop/electron/main.js",
+   "author": {
+diff --git a/packages/continuity-core/src/pipeline.ts b/packages/continuity-core/src/pipeline.ts
+index 6d4f4c6..2177641 100644
+--- a/packages/continuity-core/src/pipeline.ts
++++ b/packages/continuity-core/src/pipeline.ts
+@@ -2799,10 +2799,7 @@ function metricPenaltiesForReview(
+       (review.diagnostics.compression_loss?.lost_categories.includes("rejected_directions") ??
+         false) ||
+       (review.diagnostics.compression_loss?.unresolved_items_collapsed_count ?? 0) > 0,
+-    reviewOpenNotVisible:
+-      request.providerHealth?.review_open_status === "open_failed" ||
+-      Boolean(request.providerHealth?.failure_stage) ||
+-      (request.providerHealth?.review_open_attempted === true && !reviewOpenVisiblyConfirmed(request)),
++    reviewOpenNotVisible: reviewOpenConfirmedFailed(request),
+     categoryHeaderAdmission:
+       governance?.canonical_items.some((item) => isCategoryHeader(item.text)) ?? false,
+     taskLocalLeakage:
+@@ -2833,17 +2830,17 @@ function durableCanonicalItems(review: ContinuityReview): CanonicalContinuityIte
+   );
+ }
+ 
+-function reviewOpenVisiblyConfirmed(request: TransformRequest): boolean {
++// Distinguish a CONFIRMED open failure from the normal "not yet rendered" state.
++// At transform time the panel has not mounted yet (review is computed before the
++// review app renders), so review-open is legitimately unconfirmed-but-pending.
++// Only a status that explicitly reports failure should block handoff readiness;
++// the pending case is cleared by the post-render readiness refresh. This avoids
++// a false "review-open was not visibly confirmed" UNSAFE on every short session.
++function reviewOpenConfirmedFailed(request: TransformRequest): boolean {
+   const health = request.providerHealth;
+-  if (!health?.review_open_attempted) return true;
+-  return (
+-    health.surface_created === true &&
+-    health.app_mounted === true &&
+-    health.first_content_rendered === true &&
+-    health.visible_to_user === true &&
+-    health.persisted === true &&
+-    health.review_open_status === "open_success"
+-  );
++  if (!health?.review_open_attempted) return false;
++  const status = health.review_open_status;
++  return status === "open_failed" || Boolean(health.failure_stage);
+ }
+ 
+ function readinessBlockers(input: {
+@@ -2915,7 +2912,7 @@ function readinessBlockers(input: {
+       "bucket exclusivity is below the handoff threshold"
+     ],
+     [(input.scores.sourcePurityScore ?? 1) < 0.8, "source purity is below the handoff threshold"],
+-    [!reviewOpenVisiblyConfirmed(input.request), "review-open was not visibly confirmed"],
++    [reviewOpenConfirmedFailed(input.request), "review-open was not visibly confirmed"],
+     [
+       Boolean(input.review.diagnostics.extraction_failure || input.penalties.extractionFailure),
+       "major extraction degradation or fidelity failure is present"
+diff --git a/tests/integration/review-open-truth.test.ts b/tests/integration/review-open-truth.test.ts
+index 10ac0d9..1e2144f 100644
+--- a/tests/integration/review-open-truth.test.ts
++++ b/tests/integration/review-open-truth.test.ts
+@@ -105,7 +105,7 @@ describe("Prompt Review open truth model", () => {
+       persisted_session_state_present: false,
+       session_state_source: "built_fresh_in_session",
+       build_provenance: expect.objectContaining({
+-        extension_version: "2.5.2",
++        extension_version: "2.5.3",
+         build_timestamp: expect.any(String),
+         commit_sha: expect.any(String),
+         environment_tag: expect.any(String)
+diff --git a/tests/unit/continuity-hardening.test.ts b/tests/unit/continuity-hardening.test.ts
+index 30f3060..21f165f 100644
+--- a/tests/unit/continuity-hardening.test.ts
++++ b/tests/unit/continuity-hardening.test.ts
+@@ -601,3 +601,43 @@ Construct a portable operational cognition state for a long-running AI workflow
+     expect(result.scores.exportReadiness).toBeLessThanOrEqual(0.32);
+   });
+ });
++
++import { transformPrompt as _tp } from "@luxcrypta/continuity-core/pipeline";
++describe("review-open readiness blocker (pending vs failed)", () => {
++  const src = "design a 7 day cardio exercise routine. keep it beginner friendly and 30 min per day.";
++  it("does not block handoff while the panel is merely pending render", () => {
++    const r = _tp({
++      sourceText: src,
++      sourceSurface: "gemini",
++      providerHealth: {
++        provider: "gemini",
++        review_open_attempted: true,
++        review_open_status: "requested",
++        surface_created: false,
++        app_mounted: false,
++        first_content_rendered: false,
++        visible_to_user: false,
++        persisted: false
++      } as any
++    });
++    expect(r.continuityReview.diagnostics.readiness_blockers ?? []).not.toContain(
++      "review-open was not visibly confirmed"
++    );
++  });
++  it("blocks handoff on a confirmed review-open failure", () => {
++    const r = _tp({
++      sourceText: src,
++      sourceSurface: "gemini",
++      providerHealth: {
++        provider: "gemini",
++        review_open_attempted: true,
++        review_open_status: "open_failed",
++        failure_stage: "visible_render",
++        visible_to_user: false
++      } as any
++    });
++    expect(r.continuityReview.diagnostics.readiness_blockers ?? []).toContain(
++      "review-open was not visibly confirmed"
++    );
++  });
++});

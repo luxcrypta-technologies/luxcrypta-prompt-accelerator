@@ -2799,10 +2799,7 @@ function metricPenaltiesForReview(
       (review.diagnostics.compression_loss?.lost_categories.includes("rejected_directions") ??
         false) ||
       (review.diagnostics.compression_loss?.unresolved_items_collapsed_count ?? 0) > 0,
-    reviewOpenNotVisible:
-      request.providerHealth?.review_open_status === "open_failed" ||
-      Boolean(request.providerHealth?.failure_stage) ||
-      (request.providerHealth?.review_open_attempted === true && !reviewOpenVisiblyConfirmed(request)),
+    reviewOpenNotVisible: reviewOpenConfirmedFailed(request),
     categoryHeaderAdmission:
       governance?.canonical_items.some((item) => isCategoryHeader(item.text)) ?? false,
     taskLocalLeakage:
@@ -2833,17 +2830,17 @@ function durableCanonicalItems(review: ContinuityReview): CanonicalContinuityIte
   );
 }
 
-function reviewOpenVisiblyConfirmed(request: TransformRequest): boolean {
+// Distinguish a CONFIRMED open failure from the normal "not yet rendered" state.
+// At transform time the panel has not mounted yet (review is computed before the
+// review app renders), so review-open is legitimately unconfirmed-but-pending.
+// Only a status that explicitly reports failure should block handoff readiness;
+// the pending case is cleared by the post-render readiness refresh. This avoids
+// a false "review-open was not visibly confirmed" UNSAFE on every short session.
+function reviewOpenConfirmedFailed(request: TransformRequest): boolean {
   const health = request.providerHealth;
-  if (!health?.review_open_attempted) return true;
-  return (
-    health.surface_created === true &&
-    health.app_mounted === true &&
-    health.first_content_rendered === true &&
-    health.visible_to_user === true &&
-    health.persisted === true &&
-    health.review_open_status === "open_success"
-  );
+  if (!health?.review_open_attempted) return false;
+  const status = health.review_open_status;
+  return status === "open_failed" || Boolean(health.failure_stage);
 }
 
 function readinessBlockers(input: {
@@ -2915,7 +2912,7 @@ function readinessBlockers(input: {
       "bucket exclusivity is below the handoff threshold"
     ],
     [(input.scores.sourcePurityScore ?? 1) < 0.8, "source purity is below the handoff threshold"],
-    [!reviewOpenVisiblyConfirmed(input.request), "review-open was not visibly confirmed"],
+    [reviewOpenConfirmedFailed(input.request), "review-open was not visibly confirmed"],
     [
       Boolean(input.review.diagnostics.extraction_failure || input.penalties.extractionFailure),
       "major extraction degradation or fidelity failure is present"
