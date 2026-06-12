@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "LuxCrypta Prompt Accelerator",
   "short_name": "Prompt Accelerator",
-  "version": "2.5.4",
+  "version": "2.5.5",
   "description": "Local continuity review, workflow memory, and carry-forward capsules for supported AI chats.",
   "homepage_url": "https://luxcrypta.com/prompt-accelerator",
   "icons": {

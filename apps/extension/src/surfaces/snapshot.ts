@@ -37,6 +37,41 @@ export function isExtensionOwnNode(node: Element | null): boolean {
   return false;
 }
 
+// Provider navigation chrome — the left-hand conversation-history sidebar — must
+// never be captured as conversation content. On providers without a real message
+// role marker (notably DeepSeek), broad message-ish selectors otherwise sweep up
+// the history list ("Today / <chat title> / Yesterday / <chat title> ...") and it
+// becomes the recovered "objective", contaminating the capsule (F1). This guard
+// excludes any node that is, or lives inside, a navigation/aside/history region.
+const NAV_CHROME_SELECTOR =
+  "nav, aside, [role='navigation'], [class*='sidebar' i], [class*='side-bar' i], [class*='history' i], [class*='conversation-list' i], [class*='chat-list' i], [aria-label*='history' i], [aria-label*='sidebar' i]";
+
+// Day-group headers that head a history sidebar list. A captured "turn" whose
+// text begins with these (immediately followed by more text, i.e. the
+// concatenated chat titles) is the sidebar, not a message.
+const SIDEBAR_TEXT_RE =
+  /^(today|yesterday|previous\s+7\s+days|previous\s+30\s+days)(?=[A-Z0-9"'])/i;
+
+export function isNavChromeNode(node: Element | null): boolean {
+  if (!node) return false;
+  try {
+    const el = node as HTMLElement;
+    if (typeof el.closest === "function" && el.closest(NAV_CHROME_SELECTOR)) return true;
+  } catch {
+    return false;
+  }
+  return false;
+}
+
+/**
+ * Content-level fallback: true when a string looks like the concatenated history
+ * sidebar (day-group header glued directly to chat titles). Used to reject a
+ * candidate turn even if structural selectors miss the region.
+ */
+export function looksLikeSidebarList(text: string): boolean {
+  return SIDEBAR_TEXT_RE.test(text.trim());
+}
+
 export interface SnapshotScope {
   turns_captured: number;
   capture_scope: "full" | "partial" | "empty";
@@ -92,8 +127,12 @@ export function buildSnapshotFromNodes(
   }
 
   // Exclude the extension's own toolbar/review DOM so it is never captured as
-  // conversation content (fixes extension_or_review_chrome_token contamination).
-  const conversationNodes = nodes.filter((node) => !isExtensionOwnNode(node));
+  // conversation content (fixes extension_or_review_chrome_token contamination),
+  // and exclude provider navigation/history sidebar chrome so the conversation
+  // list is never read as turns (fixes F1 objective contamination).
+  const conversationNodes = nodes.filter(
+    (node) => !isExtensionOwnNode(node) && !isNavChromeNode(node)
+  );
   if (conversationNodes.length === 0) {
     return null;
   }
@@ -116,7 +155,7 @@ export function buildSnapshotFromNodes(
   });
 
   const nodeTurns = interim
-    .filter((t) => t.text.length > 0)
+    .filter((t) => t.text.length > 0 && !looksLikeSidebarList(t.text))
     .map((t) => ({
       role: (t.role ?? (t.index % 2 === 0 ? "user" : "assistant")) as SnapshotRole,
       text: t.text

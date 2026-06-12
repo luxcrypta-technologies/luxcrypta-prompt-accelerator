@@ -1,5 +1,5 @@
 import type { ChatSurfaceAdapter, ConversationSnapshot, ProviderProfile } from "./types";
-import { SNAPSHOT_SOFT_CAP, conversationIdFromUrl } from "./snapshot";
+import { buildSnapshotFromNodes, conversationIdFromUrl, isNavChromeNode } from "./snapshot";
 import {
   appendDraftText,
   queryFirstUsableInput,
@@ -78,14 +78,6 @@ function queryInput(): DraftInputElement | null {
   return queryFirstUsableInput(INPUT_SELECTORS);
 }
 
-function compactText(value: string): string {
-  return value
-    .replace(/[\t\r\n\f\v]+/g, " ")
-    .replace(/[\u00a0\u2000-\u200b\u202f\u205f\u3000\ufeff]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 function matchesDeepSeekUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
@@ -98,26 +90,6 @@ function matchesDeepSeekUrl(url: string): boolean {
   } catch {
     return false;
   }
-}
-
-function roleFromElement(
-  element: HTMLElement,
-  index: number
-): ConversationSnapshot["turns"][number]["role"] {
-  const marker = [
-    element.dataset.messageAuthorRole,
-    element.dataset.testid,
-    element.getAttribute("aria-label"),
-    String(element.className)
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  if (marker.includes("user") || marker.includes("human")) return "user";
-  if (marker.includes("assistant") || marker.includes("deepseek") || marker.includes("response"))
-    return "assistant";
-  return index % 2 === 0 ? "user" : "assistant";
 }
 
 export const deepseekSurface: ChatSurfaceAdapter = {
@@ -138,24 +110,24 @@ export const deepseekSurface: ChatSurfaceAdapter = {
     return appendDraftText(queryInput(), text);
   },
   getConversationSnapshot(): ConversationSnapshot | null {
-    const input = queryInput();
-    const seen = new Set<string>();
-    const turns = Array.from(document.querySelectorAll(SNAPSHOT_SELECTORS.join(",")))
-      .slice(-SNAPSHOT_SOFT_CAP)
-      .map((node, index) => {
-        const element = node as HTMLElement;
-        if (input && element.contains(input)) return null;
-        const text = compactText(element.textContent ?? "").slice(0, 2000);
-        if (!text || seen.has(text)) return null;
-        seen.add(text);
-        return {
-          role: roleFromElement(element, index),
-          text
-        };
-      })
-      .filter((turn): turn is ConversationSnapshot["turns"][number] => Boolean(turn));
-
-    return turns.length ? { title: document.title.replace("DeepSeek", "").trim(), turns } : null;
+    // Scope to the conversation region (main) and exclude the input composer.
+    // DeepSeek exposes no data-message-author-role, so we hand the candidate
+    // message nodes to the shared builder, which applies the extension-own-node
+    // AND nav/history-sidebar exclusions (fixing F1: the left-hand chat-history
+    // list was being read as turns and became the contaminated objective),
+    // derives roles from real markers with a positional fallback, and reports
+    // capture scope honestly.
+    const root =
+      document.querySelector("main") ??
+      document.querySelector("[class*='ds-scroll-area' i]") ??
+      document.body;
+    const scope: ParentNode = root ?? document;
+    const nodes = Array.from(
+      scope.querySelectorAll(SNAPSHOT_SELECTORS.join(","))
+    ).filter((node) => !isNavChromeNode(node));
+    return buildSnapshotFromNodes(nodes, {
+      title: document.title.replace("DeepSeek", "").trim()
+    });
   },
   getConversationId(url: string = window.location.href) {
     return conversationIdFromUrl("deepseek", url);
