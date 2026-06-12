@@ -116,18 +116,23 @@ export const deepseekSurface: ChatSurfaceAdapter = {
     // AND nav/history-sidebar exclusions (fixing F1: the left-hand chat-history
     // list was being read as turns and became the contaminated objective),
     // derives roles from real markers with a positional fallback, and reports
-    // capture scope honestly.
-    const root =
-      document.querySelector("main") ??
-      document.querySelector("[class*='ds-scroll-area' i]") ??
-      document.body;
-    const scope: ParentNode = root ?? document;
-    const nodes = Array.from(
-      scope.querySelectorAll(SNAPSHOT_SELECTORS.join(","))
-    ).filter((node) => !isNavChromeNode(node));
-    return buildSnapshotFromNodes(nodes, {
-      title: document.title.replace("DeepSeek", "").trim()
-    });
+    // capture scope honestly. Wrapped so it can never throw out of the
+    // open-path contract (which would abort the panel open).
+    try {
+      const root =
+        document.querySelector("main") ??
+        document.querySelector("[class*='ds-scroll-area' i]") ??
+        document.body;
+      const scope: ParentNode = root ?? document;
+      const nodes = Array.from(scope.querySelectorAll(SNAPSHOT_SELECTORS.join(","))).filter(
+        (node) => !isNavChromeNode(node)
+      );
+      return buildSnapshotFromNodes(nodes, {
+        title: document.title.replace("DeepSeek", "").trim()
+      });
+    } catch {
+      return null;
+    }
   },
   getConversationId(url: string = window.location.href) {
     return conversationIdFromUrl("deepseek", url);

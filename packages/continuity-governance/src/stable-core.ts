@@ -9,6 +9,47 @@ export function isMeaningfullySimilar(left: string, right: string): boolean {
   return meaningSimilarity(left, right) >= 0.56;
 }
 
+// Stopwords that carry no topic signal; ignored when comparing objective topics.
+const TOPIC_STOPWORDS = new Set([
+  "the", "a", "an", "and", "or", "to", "of", "in", "on", "for", "with", "as",
+  "it", "is", "be", "this", "that", "i", "you", "we", "my", "your", "our",
+  "plan", "build", "create", "design", "make", "more", "detail", "details",
+  "objective", "please", "help", "want", "need", "would", "like", "into",
+  "program", "routine", "project", "task", "day", "days"
+]);
+
+function topicWords(text: string): Set<string> {
+  return new Set(
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 2 && !TOPIC_STOPWORDS.has(w))
+  );
+}
+
+/**
+ * Conservative topic-change test for the F4 objective-pivot guard. Returns true
+ * only when two objectives share almost none of their salient content words —
+ * i.e. a genuine wholesale topic change (hot yoga -> microgrid), NOT a
+ * restatement or refinement. Deliberately strict: when in doubt it returns
+ * false so stable-core is preserved (losing real state is worse than keeping a
+ * little stale state). Also requires each side to have real topic content, so an
+ * empty/shell objective never triggers a reset.
+ */
+export function isWholesaleObjectiveChange(previous: string, next: string): boolean {
+  const prev = topicWords(previous);
+  const cur = topicWords(next);
+  if (prev.size < 2 || cur.size < 2) return false;
+  let shared = 0;
+  for (const w of cur) {
+    if (prev.has(w)) shared += 1;
+  }
+  const overlap = shared / Math.min(prev.size, cur.size);
+  // Strong signal: <15% salient-word overlap means the topic genuinely changed.
+  return overlap < 0.15;
+}
+
 // A latest "objective" that is actually a prompt-shell / engineering-note
 // directive (not a real goal) must NOT replace an established objective. This
 // guards the D1 fix so genuine objective CHANGES replace, but shell fragments
@@ -124,11 +165,28 @@ export function updateStableCore(input: {
     objectives.length ? objectives : fallbackObjective ? [fallbackObjective] : []
   );
 
+  // F4 fix: detect a WHOLESALE objective pivot (a clear topic change), and only
+  // then drop the previous topic's stable-core. We use a CONSERVATIVE signal:
+  // the new objective must share almost no salient content with the old one
+  // (e.g. "hot yoga program" -> "microgrid architecture"). Borderline cases
+  // (restatements/refinements, where objective strings may also carry trailing
+  // constraint text) preserve carry-forward — dropping on ambiguity would lose
+  // real state, which is worse than keeping it. This catches the live fused-
+  // session contamination without over-resetting on legitimate continuations.
+  const objectivePivoted =
+    Boolean(input.previous?.objective) &&
+    Boolean(objective) &&
+    isWholesaleObjectiveChange(input.previous!.objective, objective);
+  const carriedConstraints = objectivePivoted ? undefined : input.previous?.hardConstraints;
+  const carriedDecisions = objectivePivoted ? undefined : input.previous?.acceptedDecisions;
+
   return {
     objective,
-    hardConstraints: selectStableList(input.previous?.hardConstraints, constraints, input.conservativeUpdates),
-    acceptedDecisions: selectStableList(input.previous?.acceptedDecisions, decisions, input.conservativeUpdates),
-    outputContract: selectOutputContract(input.previous, outputContracts),
+    hardConstraints: selectStableList(carriedConstraints, constraints, input.conservativeUpdates),
+    acceptedDecisions: selectStableList(carriedDecisions, decisions, input.conservativeUpdates),
+    outputContract: objectivePivoted
+      ? selectOutputContract(undefined, outputContracts)
+      : selectOutputContract(input.previous, outputContracts),
     preferredMode: input.preferredMode ?? input.previous?.preferredMode,
     preferredTargetModel: input.preferredTargetModel ?? input.previous?.preferredTargetModel,
     lastUpdatedAt: input.timestamp

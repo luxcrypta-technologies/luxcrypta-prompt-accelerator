@@ -53,8 +53,17 @@ function rootSelectorFor(provider: string): string {
 
 function hasAuthoredBodyTarget(surface: ChatSurfaceAdapter): boolean {
   if (surface.getInputElement()) return true;
-  const snapshot = surface.getConversationSnapshot?.();
-  return Boolean(snapshot?.turns.some((turn) => turn.role === "user" && turn.text.trim()));
+  // The snapshot is a best-effort signal here. It must NEVER throw out of the
+  // open-path contract — if it did, a heavy or unexpected provider DOM would
+  // abort the panel open entirely (observed: DeepSeek panel failing to open
+  // after the snapshot was rescoped). Fall back to "no authored target" on any
+  // error; the input-element check above already covers the common case.
+  try {
+    const snapshot = surface.getConversationSnapshot?.();
+    return Boolean(snapshot?.turns.some((turn) => turn.role === "user" && turn.text.trim()));
+  } catch {
+    return false;
+  }
 }
 
 export function evaluateOpenPathContract(surface: ChatSurfaceAdapter): OpenPathContractResult {
