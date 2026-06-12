@@ -41,10 +41,16 @@ export function isExtensionOwnNode(node: Element | null): boolean {
 // never be captured as conversation content. On providers without a real message
 // role marker (notably DeepSeek), broad message-ish selectors otherwise sweep up
 // the history list ("Today / <chat title> / Yesterday / <chat title> ...") and it
-// becomes the recovered "objective", contaminating the capsule (F1). This guard
-// excludes any node that is, or lives inside, a navigation/aside/history region.
+// becomes the recovered "objective", contaminating the capsule (F1).
+//
+// IMPORTANT: this selector is deliberately NARROW. An earlier broad version
+// (bare `aside`/`nav`, `[class*='history']`, `[class*='sidebar']`) over-matched
+// real conversation containers on several providers, nulling the snapshot and
+// breaking the panel open. We now match only explicit navigation landmarks and
+// history-list roles, and the builder additionally refuses to let this filter
+// empty the snapshot (see buildSnapshotFromNodes).
 const NAV_CHROME_SELECTOR =
-  "nav, aside, [role='navigation'], [class*='sidebar' i], [class*='side-bar' i], [class*='history' i], [class*='conversation-list' i], [class*='chat-list' i], [aria-label*='history' i], [aria-label*='sidebar' i]";
+  "[role='navigation'], [aria-label*='history' i], [aria-label*='chat history' i], [aria-label*='conversation history' i], [data-testid*='history' i], [data-testid*='sidebar' i]";
 
 // Day-group headers that head a history sidebar list. A captured "turn" whose
 // text begins with these (immediately followed by more text, i.e. the
@@ -130,9 +136,23 @@ export function buildSnapshotFromNodes(
   // conversation content (fixes extension_or_review_chrome_token contamination),
   // and exclude provider navigation/history sidebar chrome so the conversation
   // list is never read as turns (fixes F1 objective contamination).
-  const conversationNodes = nodes.filter(
+  //
+  // SAFETY VALVE: if filtering would remove EVERY node, the filters almost
+  // certainly over-matched real conversation content (provider DOM varies and
+  // can shift during load). In that case we fall back to the
+  // extension-own-node-only filter, and if that is still empty, the raw nodes —
+  // returning a possibly-imperfect snapshot is far better than returning null,
+  // which breaks the open-path contract and prevents the panel from opening.
+  const fullyFiltered = nodes.filter(
     (node) => !isExtensionOwnNode(node) && !isNavChromeNode(node)
   );
+  const extensionOnlyFiltered = nodes.filter((node) => !isExtensionOwnNode(node));
+  const conversationNodes =
+    fullyFiltered.length > 0
+      ? fullyFiltered
+      : extensionOnlyFiltered.length > 0
+        ? extensionOnlyFiltered
+        : nodes;
   if (conversationNodes.length === 0) {
     return null;
   }

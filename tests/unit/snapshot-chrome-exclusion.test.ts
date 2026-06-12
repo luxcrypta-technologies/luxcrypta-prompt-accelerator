@@ -32,20 +32,19 @@ describe("snapshot excludes the extension's own UI (chrome-token contamination f
 });
 
 describe("snapshot excludes provider history sidebar (F1 objective-contamination fix)", () => {
-  it("isNavChromeNode flags the history sidebar list", async () => {
+  it("isNavChromeNode flags an explicit navigation/history region (narrow selector)", async () => {
     const { isNavChromeNode } = await import("@/surfaces/snapshot");
     document.body.innerHTML = `
-      <aside class="sidebar">
-        <div>Today</div>
+      <nav aria-label="Chat history">
         <a>Solar Microgrid Design for Cedar Hollow</a>
         <a>Five Day Hot Yoga Plan</a>
-        <a>Japan Trip Planning Assistance</a>
-      </aside>
+      </nav>
       <main>
         <div class="ds-markdown-paragraph">design a community solar microgrid for Cedar Hollow</div>
       </main>
     `;
-    expect(isNavChromeNode(document.querySelector("aside a"))).toBe(true);
+    // Matches an explicit history landmark, but NOT real conversation content.
+    expect(isNavChromeNode(document.querySelector("nav a"))).toBe(true);
     expect(isNavChromeNode(document.querySelector("main .ds-markdown-paragraph"))).toBe(false);
   });
 
@@ -60,18 +59,18 @@ describe("snapshot excludes provider history sidebar (F1 objective-contamination
     expect(looksLikeSidebarList("design a community solar microgrid for Cedar Hollow")).toBe(false);
   });
 
-  it("buildSnapshotFromNodes drops the sidebar and keeps the real conversation turn", () => {
+  it("buildSnapshotFromNodes drops the concatenated sidebar string and keeps the real turn", () => {
+    // The real F1 contamination is one concatenated day-grouped string; the
+    // content guard (looksLikeSidebarList) is what removes it precisely.
     document.body.innerHTML = `
-      <aside class="sidebar">
-        <a>Solar Microgrid Design for Cedar Hollow</a>
-        <a>Five Day Hot Yoga Plan</a>
-        <a>Japan Trip Planning Assistance</a>
-      </aside>
+      <div role="navigation">
+        <a>TodaySolar Microgrid Design for Cedar HollowFive Day Hot Yoga PlanJapan Trip</a>
+      </div>
       <main>
         <div class="ds-markdown-paragraph">Lock a hard constraint: budget ceiling is $4.2M in 2026 USD.</div>
       </main>
     `;
-    const nodes = Array.from(document.querySelectorAll("aside a, main .ds-markdown-paragraph"));
+    const nodes = Array.from(document.querySelectorAll("[role='navigation'] a, main .ds-markdown-paragraph"));
     const snap = buildSnapshotFromNodes(nodes);
     const joined = snap?.turns.map((t) => t.text).join(" ") ?? "";
     expect(joined).toContain("$4.2M");
@@ -98,5 +97,37 @@ describe("snapshot excludes provider history sidebar (F1 objective-contamination
     expect(joined).toContain("solar microgrid");
     expect(joined).not.toContain("Hot Yoga");
     expect(joined).not.toContain("Japan Trip");
+  });
+});
+
+describe("nav-chrome filter must never empty a real snapshot (2.5.5/2.5.6 open regression)", () => {
+  it("returns a snapshot even when conversation nodes sit inside an aside/history wrapper", () => {
+    // Some providers wrap the live conversation in containers that the OLD broad
+    // selector (aside, [class*='history']) wrongly matched, nulling the snapshot
+    // and breaking the open path. The real conversation must still be captured.
+    document.body.innerHTML = `
+      <div class="chat-history-pane">
+        <div class="message user">design a microgrid for Cedar Hollow</div>
+        <div class="message assistant">Here is a first pass at the architecture.</div>
+      </div>
+    `;
+    const nodes = Array.from(document.querySelectorAll(".message"));
+    const snap = buildSnapshotFromNodes(nodes);
+    expect(snap).not.toBeNull();
+    const joined = snap?.turns.map((t) => t.text).join(" ") ?? "";
+    expect(joined).toContain("microgrid");
+  });
+
+  it("still returns a snapshot when every node is inside a role=navigation region", () => {
+    document.body.innerHTML = `
+      <div role="navigation">
+        <div class="message">continue building the spec sheet</div>
+      </div>
+    `;
+    const nodes = Array.from(document.querySelectorAll(".message"));
+    const snap = buildSnapshotFromNodes(nodes);
+    // Safety valve: rather than null (which breaks open), fall back to raw nodes.
+    expect(snap).not.toBeNull();
+    expect(snap?.turns.map((t) => t.text).join(" ")).toContain("spec sheet");
   });
 });
