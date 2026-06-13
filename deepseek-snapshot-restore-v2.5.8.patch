@@ -1,0 +1,170 @@
+diff --git a/apps/extension/manifests/manifest.chromium.json b/apps/extension/manifests/manifest.chromium.json
+index ddfc770..ded9382 100644
+--- a/apps/extension/manifests/manifest.chromium.json
++++ b/apps/extension/manifests/manifest.chromium.json
+@@ -2,7 +2,7 @@
+   "manifest_version": 3,
+   "name": "LuxCrypta Prompt Accelerator",
+   "short_name": "Prompt Accelerator",
+-  "version": "2.5.7",
++  "version": "2.5.8",
+   "description": "Local continuity review, workflow memory, and carry-forward capsules for supported AI chats.",
+   "homepage_url": "https://luxcrypta.com/prompt-accelerator",
+   "icons": {
+diff --git a/apps/extension/manifests/manifest.firefox.json b/apps/extension/manifests/manifest.firefox.json
+index d0f74aa..ae32fb0 100644
+--- a/apps/extension/manifests/manifest.firefox.json
++++ b/apps/extension/manifests/manifest.firefox.json
+@@ -2,7 +2,7 @@
+   "manifest_version": 3,
+   "name": "LuxCrypta Prompt Accelerator",
+   "short_name": "Prompt Accelerator",
+-  "version": "2.5.7",
++  "version": "2.5.8",
+   "description": "Local continuity review, workflow memory, and carry-forward capsules for supported AI chats.",
+   "homepage_url": "https://luxcrypta.com/prompt-accelerator",
+   "icons": {
+diff --git a/apps/extension/src/app/constants.ts b/apps/extension/src/app/constants.ts
+index ea2f14e..6851673 100644
+--- a/apps/extension/src/app/constants.ts
++++ b/apps/extension/src/app/constants.ts
+@@ -1,5 +1,5 @@
+ export const PRODUCT_NAME = "LuxCrypta Prompt Accelerator";
+-export const EXTENSION_VERSION = "2.5.7";
++export const EXTENSION_VERSION = "2.5.8";
+ export const RUNTIME_LABEL = "Powered by LuxCrypta";
+ export const ADVANCED_ACTION = { id: "advanced_review", label: "Advanced" } as const;
+ 
+diff --git a/apps/extension/src/surfaces/deepseek.provider.ts b/apps/extension/src/surfaces/deepseek.provider.ts
+index 0ef6ee7..0720a54 100644
+--- a/apps/extension/src/surfaces/deepseek.provider.ts
++++ b/apps/extension/src/surfaces/deepseek.provider.ts
+@@ -1,5 +1,5 @@
+ import type { ChatSurfaceAdapter, ConversationSnapshot, ProviderProfile } from "./types";
+-import { buildSnapshotFromNodes, conversationIdFromUrl, isNavChromeNode } from "./snapshot";
++import { SNAPSHOT_SOFT_CAP, conversationIdFromUrl, looksLikeSidebarList } from "./snapshot";
+ import {
+   appendDraftText,
+   queryFirstUsableInput,
+@@ -78,6 +78,14 @@ function queryInput(): DraftInputElement | null {
+   return queryFirstUsableInput(INPUT_SELECTORS);
+ }
+ 
++function compactText(value: string): string {
++  return value
++    .replace(/[\t\r\n\f\v]+/g, " ")
++    .replace(/[\u00a0\u2000-\u200b\u202f\u205f\u3000\ufeff]+/g, " ")
++    .replace(/\s+/g, " ")
++    .trim();
++}
++
+ function matchesDeepSeekUrl(url: string): boolean {
+   try {
+     const parsed = new URL(url);
+@@ -92,6 +100,26 @@ function matchesDeepSeekUrl(url: string): boolean {
+   }
+ }
+ 
++function roleFromElement(
++  element: HTMLElement,
++  index: number
++): ConversationSnapshot["turns"][number]["role"] {
++  const marker = [
++    element.dataset.messageAuthorRole,
++    element.dataset.testid,
++    element.getAttribute("aria-label"),
++    String(element.className)
++  ]
++    .filter(Boolean)
++    .join(" ")
++    .toLowerCase();
++
++  if (marker.includes("user") || marker.includes("human")) return "user";
++  if (marker.includes("assistant") || marker.includes("deepseek") || marker.includes("response"))
++    return "assistant";
++  return index % 2 === 0 ? "user" : "assistant";
++}
++
+ export const deepseekSurface: ChatSurfaceAdapter = {
+   id: "deepseek",
+   label: "DeepSeek",
+@@ -110,29 +138,31 @@ export const deepseekSurface: ChatSurfaceAdapter = {
+     return appendDraftText(queryInput(), text);
+   },
+   getConversationSnapshot(): ConversationSnapshot | null {
+-    // Scope to the conversation region (main) and exclude the input composer.
+-    // DeepSeek exposes no data-message-author-role, so we hand the candidate
+-    // message nodes to the shared builder, which applies the extension-own-node
+-    // AND nav/history-sidebar exclusions (fixing F1: the left-hand chat-history
+-    // list was being read as turns and became the contaminated objective),
+-    // derives roles from real markers with a positional fallback, and reports
+-    // capture scope honestly. Wrapped so it can never throw out of the
+-    // open-path contract (which would abort the panel open).
+-    try {
+-      const root =
+-        document.querySelector("main") ??
+-        document.querySelector("[class*='ds-scroll-area' i]") ??
+-        document.body;
+-      const scope: ParentNode = root ?? document;
+-      const nodes = Array.from(scope.querySelectorAll(SNAPSHOT_SELECTORS.join(","))).filter(
+-        (node) => !isNavChromeNode(node)
+-      );
+-      return buildSnapshotFromNodes(nodes, {
+-        title: document.title.replace("DeepSeek", "").trim()
+-      });
+-    } catch {
+-      return null;
+-    }
++    // Restored to the 2.5.4 implementation (known-good open path on DeepSeek),
++    // with one minimal addition: the F1 content guard (looksLikeSidebarList)
++    // drops the concatenated history-sidebar string if it is ever captured. No
++    // structural rescoping, no shared-builder dependency — this keeps the panel
++    // open reliable on DeepSeek while still preventing the sidebar-as-objective
++    // contamination.
++    const input = queryInput();
++    const seen = new Set<string>();
++    const turns = Array.from(document.querySelectorAll(SNAPSHOT_SELECTORS.join(",")))
++      .slice(-SNAPSHOT_SOFT_CAP)
++      .map((node, index) => {
++        const element = node as HTMLElement;
++        if (input && element.contains(input)) return null;
++        const text = compactText(element.textContent ?? "").slice(0, 2000);
++        if (!text || seen.has(text)) return null;
++        if (looksLikeSidebarList(text)) return null;
++        seen.add(text);
++        return {
++          role: roleFromElement(element, index),
++          text
++        };
++      })
++      .filter((turn): turn is ConversationSnapshot["turns"][number] => Boolean(turn));
++
++    return turns.length ? { title: document.title.replace("DeepSeek", "").trim(), turns } : null;
+   },
+   getConversationId(url: string = window.location.href) {
+     return conversationIdFromUrl("deepseek", url);
+diff --git a/package.json b/package.json
+index 08fb6e6..9753cec 100644
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "luxcrypta-prompt-accelerator",
+-  "version": "2.5.7",
++  "version": "2.5.8",
+   "private": true,
+   "main": "dist/desktop/electron/main.js",
+   "author": {
+diff --git a/tests/integration/review-open-truth.test.ts b/tests/integration/review-open-truth.test.ts
+index c0937d9..d06e6ee 100644
+--- a/tests/integration/review-open-truth.test.ts
++++ b/tests/integration/review-open-truth.test.ts
+@@ -105,7 +105,7 @@ describe("Prompt Review open truth model", () => {
+       persisted_session_state_present: false,
+       session_state_source: "built_fresh_in_session",
+       build_provenance: expect.objectContaining({
+-        extension_version: "2.5.7",
++        extension_version: "2.5.8",
+         build_timestamp: expect.any(String),
+         commit_sha: expect.any(String),
+         environment_tag: expect.any(String)
