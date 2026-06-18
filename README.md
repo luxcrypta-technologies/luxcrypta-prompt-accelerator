@@ -1,105 +1,46 @@
 # Prompt Accelerator
 
-Continuity infrastructure for long-horizon AI workflows.
+A local-first browser extension that gives a long AI chat session **continuity**.
 
-Prompt Accelerator is a continuity-oriented runtime layer designed to stabilize AI workflows over time.
+It reads the conversation on the page, builds a structured snapshot of it — your active objective, the constraints and decisions that have actually stuck, and the questions still open — and lets you copy that snapshot as a portable text **capsule** you can paste into a different model to pick up exactly where you left off.
 
-Modern AI systems are powerful, but long-horizon workflows remain structurally fragile. Objectives drift. Constraints disappear. Context collapses. Decisions become inconsistent across sessions, models, and iterative evolution.
+It runs entirely in your browser, stores nothing remotely, and works across **Claude, ChatGPT, Gemini, Grok, DeepSeek, and Perplexity**.
 
-Prompt Accelerator addresses this problem through continuity-oriented workflow infrastructure.
+[![Watch the demo](https://img.youtube.com/vi/aBVWyeMC34A/maxresdefault.jpg)](https://youtube.com/shorts/aBVWyeMC34A)
 
----
-
-## The Problem
-
-AI workflows degrade over time.
-
-As conversations evolve:
-
-- constraints are forgotten,
-- strategic objectives drift,
-- assumptions mutate silently,
-- unresolved questions disappear,
-- context becomes fragmented,
-- workflow identity collapses.
-
-Large context windows alone do not solve this problem.
-
-Prompt Accelerator was designed specifically for long-horizon AI workflows where continuity matters.
+> **[▶ Watch the demo on YouTube](https://youtube.com/shorts/aBVWyeMC34A)**
 
 ---
 
-## What Prompt Accelerator Does
+## Why
 
-Prompt Accelerator provides a continuity-oriented workflow layer for AI-native work.
+Long AI sessions degrade. As a conversation grows, constraints get forgotten, the objective drifts, earlier decisions get contradicted, and open questions quietly disappear — so you end up re-explaining context or starting over. Bigger context windows don't fix this on their own; the state still isn't tracked, separated, or movable.
 
-The system helps preserve:
-
-- objectives,
-- constraints,
-- accepted decisions,
-- unresolved conditions,
-- workflow identity,
-- operational continuity.
-
-Rather than treating AI interaction as isolated prompts, Prompt Accelerator treats workflows as evolving continuity-bearing systems.
+Prompt Accelerator tracks that state explicitly and lets you carry it with you.
 
 ---
 
-## Supported Platforms
+## How it works
 
-Prompt Accelerator runs as a browser extension (Chrome / Chromium and Firefox) across the major AI chat surfaces:
+- **Per-surface capture.** Each supported site has a dedicated capture adapter, so the extension reads the *real* conversation on that surface rather than guessing from generic page text.
+- **State separation.** A local continuity engine sorts the session into what's *stable* (validated constraints and decisions), what's *provisional/new*, and what's *unresolved or ruled out* — instead of letting everything blur together.
+- **Continuity Review.** A periodic, continuity-aware reconstruction of the session that surfaces drift instead of silently absorbing it, and produces a readiness verdict for whether the state is coherent enough to hand off.
+- **Portable Capsule.** One click serializes the reviewed state — objective, durable constraints/decisions, open conditions, source platform, and detected model — into a self-contained text snapshot you can move to another session, model, or tool.
 
-- Claude
-- ChatGPT
-- Gemini
-- Grok
-- DeepSeek
-- Perplexity
-
-The continuity engine is provider-independent; each platform has a dedicated capture adapter so the extension reads the real conversation on that surface. (Perplexity is a search surface rather than a multi-turn chat, so its sessions are shallower by nature — the extension captures the user query and governs retrieved sources accordingly.)
-
----
-
-## Key Features
-
-### Portable Capsule
-
-The Portable Capsule is the system's continuity hand-off artifact. With one click ("Copy Portable Capsule"), Prompt Accelerator produces a self-contained, structured snapshot of the workflow's continuity state:
-
-- the workflow identity and active objective,
-- the admitted durable state (constraints and decisions that have been validated as stable),
-- unresolved/open conditions carried forward,
-- a final-artifact readiness verdict (whether the state is coherent enough to hand off),
-- the source platform and detected model.
-
-The capsule is portable by design: it can be carried from one session, model, or tool to another so a workflow resumes with its objective, constraints, and decisions intact instead of being rebuilt from scratch. It is the practical expression of "continuity you can move."
-
-### Continuity Review
-
-A periodic, continuity-aware reconstruction of workflow state that separates what is stable from what is new, unresolved, or rejected — surfacing drift instead of silently absorbing it.
-
-### Workflow Save / Capsule Save
-
-Persist a workflow or capsule locally so long-horizon work survives across sessions.
-
-### Engineering / Workflow Export
-
-Structured exports of the reviewed state for downstream use.
-
----
-
-## Privacy
-
-Prompt Accelerator runs entirely in your browser. It collects no data and sends nothing to any server — there is no analytics, no telemetry, and no remote calls. Continuity state lives locally on your device. The extension requests only minimal permissions (local storage, and the side panel on Chromium) and runs only on the supported AI domains.
+As of **v2.5.8**, capsule hand-off is validated across all six supported models.
 
 ---
 
 ## Install
 
-Load the built extension as an unpacked extension during development:
+**One click:**
 
-```
+- **Chrome / Chromium:** [Install from the Chrome Web Store](https://chromewebstore.google.com/detail/luxcrypta-prompt-accelera/cmefhfgeajmgkaiofknkgfeiaojggnck)
+- **Firefox:** [Install from Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/luxcrypta-prompt-accelerator/)
+
+**Build from source (for developers):**
+
+```bash
 npm install
 npm run build:chromium   # output: dist/chromium
 npm run build:firefox    # output: dist/firefox
@@ -108,155 +49,60 @@ npm run build:firefox    # output: dist/firefox
 - Chrome / Chromium: open `chrome://extensions`, enable Developer mode, "Load unpacked", select `dist/chromium`.
 - Firefox: open `about:debugging` → This Firefox → "Load Temporary Add-on", select a file in `dist/firefox`.
 
-Run the test suite and type checks with:
+Run tests and type checks:
 
-```
+```bash
 npm test
 npm run typecheck
 ```
 
 ---
 
-## Core Concepts
+## Privacy
 
-### Continuity Preservation
-
-Prompt Accelerator helps maintain workflow coherence across:
-
-- long sessions,
-- multiple models,
-- recursive revisions,
-- iterative research,
-- strategic planning,
-- multi-session execution.
+Prompt Accelerator runs entirely in your browser. It collects no data and sends nothing to any server — no analytics, no telemetry, no remote calls. Continuity state lives locally on your device. The extension requests only minimal permissions (local storage, plus the side panel on Chromium) and runs only on the supported AI domains.
 
 ---
 
-### Continuity Review
+## Features
 
-The system periodically reconstructs and stabilizes workflow state through continuity-aware review structures.
-
-This reduces:
-
-- continuity drift,
-- repeated setup,
-- instruction erosion,
-- workflow fragmentation.
+- **Portable Capsule** — copy the workflow's continuity state as a structured, self-contained snapshot you can paste into another model to resume work.
+- **Continuity Review** — reconstruct session state on demand; separates stable from new/unresolved/rejected and surfaces drift.
+- **Workflow Save / Capsule Save** — persist a workflow or capsule locally so long-horizon work survives across sessions.
+- **Engineering / Workflow Export** — structured exports of the reviewed state for downstream use.
 
 ---
 
-### Operational State Awareness
+## Supported surfaces
 
-Prompt Accelerator distinguishes between:
+| Surface | Notes |
+|---|---|
+| Claude | Full multi-turn capture |
+| ChatGPT | Full multi-turn capture |
+| Gemini | Full multi-turn capture |
+| Grok | Full multi-turn capture |
+| DeepSeek | Full multi-turn capture |
+| Perplexity | Captures the user query and governs retrieved sources (search surface) |
 
-- stable decisions,
-- provisional state,
-- unresolved conditions,
-- evolving workflow context.
-
-This helps preserve continuity integrity over time.
-
----
-
-### Replayable Workflow Structure
-
-The system is designed around continuity-oriented workflow evolution rather than isolated prompt execution.
-
-The goal is not merely better prompting.
-
-The goal is stable long-horizon workflow continuity.
+The continuity engine is provider-independent; each surface has its own capture adapter. Capture is heuristic by nature — if a provider changes its page structure, an adapter may need an update. Issue reports for a specific surface are welcome.
 
 ---
 
-## Example Continuity Problems
+## Continuity Engineering
 
-Without continuity infrastructure:
+Prompt Accelerator comes out of a line of work LuxCrypta calls **Continuity Engineering** — the premise that AI systems fail in practice not because the model is weak, but because *continuity degrades faster than intelligence improves*. Once a workflow's objective, constraints, and decisions stop being tracked, the smartest model still drifts.
 
-- AI systems forget critical constraints.
-- Long research workflows become unstable.
-- Strategic reasoning drifts over time.
-- Context must constantly be rebuilt.
-- Decisions become contradictory.
-- Multi-session workflows collapse.
-
-Prompt Accelerator is designed to reduce these continuity failures.
-
----
-
-## Positioning
-
-Prompt Accelerator is NOT:
-
-- a chatbot,
-- a generic AI wrapper,
-- a prompt enhancer,
-- a productivity gimmick,
-- a memory plugin.
-
-Prompt Accelerator is:
-
-continuity infrastructure for long-horizon AI workflows.
-
----
-
-## Research Foundation
-
-Prompt Accelerator is part of the broader Continuity Engineering research initiative developed by LUXCRYPTA Technologies.
-
-Research areas include:
-
-- continuity drift,
-- semantic persistence,
-- operational identity,
-- replayable workflows,
-- runtime governance,
-- continuity-oriented systems.
-
----
-
-## Research Papers
-
-Continuity Engineering
-
-Toward Governable Autonomous Systems
-
-LuxCrypta Continuity Engineering
-
-Foundational Principles for AI-Native Systems
-
-Research materials:
-
-https://luxcrypta.ai
-
----
-
-## Current Focus
-
-Current development priorities include:
-
-- continuity stabilization,
-- workflow replayability,
-- long-session coherence,
-- continuity-aware orchestration,
-- operational-state preservation,
-- multi-model continuity.
-
----
-
-## Website
-
-https://luxcrypta.ai
-
----
-
-## Company
-
-LUXCRYPTA Technologies LLC
-
-Continuity Engineering for Governable AI Systems.
+Continuity Engineering treats a workflow as an evolving, state-bearing system that should be inspectable and movable, rather than a stream of disconnected prompts. Prompt Accelerator is the first practical tool built on that idea. Background and research: https://luxcrypta.ai
 
 ---
 
 ## License
 
-See repository license.
+MIT. See [LICENSE](LICENSE).
+
+---
+
+## Company
+
+LUXCRYPTA Technologies LLC — Continuity Engineering for governable AI systems.
+Website: https://luxcrypta.ai
