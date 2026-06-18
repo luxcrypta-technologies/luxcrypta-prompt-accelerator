@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { transformPrompt } from "@luxcrypta/continuity-core/pipeline";
 import { updateSessionGovernance } from "@luxcrypta/continuity-governance/session-update";
+import type { SessionGovernanceState } from "@luxcrypta/continuity-types/governance";
 
 // Reproduces F4: within ONE session the objective changes wholesale across
 // unrelated topics. The objective field updates correctly, but stale hard
@@ -8,7 +9,7 @@ import { updateSessionGovernance } from "@luxcrypta/continuity-governance/sessio
 // under the new objective — the live "microgrid objective with hot-yoga
 // constraints" contamination. These tests assert against genuinely-captured
 // hardConstraints (verified phrasing) so they exercise the real mechanism.
-function step(previousState: any, sourceText: string) {
+function step(previousState: SessionGovernanceState | null, sourceText: string) {
   const request = { sourceText, mode: "precision" as const };
   return updateSessionGovernance({
     transformRequest: request,
