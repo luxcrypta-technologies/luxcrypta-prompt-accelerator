@@ -2342,7 +2342,13 @@ function looksLikeConstraintNotObjective(text: string): boolean {
       t
     ) ||
     /^\s*(don'?t|do not|never|avoid)\b/i.test(t) ||
-    /\?|\bleave (?:that|it|this) open\b|\bdon'?t decide\b|\btorn between\b/i.test(t)
+    // F5: a bare "?" must NOT disqualify text from being an objective. A normal
+    // user request is very often a question ("What is a good keto blueberry pie
+    // recipe?"), and rejecting all question-form text left the deriver with no
+    // candidate, emitting the invalid_objective sentinel and blocking handoff.
+    // Only treat text as a non-objective open/constraint item when it carries
+    // EXPLICIT open-ended phrasing, not merely a question mark.
+    /\bleave (?:that|it|this) open\b|\bdon'?t decide\b|\btorn between\b/i.test(t)
   );
 }
 
