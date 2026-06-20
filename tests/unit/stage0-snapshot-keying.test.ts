@@ -154,3 +154,42 @@ describe("cross-chat isolation on the /new window (D0a-1 follow-up)", () => {
     expect(one).not.toBe(two);
   });
 });
+
+/**
+ * F1 reproduction (temp-chat + same-tab bleed). These FAIL on current code:
+ * there is no temp-chat detection and the ephemeral key is per-tab-load, so
+ * (a) a ChatGPT ?temporary-chat=true URL is not recognized as temporary, and
+ * (b) two different conversations in the same tab share one ephemeral key.
+ */
+import { isTemporaryChat, resolveConversationKey } from "@/surfaces/snapshot";
+
+describe("F1: temporary chats are detected and fully isolated", () => {
+  it("detects ChatGPT temporary chat from the query param", () => {
+    expect(isTemporaryChat("chatgpt", "https://chatgpt.com/?temporary-chat=true")).toBe(true);
+    expect(isTemporaryChat("chatgpt", "https://chatgpt.com/c/real-thread-1")).toBe(false);
+  });
+
+  it("gives a temporary chat an isolated, NON-persistable key (never the shared ephemeral)", () => {
+    const k = resolveConversationKey({
+      provider: "chatgpt",
+      url: "https://chatgpt.com/?temporary-chat=true",
+      tabEphemeralId: "tab-shared-xyz"
+    });
+    expect(k.persistable).toBe(false);
+    expect(k.conversationKey).toContain("chatgpt:");
+    // Must NOT collapse onto the shared per-tab ephemeral id.
+    expect(k.conversationKey).not.toContain("tab-shared-xyz");
+  });
+
+  it("two temporary visits never share a key", () => {
+    const a = resolveConversationKey({ provider: "chatgpt", url: "https://chatgpt.com/?temporary-chat=true", tabEphemeralId: "tab-1" });
+    const b = resolveConversationKey({ provider: "chatgpt", url: "https://chatgpt.com/?temporary-chat=true", tabEphemeralId: "tab-1" });
+    expect(a.conversationKey).not.toBe(b.conversationKey);
+  });
+
+  it("a real thread id is persistable and stable", () => {
+    const k = resolveConversationKey({ provider: "claude", url: "https://claude.ai/chat/abc-123", tabEphemeralId: "tab-1" });
+    expect(k.persistable).toBe(true);
+    expect(k.conversationKey).toBe("claude:abc-123");
+  });
+});

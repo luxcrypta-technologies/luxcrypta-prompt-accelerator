@@ -8,6 +8,7 @@ import {
 import { evaluateOpenPathContract, type OpenPathRuntimeSnapshot } from "./open-path-contract";
 import { createToolbarMountController, TOOLBAR_ID } from "./toolbar-mount";
 import { getCurrentSurface } from "./surface-registry";
+import { resolveConversationKey } from "@/surfaces/snapshot";
 import type { BackgroundMessage, ContentMessage } from "@/types/messages";
 import type { UserPreferences } from "@/types/preferences";
 import type { TransformResult } from "@/types/prompts";
@@ -362,18 +363,24 @@ platform.messaging.onMessage((message: unknown) => {
   if (typedMessage.type === "content:snapshot:get") {
     const snapshot = surface.getConversationSnapshot?.() ?? null;
     const conversationId = surface.getConversationId?.(window.location.href) ?? null;
-    // Before a thread id exists (e.g. claude.ai/new), fall back to a per-tab
-    // ephemeral key so two fresh chats in two tabs never share state — and
-    // never collapse to the global slot. Once the URL gains a real id, that
-    // takes over. (Defect: cross-chat bleed from the /new + new-tab combo.)
-    const effectiveId = conversationId ?? EPHEMERAL_CONVERSATION_ID;
-    const conversationKey = `${surface.id}:${effectiveId}`;
+    // Resolve the per-conversation key + persistence policy in one place
+    // (F1 fix). Temporary chats become a unique, non-persistable key so they are
+    // fully isolated and never written to any shared slot; a real thread id is
+    // persistable; the pre-first-message /new state uses the per-tab ephemeral.
+    const resolved = resolveConversationKey({
+      provider: surface.id,
+      url: window.location.href,
+      tabEphemeralId: EPHEMERAL_CONVERSATION_ID,
+      conversationId
+    });
     return {
       snapshot,
       provider: surface.id,
       conversationId,
-      conversationKey,
-      conversationKeyIsEphemeral: conversationId === null
+      conversationKey: resolved.conversationKey,
+      conversationKeyIsEphemeral: resolved.isEphemeral,
+      conversationPersistable: resolved.persistable,
+      conversationIsTemporary: resolved.isTemporary
     };
   }
   return null;

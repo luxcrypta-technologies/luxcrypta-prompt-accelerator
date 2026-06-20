@@ -224,6 +224,94 @@ export function buildSnapshotFromNodes(
  *   Grok     grok.com/chat/<id>
  *   Perplexity perplexity.ai/search/<slug-id>
  */
+/**
+ * Detect a provider "temporary" / incognito chat from the URL. Temporary chats
+ * have no durable conversation identity by design, so the extension must treat
+ * them as fully isolated, NON-persisted sessions (never read or write any shared
+ * or global session slot). Currently ChatGPT exposes this via the
+ * `?temporary-chat=true` query param; other providers are added here as they
+ * ship equivalents.
+ */
+export function isTemporaryChat(provider: string, url: string): boolean {
+  let search = "";
+  let host = "";
+  try {
+    const u = new URL(url);
+    search = u.search;
+    host = u.hostname;
+  } catch {
+    search = url.includes("?") ? url.slice(url.indexOf("?")) : "";
+  }
+  switch (provider) {
+    case "chatgpt":
+      return /[?&]temporary-chat=true\b/i.test(search);
+    default:
+      // Generic guard so a future provider's temp marker is caught even before a
+      // dedicated case exists.
+      return /[?&](temporary-chat|temp-chat|incognito)=true\b/i.test(search) && host.length > 0;
+  }
+}
+
+export interface ResolvedConversationKey {
+  /** `${provider}:${id}` — provider-scoped, never collapses to a global slot. */
+  conversationKey: string;
+  /** True only when backed by a real, durable thread id from the URL. */
+  persistable: boolean;
+  /** True when this is a temporary/incognito chat (isolated, never persisted). */
+  isTemporary: boolean;
+  /** True when no durable id exists yet (pre-first-message or temp). */
+  isEphemeral: boolean;
+}
+
+let TEMP_SESSION_COUNTER = 0;
+
+/**
+ * Single source of truth for the per-conversation key + its persistence policy.
+ * Replaces the ad-hoc `${surface.id}:${conversationId ?? EPHEMERAL}` logic that
+ * caused F1 (cross-conversation / cross-provider bleed):
+ *  - A real thread id -> stable, persistable key (`provider:id`).
+ *  - A TEMPORARY chat -> a UNIQUE, non-persistable key every time it is
+ *    resolved, so two temp visits never share state and nothing is written to a
+ *    durable slot.
+ *  - Otherwise (pre-first-message /new) -> the per-tab ephemeral id, isolated
+ *    per tab but not persisted durably.
+ */
+export function resolveConversationKey(input: {
+  provider: string;
+  url: string;
+  tabEphemeralId: string;
+  conversationId?: string | null;
+}): ResolvedConversationKey {
+  const explicitId = input.conversationId ?? conversationIdFromUrl(input.provider, input.url);
+  if (isTemporaryChat(input.provider, input.url)) {
+    // Unique per resolution: temp chats are fully isolated and never persisted.
+    TEMP_SESSION_COUNTER += 1;
+    const unique = `temp-${Date.now().toString(36)}-${TEMP_SESSION_COUNTER}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
+    return {
+      conversationKey: `${input.provider}:${unique}`,
+      persistable: false,
+      isTemporary: true,
+      isEphemeral: true
+    };
+  }
+  if (explicitId) {
+    return {
+      conversationKey: `${input.provider}:${explicitId}`,
+      persistable: true,
+      isTemporary: false,
+      isEphemeral: false
+    };
+  }
+  return {
+    conversationKey: `${input.provider}:${input.tabEphemeralId}`,
+    persistable: false,
+    isTemporary: false,
+    isEphemeral: true
+  };
+}
+
 export function conversationIdFromUrl(provider: string, url: string): string | null {
   let path = url;
   try {

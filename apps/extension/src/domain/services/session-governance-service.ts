@@ -53,7 +53,16 @@ export class SessionGovernanceService {
         input.snapshotScope ?? previousState?.diagnostics?.snapshot_scope ?? null;
     }
 
-    if (preferences.saveSessionStateLocally) {
+    // F1: a temporary/non-persistable conversation (e.g. ChatGPT
+    // ?temporary-chat=true) must NEVER write durable session state. Its key is
+    // unique-per-resolution and isolated, but if we persisted it the state would
+    // still land in storage and could surface as a stale "current" for a later
+    // conversation. Honoring persistable:false keeps temp chats fully ephemeral,
+    // matching the user's explicit choice of a temporary chat. When persistable
+    // is undefined we treat it as persistable (back-compat for callers that do
+    // not thread the flag), so only an explicit false suppresses persistence.
+    const persistable = input.persistable !== false;
+    if (preferences.saveSessionStateLocally && persistable) {
       await this.sessions.save(result.state);
       await this.saveDiagnostics(result.state);
     }

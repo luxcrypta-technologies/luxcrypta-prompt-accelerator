@@ -39,12 +39,22 @@ interface ActiveConversationContext {
   provider: string | null;
   conversationId: string | null;
   conversationKey: string | null;
+  conversationPersistable: boolean;
+  conversationIsTemporary: boolean;
 }
 
 async function readActiveConversationContext(
   platform: PlatformAPI,
   sourceTabId?: number | null
 ): Promise<ActiveConversationContext> {
+  const empty: ActiveConversationContext = {
+    snapshot: null,
+    provider: null,
+    conversationId: null,
+    conversationKey: null,
+    conversationPersistable: false,
+    conversationIsTemporary: false
+  };
   try {
     // Prefer the originating conversation tab (captured at review:open). The
     // active tab is wrong when the diagnostic is requested from the review
@@ -56,16 +66,18 @@ async function readActiveConversationContext(
       ActiveConversationContext
     > | null;
     if (!res || typeof res !== "object") {
-      return { snapshot: null, provider: null, conversationId: null, conversationKey: null };
+      return empty;
     }
     return {
       snapshot: res.snapshot ?? null,
       provider: res.provider ?? null,
       conversationId: res.conversationId ?? null,
-      conversationKey: res.conversationKey ?? null
+      conversationKey: res.conversationKey ?? null,
+      conversationPersistable: res.conversationPersistable ?? false,
+      conversationIsTemporary: res.conversationIsTemporary ?? false
     };
   } catch {
-    return { snapshot: null, provider: null, conversationId: null, conversationKey: null };
+    return empty;
   }
 }
 
@@ -222,6 +234,7 @@ export function createMessageRouter(platform: PlatformAPI) {
             transformRequest: backgroundMessage.payload,
             transformResult: result,
             conversationKey: txCtx.conversationKey,
+            persistable: txCtx.conversationPersistable,
             snapshotScope: txCtx.snapshot?.scope ?? null,
             sourceSurface: backgroundMessage.payload.sourceSurface
           },
@@ -247,6 +260,7 @@ export function createMessageRouter(platform: PlatformAPI) {
             conversationSnapshot:
               backgroundMessage.payload.snapshot ?? capCtx.snapshot ?? null,
             conversationKey: capCtx.conversationKey,
+            persistable: capCtx.conversationPersistable,
             sourceSurface: backgroundMessage.payload.sourceSurface
           },
           { storage: platform.storage }

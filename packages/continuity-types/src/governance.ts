@@ -105,6 +105,13 @@ export interface SessionGovernanceState {
 export interface SessionUpdateInput {
   previousState?: SessionGovernanceState | null;
   conversationKey?: string | null;
+  /**
+   * Whether this session may be persisted to durable storage. Temporary /
+   * incognito chats set this false so their state is computed for the live
+   * review but never written to any slot (F1 isolation). Defaults to true when
+   * omitted to preserve existing behavior.
+   */
+  persistable?: boolean;
   snapshotScope?: {
     turns_captured: number;
     capture_scope: "full" | "partial" | "empty";
