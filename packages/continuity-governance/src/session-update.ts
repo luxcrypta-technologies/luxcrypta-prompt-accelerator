@@ -182,12 +182,22 @@ export function updateSessionGovernance(input: SessionUpdateInput): SessionUpdat
   const baseState: Omit<SessionGovernanceState, "diagnostics"> = {
     id:
       previous?.id ??
-      `session_${
-        stableCore.objective
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "_")
-          .slice(0, 36) || "active"
-      }`,
+      // F2: prefer a stable identity derived from the conversationKey
+      // (provider:thread-id) so a session's id does not change when the
+      // objective pivots, and two different conversations never collide on the
+      // same objective-derived slug. Falls back to the objective slug only when
+      // no conversationKey is available (back-compat).
+      (input.conversationKey
+        ? `session_${input.conversationKey
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "_")
+            .slice(0, 48)}`
+        : `session_${
+            stableCore.objective
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "_")
+              .slice(0, 36) || "active"
+          }`),
     title: titleFor(input, previous, text),
     stableCore,
     noveltyLane,
