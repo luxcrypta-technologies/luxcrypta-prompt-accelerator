@@ -6,7 +6,7 @@ It reads the conversation on the page, builds a structured snapshot of it — yo
 
 It runs entirely in your browser, stores nothing remotely, and works across **Claude, ChatGPT, Gemini, Grok, DeepSeek, and Perplexity**.
 
-[![Watch the demo](https://img.youtube.com/vi/aBVWjn6nCSEtqvAyeMC34A/maxresdefault.jpg)](https://youtube.com/shorts/jn6nCSEtqvA)
+[![Watch the demo](https://img.youtube.com/vi/jn6nCSEtqvA/maxresdefault.jpg)](https://youtube.com/shorts/jn6nCSEtqvA)
 
 > **[▶ Watch the demo on YouTube](https://youtube.com/shorts/aBVWyeMC34A)**
 
