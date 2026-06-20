@@ -4,3 +4,4 @@ release/
 packages/*.zip
 .DS_Store
 *.log
+*.patch
